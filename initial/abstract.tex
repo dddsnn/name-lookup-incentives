@@ -1,0 +1,174 @@
+\documentclass[10pt]{article}
+\usepackage{nopageno}
+\usepackage{geometry}
+\usepackage{cite}
+\setlength{\headsep}{5pt}
+\begin{document}
+\title{Incentives for cooperation in a peer-to-peer name-lookup service}
+\author{Marc Lehmann}
+\date{}
+\maketitle
+
+\section*{Introduction and Motivation}
+I'm proposing, as my Master thesis, to look at ways to incentivize participants
+of a peer-to-peer network to invest resources into providing a name-lookup
+service to their peers.
+
+As motivation, consider a network in which every participant is identified by an
+ID. In order to communicate with someone with a certain ID, a participant needs
+to know a current IP address belonging to that ID. It's similar to DNS, but
+more general, since the ID's namespace is flat, not hierarchical. The service
+provoding this ID-IP mapping is a decentralized storage system. Getting peers
+who want to use this service to also contribute storage space and bandwidth to
+it is the core of this thesis.
+
+While there may be multiple reasons to prefer a decentralized system over a more
+centralized system like DNS\footnote{Technically, DNS is decentralized, but
+authoritative, i.e. for each domain, you know which of a (typically small) set
+of name servers is responsible. And anyway, most private internet users will use
+a centralized external resolver, usually provided by their ISP, through which
+all of their lookups go.}, like failure resistance, the most interesting to me
+is privacy. In a system like DNS, where most requests go through few dedicated
+servers, these servers gain insight into the communication behavior of their
+clients and can build profiles. They can also become high-value targets for
+external attackers trying to create such profiles.
+
+Spreading the mapping information and the queries among multiple nodes gives
+each of the service nodes a much smaller data set to build profiles from, and
+attackers would now have to infiltrate every service node to gain the same
+amount of information.
+
+\section*{Description of the System}
+The lookup service should be entirely decentralized, with no authoritative
+entity whatsoever. It will essentially be a structured distributed hash table
+like Kademlia\cite{maymounkov2002kademlia} or P-Grid\cite{aberer2003p} with some
+extra rules. Under the assumption that every user of the service
+\begin{itemize}
+\item has an unconditional need to use the service, i.e. there is no alternative
+they would be willing to consider if the cost gets too high
+\item is a rational, selfish agent
+\end{itemize}
+these extra rules should ensure that all, or at least most, users also
+contribute to the DHT in such a way that everyone receives a reasonable level of
+service. It is important that a large portion of the user base contribute,
+because the privacy benefit comes from being able to spread out requests to
+multiple nodes so that creation of profiles becomes difficult. If, for example,
+only very few very generous users were to contribute, it would start to resemble
+a centralized system again.
+
+Since a user's need to use the service is the only leverage the system has over
+him, his contribution can only be ensured under a threat of an unacceptably low
+level of service. Users must be able to expect a good level of service if they
+behave socially well (i.e. answer queries) and a bad level of service if they
+don't\footnote{The latter part is also important: Users who behave badly
+\emph{must} be deliberately given a bad level of service, e.g. through a delayed
+response. If they weren't, they'd have no incentive to behave well.
+Additionally, those nodes being more generous than they should be would again
+move towards becoming central servers. Therefore, answering queries of badly
+behaving users too quickly must itself be considered bad behavior.}.
+
+In order to know what level of service to grant a user, some form of reputation
+system must exist, in which users are awarded or deducted points for behaving
+well or badly, respectively. These points need to lose their value over time, so
+that users can't simply refuse service if they've got enough points from earlier
+good deeds (after all, the system must keep working).
+
+While it might be possible to store this reputation information within the same
+DHT as the name mappings, and even to incorporate servicing those records into
+the reputation system, a DHT would be too slow. Querying the DHT holding the
+name mappings generally takes multiple hops through the peer ID namespace
+already, using a DHT for reputation data would mean adding an entire DHT lookup
+at potentially every hop, just to find out how quickly the request should be
+answered. Since looking up a name mapping is a somewhat latency-sensitive
+application, this wouldn't be good enough. On the other hand, storing all
+reputation information locally doesn't scale to large networks.
+
+For this reason, there are two types of peer groups any peer is a part of.
+Firstly, the (subset) of peers with whom he has an overlap in the keys of the
+DHT he's responsible for. This is a usual part of a DHT used to receive and send
+updates about new data in the DHT. Secondly, at least one (and probably more)
+small groups within which reputation of the members is tracked. In any DHT, any
+peer needs to be able to reach other peers closer to being responsible for
+records in the DHT he can't service directly in order to forward queries for
+those records\footnote{Items in the DHT are identified via IDs. Each peer picks
+a prefix and is then responsible for all items whose ID begins with it. For
+every subprefix of his prefix, he needs knowledge of another peer whose prefix
+has the same subprefix, but differs in the bit after that.}.  The second kind of
+group\footnote{I hope I'll come up with a good name for them at some point.} is
+made up of those peers. All queries a peer has himself, or those that he needs
+to forward from others, he will send to members of this kind of group so that
+reputation scores can be properly applied. These groups should be small enough
+that reputation can be tracked locally (it can be constant in the total network
+size), with reputation information being disseminated via rumor spreading. The
+groups must also be short-lived\footnote{"Short" means long enough that some
+trust can grow, but short enough that members of the group don't get the chance
+to learn much about each other. If I had to guess, I'd say that means at least a
+few hours, at most a few days.}, so that they don't become a "familiar
+environment" where the peers know each other and can build profiles again.
+
+A problem that arises in systems without an authority in which users can easily
+change their identity is free-riding, through whitewashing or a Sybil attack. In
+the former, a user whose reputation has been tarnished by not contributing
+leaves the system and rejoins with a fresh identity to once again receive good
+service. This can quite easily be prevented by requiring an entrance fee, i.e.
+having newcomers start out with a bad reputation. In my system, this would mean
+users who have just joined a group of the second type will receive bad service.
+In order to still have a working system at all times, users would join a new
+group and build up some reputation by answering queries before they leave an old
+group.
+
+In the Sybil attack, a user creates multiple identites and has them rate each
+other up. Related to this is collusion, in which multiple users conspire to rate
+each other up without warrant. This problem is not as easy to solve. It may be
+some deterrent to prevent peers voting up someone with the same IP (if that can
+be detected), but even then it may be legitimate and only due to NAT.
+
+\section*{Related Work}
+The main threat posed by a centralized system to a user's privacy is that the
+server gets a very good picture of whom the client is communicating with. This
+could be addressed by private information retrieval (PIR), on which much work
+has already been done. In PIR, a client queries a database without the database
+knowing which record the client is interested in. In the trivial case, the user
+downloads the entire database and picks the correct record locally. But there
+are more efficient techniques, the best I found is
+\cite{cachin1999computationally}\footnote{This is actually computationally
+private information retrieval (cPIR), which adds the assumption that the
+database can't perform superpolynomial computations}, which has polylogarithmic
+communication complexity. However, in any case the server needs to process the
+entire database for every request, otherwise it would gain some insight into
+which records the client is not interested in. This seems impractical, as it
+would likely cause excessive load on the server\footnote{I also don't think it's
+possible to do any preprocessing to reduce the work, since the cPIR schemes I've
+seen work with a security parameter (product of two large primes) transmitted by
+the client, which is used in the calculation of the response and is unique per
+client.}.
+
+Work has been done examining common social dilemmas in peer-to-peer networks and
+proposing possible solutions. \cite{feldman2004robust} gives a good overview.
+The points most relevant for my thesis are:
+\begin{itemize}
+\item In a sufficiently large network, any given pair of peers is unlikely to
+know each other, which makes some form of reputation system necessary, so that
+peers know whom to trust.
+\item Without a central authority, nothing can stop peers from rejoining the
+network with a new identity, making free-riding behavior through whitewashing
+(abandoning an identity with a tarnished reputation in favor of a fresh one) and
+collusion (having multiple identities that vouch for each other) possible.
+\end{itemize}
+The latter is examined more closely in
+\cite{feldman2006free,friedman2001social,douceur2002sybil}.
+However, they all seem to be written with file sharing in mind, which isn't very
+latency-sensitive, i.e. the time it takes to decide what degree of service to
+provide to someone isn't critical.
+
+\cite{li2012collusion} examines behavior patterns of peers who are colluding in
+order to cheat a reputation system and proposes measures to detect it, albeit in
+a model with some central authority.
+
+Finally, Kademlia\cite{maymounkov2002kademlia} and P-Grid\cite{aberer2003p} are
+structured DHTs that differ in some details, but have the same basic structure I
+want to use.
+
+\bibliography{abstract}{}
+\bibliographystyle{plain}
+\end{document}
