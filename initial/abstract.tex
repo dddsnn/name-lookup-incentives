@@ -169,6 +169,111 @@ Finally, Kademlia\cite{maymounkov2002kademlia} and P-Grid\cite{aberer2003p} are
 structured DHTs that differ in some details, but have the same basic structure I
 want to use.
 
+\section*{Content of the Thesis}
+The central question I want to investigate is whether I can find a reputation
+system with a set of rules that gets the selfish peers to create social value,
+i.e. to collectively provide a practically useful name-lookup service. This
+includes choosing a reputation system, such as a debit-credit or a credit-only
+point system, specifying how and by whom reputation changes are awarded (e.g. by
+the recipient or the creditor) and setting parameters, e.g. the amount of
+reputation points for a specific action. In order for the system to be
+successful, it must work under practical conditions, e.g. where peers have long
+periods of inactivity with bursts of activity in between, and it must be stable,
+e.g. there mustn't be an inflation or deflation of reputation scores.
+
+I will start by implementing a network of peers in a discrete event simulation.
+I am not primarily interested in the messages the peers exchange (although this
+is of some interest to figure out the overhead of the system), but in the
+development of the peer behavior and how it affects the level of service within
+the system. Each peer is modeled as a selfish agent who needs to have some
+queries answered, as well as a valuation for the resources he needs to
+contribute. Based on the information available to him, he can then update his
+behavior and choose whether or not he wants to follow the rules of the system
+(this includes e.g. how many mappings he stores, and whether he properly checks
+peers' reputations before answering a query). In the beginning I will use a very
+simplified model where e.g. the reputation data is available to all as a
+perfectly synchronized centralized storage and doesn't actually need to be
+maintained via rumor spreading, where messages arrive instantaneously and all
+clocks are perfectly in sync. If the system works under these circumstances, I
+can then restrict these aspects to see if it still works.
+
+To implement the simulation, I would like to use SimPy or OMNeT++. Since I will
+need to modify the behavior of peers and the network a lot, being able to use
+Python would be very convenient. OMNeT++ also has a lot of features concerning
+the specification of a network topology that I don't need, and may actually have
+to work around, because I'm mostly concerned with what happens with the behavior
+of the individual nodes. For all I care, the network topology may be a full
+mesh. On the other hand, SimPy is apparently a lot
+slower\cite{oujezsky2016case,vom2008comparing} and may just not be practical for
+simulations of large networks that could become necessary. OMNeT++ also has
+built-in visualizations that should help in figuring out e.g. how busy any one
+node gets. I think I won't get around using OMNeT++, but I may start with a
+prototype in SimPy.
+
+Besides a simulation, there is also the approach of finding an analytical
+game-theoretic solution. This encompasses, given some assumptions about peers'
+utility for receiving service and cost for providing it, proving or disproving
+the existence of equilibria in the behavior of peers, whether they are stable in
+the presence of defectors and what their social value is. This may or may not be
+possible.
+
+In case the simulations have a negative result, i.e. I find that my incentive
+system doesn't lead to a practical system, it would be nice to either describe a
+different approach that seems more likely to succeed, or to argue why it failed
+or even prove that no system can achieve this given the model.
+
+Here are some further interesting questions, some of which could be answered as
+a secondary objective (in no particular order):
+\begin{itemize}
+\item Could the DHT become segmented into multiple parts that are either not
+      connected at all, or connected so weakly that it becomes difficult to
+      update DHT entries from one part to another? If so, can these parts find
+      together again somehow?
+\item Is there a way to prevent collusion or a Sybil attack, or to make them
+      harder?
+\item Could a determined attacker still gather enough data about users of the
+      system by joining as many groups as he can? Could he gain a monopoly on
+      hosting some subset of the DHT content?
+\item Could a determined attacker "follow" a particular user by joining all the
+      same groups as he? If that user notices he's being followed and elects not
+      to issue requests in groups the attacker is also a part of, doesn't this
+      already constitute a DoS attack?
+\item How many peers behaving socially badly can the system tolerate?
+\item How many peers behaving maliciously (i.e. actively investing resources
+      into damaging the system) can the system tolerate?
+\item What's the overhead of it all compared to a plain DHT without incentives
+      or a centralized system?
+\item How annoying is the bootstrap phase for a new user who doesn't have any
+      reputation anywhere?
+\item Are there any solutions for peers that are only online sparsely? They
+      would have a hard time building up a good reputation before the group
+      disbands. Should they be allowed to "spend" some extra reputation on
+      receiving a higher level of service for a short time?
+\item How much storage/maintenance is required at each peer?
+\item What's a sensible number of groups for a peer to be a member of?
+\item How are groups connected, i.e. how many hops does it take to get from one
+      group to another? How likely is it that a pair of peers shares more than
+      one group?
+\item What's a good group size?
+\item Who decides when a group is "full"? Do peers just leave when it gets too
+      crowded for their taste?
+\item Can the rules of the reputation system (e.g. how many points a peer gains
+      for answering a query) be changed at run time? Is this perhaps even
+      necessary for the system to continue functioning?
+\item Can the system tolerate some free-riding users who are ok with bad service
+      (e.g. weak embedded devices)? Should all requests be served at some point,
+      even if the requesting node seems unlikely to ever contribute?
+\item How is the situation handled where A is required to provide good service
+      to B but is unable because he needs to forward the query in a group where
+      he has bad reputation?
+\item Is it a viable strategy to send out lots of dummy requests when joining a
+      new group to find out whether everyone plays by the rules?
+\item Should the new player entrance fee be reduced for newly created groups?
+\item Is there a problem where peers preferably store popular mappings to get
+      more reward per storage/traffic? Should there be higher rewards for
+      servicing less popular mappings?
+\end{itemize}
+
 \bibliography{abstract}{}
 \bibliographystyle{plain}
 \end{document}
