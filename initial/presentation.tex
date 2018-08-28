@@ -10,6 +10,183 @@
 \frame{\titlepage}
 
 \begin{frame}
+  \frametitle{Introduction}
+  \begin{itemize}
+    \item Mapping names (IDs) to IPs
+    \item Like DNS, but more general (flat namespace)
+    \item Decentralized service (DHT)
+    \item Goal: get everyone who uses it to contribute
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Motivation}
+  \begin{itemize}
+    \item DNS basically centralized: typical user's DNS lookups go through one
+          server
+    \item Privacy concerns
+    \begin{itemize}
+      \item DNS server gets a lot of information about what servers a user
+            contacts
+      \item Can build user profiles
+      \item Can become target for others who want to build profiles
+    \end{itemize}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Motivation}
+  \begin{itemize}
+    \item Instead of trusting a central server, spread requests to many
+          different nodes
+    \item Each of them only gets a small amount of data, harder to build a
+          profile
+    \item Requires users of the service also offering service
+    \item Assume people are selfish and rational: incentivize them with better
+          service
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
+  \frametitle{(c)PIR}
+  \begin{itemize}
+    \item Privacy on central servers with (computationally) private information
+          retrieval
+    \item Query a database without the DB knowing what record you're interested
+          in
+    \item Trivial solution: download the entire database, query locally
+    \item More communication efficient approaches exist
+    \item But server must always process the entire database: impractical
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Distributed Hash Table}
+  \begin{itemize}
+    \item Store ID-IP mappings in a structured DHT (like Kademlia or P-Grid)
+    \item Every item has an ID
+    \item Peers pick a prefix and are responsible for items with that prefix
+    \item Peers are in contact with others responsible for the same items
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Distributed Hash Table}
+  \begin{itemize}
+    % TODO illustrate
+    \item For other prefixes: know other peers responsible for them
+    \item Or know someone who knows someone (who can route to someone
+          responsible)
+    \item Accessing an item: ask a peer whose prefix is closer to being
+          responsible for it
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Incentives}
+  \begin{itemize}
+    \item Only leverage: users want good service
+    \item Users who don't contribute need to be given lower level of service
+          (responses deliberately delayed)
+    \item Peers need to know what level of service to grant: reputation system
+    \item Track how well peers contribute (abide by the rules)
+    \item E.g. point system (credit-debit/credit-only)
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Reputation Tracking}
+  \begin{itemize}
+    \item If requests can come from anyone, need to be able to find out anyone's
+          reputation
+    \item Storing locally impractical for large networks
+    \item Storing in a DHT is too slow
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Reputation Tracking}
+  \begin{itemize}
+    % TODO illustrate
+    \item Peers form small groups in which they forward queries ("the second
+          kind")
+    \item Reputation tracked in those groups (locally)
+    \item Short-lived for privacy, but long enough that trust can grow
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Goal of the Thesis}
+  \begin{itemize}
+    \item Is such an incentive system possible, assuming selfish peers?
+    \item Is there inflation or deflation of reputation?
+    \item Could the resulting system be practically useful?
+    \item What's the overhead?
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Methodology}
+  \begin{itemize}
+    \item Simulate with SimPy/OMNeT++
+    \item Focus on behavior of peers, not the network
+    \item Let them update their strategy
+    \item Observe how peers' strategies change and what level of service is
+          achieved
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Methodology}
+  \begin{itemize}
+    \item Try an analytical, game-theoretic solution
+    \item Are there equilibria?
+    \item Are they always reached?
+    \item What is their social value?
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Why do we need incentives?}
+  \begin{itemize}
+    \item Maybe we don't
+    \item "Just distribute software that contributes to the DHT, people will be
+          too lazy to change it for a small benefit"
+          \begin{itemize}
+            \item Some alternative implementation may opt to leave it out
+            \item Maybe for performance, maybe for security
+          \end{itemize}
+    \item Assume the worst case, be ready for reality
+    \item Just nice to know if it would work
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Some more questions}
+  \begin{itemize}
+    \item Could an attacker still collect information by joining many groups (of
+          the second kind)?
+    \item How many defectors can the system tolerate?
+    \item How many malicious peers can the system tolerate?
+    \item How many peers behaving too generously can the system tolerate?
+    \item How annoying is starting out with no reputation anywhere?
+    \item What about peers that are rarely online?
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Some more questions}
+  \begin{itemize}
+    \item What's a sensible number of groups for a peer to be in?
+    \item What's a good group size?
+    \item How are groups connected?
+    \item Can the rules of the reputation system be changed at run time?
+    \item If some ID-IP mappings are more popular than other, won't less popular
+          ones be neglected because they offer a smaller benefit?
+  \end{itemize}
 \end{frame}
 
 \end{document}
