@@ -1,0 +1,543 @@
+\RequirePackage{eso-pic}
+\RequirePackage{tikz}
+\usetikzlibrary{calc}
+\RequirePackage{tcolorbox}
+\tcbuselibrary{skins}
+
+\mode<presentation>
+
+
+%-------------------------------------------------------------------------------
+% Sizes
+%-------------------------------------------------------------------------------
+\setbeamersize{text margin left=0.125cm}
+\setbeamersize{text margin right=0.125cm}
+\setlength{\leftmargini}{3.5ex}
+
+
+%-------------------------------------------------------------------------------
+% setting nice fonts
+%-------------------------------------------------------------------------------
+\RequirePackage{tgheros}
+\RequirePackage{tgcursor}
+\RequirePackage{fontspec}
+\setsansfont{TeXGyre Heros}
+\setmonofont{TeXGyre Cursor}
+\setbeamerfont{frametitle}{size*={12}{12}}
+\setbeamerfont{block body alerted}{size=\large}
+\setbeamerfont{supervisors}{size=\large}
+\setbeamerfont{author}{size*={11}{13.2}}
+\setbeamerfont{short author}{size*={8}{0}}
+\setbeamerfont{date}{size*={8}{9.6}}
+\setbeamerfont{page number}{size*={8}{0}, series=\bfseries}
+\setbeamerfont{title}{size*={22}{26.4},series=\bfseries}
+\setbeamerfont{item}{series=\bf}
+\defbeamertemplate{itemize/enumerate body 
+begin}{normal}{\bfseries\color{RWTHblau}}
+\defbeamertemplate{itemize/enumerate body begin}{inblock}{}
+\setbeamertemplate{itemize/enumerate body begin}[normal]
+\setbeamertemplate{itemize/enumerate body end}{}
+\setbeamertemplate{itemize/enumerate subbody begin}{\normalfont}
+\setbeamertemplate{itemize/enumerate subbody end}{}
+
+
+%-------------------------------------------------------------------------------
+% Colors
+%-------------------------------------------------------------------------------
+
+% TODO: check is the case to use it
+\usecolortheme{whale}
+
+% define handy colors
+\definecolor{frametitle_left_gradient}{rgb}{.05,.15,.4}
+\definecolor{frametitle_right_gradient}{RGB}{168,184,216}
+\definecolor{frametitle_top_gradient}{rgb}{0.82,0.87,0.98}
+\definecolor{frametitle_bottom_gradient}{rgb}{0.82,0.83,0.85}
+\definecolor{framefoot_top_gradient}{rgb}{0.84,0.84,0.85}
+\definecolor{framefoot_bottom_gradient}{rgb}{1,1,1}
+\definecolor{maintitle}{RGB}{0,0,0}
+
+% RWTH colors
+\definecolor{RWTHblau}{RGB}{0,84,159}
+\definecolor{RWTHmagenta}{RGB}{227,0,102}
+\definecolor{RWTHgelb}{RGB}{255,237,0}
+\definecolor{RWTHpetrol}{RGB}{0,79,101}
+\definecolor{RWTHturkis}{RGB}{0,152,161}
+\definecolor{RWTHgrun}{RGB}{87,171,39}
+\definecolor{RWTHmaigrun}{RGB}{189,205,0}
+\definecolor{RWTHorange}{RGB}{246,168,0}
+\definecolor{RWTHrot}{RGB}{204,7,30}
+\definecolor{RWTHbordeaux}{RGB}{161,16,53}
+\definecolor{RWTHviolett}{RGB}{97,33,88}
+\definecolor{RWTHlila}{RGB}{122,111,172}
+
+\definecolor{comsysyellow}{RGB}{255,213,0}
+\definecolor{comsysorange}{RGB}{255,178,0}
+
+% setting colors to various elements
+\setbeamercolor{structure}{fg=RWTHblau}
+\setbeamercolor{author}{fg=white}
+\setbeamercolor{date}{fg=white}
+\setbeamercolor{section in head/foot}{fg=red,bg=green}
+\setbeamercolor{subsection in head/foot}{fg=red,bg=green}
+
+\setbeamercolor{author in head/foot}{fg=white,bg=gray}
+\setbeamercolor{title in head/foot}{fg=white,bg=gray}
+\setbeamercolor{short author}{fg=gray,bg=white}
+
+\setbeamercolor{frametitle}{fg=white,bg=frametitle_left_gradient}
+\setbeamercolor{frametitle right}{fg=white,bg=frametitle_right_gradient}
+
+% suppose to use always the alert to show things properly
+\setbeamercolor{block title alerted}{parent=normal text,bg=comsysorange}
+\setbeamercolor{block body alerted}{parent=normal text,use=block title
+  alerted,bg=comsysyellow}
+\setbeamercolor{block title}{parent=normal text, bg=RWTHpetrol!50}
+\setbeamercolor{block body}{parent=normal text, bg=RWTHpetrol!25}
+\setbeamercolor{block title example}{parent=normal text, 
+bg=RWTHmaigrun!50}
+\setbeamercolor{block body example}{parent=normal text, 
+bg=RWTHmaigrun!25}
+
+% TODO: not setting any color now
+\setbeamercolor*{titlegraphic}{fg=frametitle_left_gradient}
+\setbeamercolor{page number}{fg=RWTHblau}
+
+
+%-------------------------------------------------------------------------------
+% Shades
+%-------------------------------------------------------------------------------
+
+\pgfdeclarehorizontalshading{beamer@titlepage_shade}{2.5cm}{%
+	color(0.0cm)=(frametitle_left_gradient);
+	color(2.5cm)=(frametitle_right_gradient)}
+
+\definecolor{titlespacer_shade0}{RGB}{160,164,160}
+\definecolor{titlespacer_shade35}{RGB}{184,188,184}
+\definecolor{titlespacer_shade100}{RGB}{216,216,216}
+\pgfdeclareverticalshading{beamer@titlespacer}{\paperwidth}{%
+	color((0.64cm-2*0.75bp)/1.984375*0.00)=(titlespacer_shade0);
+	color((0.64cm-2*0.75bp)/1.984375*0.35)=(titlespacer_shade35);
+	color((0.64cm-2*0.75bp)/1.984375*1.00)=(titlespacer_shade100)}
+
+\pgfdeclarehorizontalshading{beamer@titlepage_lowershade}{1.8in}{%
+	color(0pt)=(frametitle_left_gradient);
+	color(\paperwidth)=(frametitle_right_gradient)}
+
+
+\pgfdeclarehorizontalshading[frametitle.bg,frametitle right.bg]%
+	{beamer@frametitle_shade}{0.73in/1.984375}{%
+	color(0pt)=(frametitle.bg);
+	color(\paperwidth)=(frametitle right.bg)}
+
+\pgfdeclarehorizontalshading{beamer@spacer}{0.75bp/1.984375}{%
+	color(0pt)=(gray);
+	color(\paperwidth)=(gray)}
+
+\definecolor{frametitle_vertical_shade0}{RGB}{240,240,240}
+\definecolor{frametitle_vertical_shade100}{RGB}{200,220,248}
+\pgfdeclareverticalshading{beamer@frametitle_vertical_shade}{\paperwidth}{%
+	color((0.23cm-2*0.75bp)/1.984375*0.00)=(frametitle_vertical_shade0);
+	color((0.23cm-2*0.75bp)/1.984375*1.00)=(frametitle_vertical_shade100)}
+
+\pgfdeclareverticalshading{beamer@framefoot_shade}{\paperwidth}{%
+	color(0pt)=(framefoot_bottom_gradient);
+	color(0.2670866in)=(framefoot_top_gradient)}
+
+
+%-------------------------------------------------------------------------------
+% Inner Theme
+%-------------------------------------------------------------------------------
+
+\useinnertheme[shadow=true]{rounded}
+\defbeamertemplate{itemize item}{bcircle}{\Large\textbullet}
+\defbeamertemplate{itemize subitem}{btriangle}{\small$\blacktriangleright$}
+\setbeamertemplate{itemize item}[bcircle]
+\setbeamertemplate{itemize/enumerate body}{font=\bfseries}
+\setbeamertemplate{itemize subitem}[btriangle]
+\setbeamertemplate{itemize subsubitem}[square]
+\setbeamertemplate{enumerate item}[circle]
+\defbeamertemplate{section in toc}{comsys circle}
+{\leavevmode\leftskip=2em%
+  \llap{%
+    \usebeamerfont*{section number projected}%
+    \usebeamercolor{section number projected}%
+    \begin{pgfpicture}{-1ex}{0ex}{1ex}{2ex}
+      \color{bg}
+      \pgfpathcircle{\pgfpoint{0pt}{.75ex}}{1.2ex}
+      \pgfusepath{fill}
+      \pgftext[base]{\color{fg}\inserttocsectionnumber}
+    \end{pgfpicture}\kern1.25ex%
+  }%
+  \inserttocsection\par}
+
+\defbeamertemplate{subsection in toc}{comsys circle}
+{\leavevmode\leftskip=3em\inserttocsubsection\par}
+
+\defbeamertemplate{subsubsection in toc}{comsys circle}
+{\leavevmode\normalsize\usebeamerfont{subsection in
+    toc}\leftskip=4em\usebeamerfont{subsubsection in toc}%
+  \inserttocsubsubsection\par}
+\setbeamertemplate{sections/subsections in toc}[comsys circle]
+
+
+%-------------------------------------------------------------------------------
+% Blocks with Borders
+%-------------------------------------------------------------------------------
+
+\newtcolorbox{comsysbox}[2][]{
+	enhanced,%
+	coltitle=RWTHblau,%
+	fonttitle=\bfseries,%
+	colback=comsysyellow,%
+	colframe=comsysorange,%
+	drop fuzzy shadow=black,%
+	boxrule=1.984375bp,%
+	left skip=0.125cm,%
+	right skip=0.125cm,%
+	adjusted title=#2,%
+	left=0.125cm,%
+	right=0.125cm,%
+	lefttitle=0.5em,%
+	righttitle=0.5em,%
+	boxsep=0cm,%
+	top=0.125cm,%
+	bottom=0.125cm,%
+	#1
+}%
+
+\defbeamertemplateparent{blocks}[framed]{block begin,block end,%
+  block alerted begin,block alerted end,%
+  block example begin,block example end}[1][]
+{[#1]}
+
+\defbeamertemplate{block begin}{framed}[1][]
+{
+	\par\vskip\medskipamount%
+	\usebeamercolor{block body}%
+	\usebeamercolor{block title}%
+	\begin{comsysbox}[%
+		\ifdefempty{\insertblocktitle}{notitle}{},%
+		colback=block body.bg,%
+		colframe=block title.bg,%
+	]{\insertblocktitle}
+	\raggedright%
+	\usebeamerfont{block body}%
+	\setbeamertemplate{itemize/enumerate body begin}[inblock]
+}
+\defbeamertemplate{block end}{framed}[1][]
+{
+	\end{comsysbox}\vskip\smallskipamount%
+	\setbeamertemplate{itemize/enumerate body begin}[inblock]%
+}
+
+\defbeamertemplate{block alerted begin}{framed}[1][]
+{
+	\par\vskip\medskipamount%
+	\usebeamercolor{block body alerted}%
+	\usebeamercolor{block title alerted}%
+	\begin{comsysbox}[%
+		\ifdefempty{\insertblocktitle}{notitle}{},%
+		colback=block body alerted.bg,%
+		colframe=block title alerted.bg,%
+	]{\insertblocktitle}
+	\raggedright%
+	\usebeamerfont{block body alerted}%
+	\setbeamertemplate{itemize/enumerate body begin}[inblock]
+}%
+\defbeamertemplate{block alerted end}{framed}[1][]
+{
+	\end{comsysbox}\vskip\smallskipamount%
+	\setbeamertemplate{itemize/enumerate body begin}[inblock]%
+}
+
+\defbeamertemplate{block example begin}{framed}[1][]
+{
+	\par\vskip\medskipamount%
+	\usebeamercolor{block body example}%
+	\usebeamercolor{block title example}%
+	\begin{comsysbox}[%
+		\ifdefempty{\insertblocktitle}{notitle}{},%
+		colback=block body example.bg,%
+		colframe=block title example.bg,%
+	]{\insertblocktitle}
+	\raggedright%
+	\usebeamerfont{block body example}%
+	\setbeamertemplate{itemize/enumerate body begin}[inblock]
+}%
+\defbeamertemplate{block example end}{framed}[1][]
+{
+	\end{comsysbox}\vskip\smallskipamount%
+	\setbeamertemplate{itemize/enumerate body begin}[inblock]%
+}
+
+\setbeamertemplate{blocks}[framed]
+
+
+%-------------------------------------------------------------------------------
+% Default Footline
+%-------------------------------------------------------------------------------
+
+\defbeamertemplate*{footline}{comsys}
+{
+	\hbox{\pgfuseshading{beamer@spacer}}
+	\nointerlineskip
+	\hbox{\pgfuseshading{beamer@framefoot_shade}
+		\hskip-\paperwidth
+		\begin{minipage}[b][0.2670866in][c]{0.3\paperwidth}%
+			\hskip 3pt%
+			\color{RWTHblau}%
+			\small{\insertframenumber}%
+			\strut%
+		\end{minipage}%
+		\begin{minipage}[b][0.2670866in][c]{0.4\paperwidth}%
+			\usebeamerfont{short author}%
+			\usebeamercolor[fg]{short author}%
+			\insertshortauthor[width=5cm, center]%
+			\strut%
+		\end{minipage}%
+		\begin{minipage}[b][0.2670866in][c]{0.3\paperwidth}%
+			\hfill\includegraphics[width=1.118740157in]{logos/rwth_comsys_bild_rgb.pdf}%
+		\end{minipage}%
+		\hskip-1em
+	}
+	\nointerlineskip
+}
+
+
+%-------------------------------------------------------------------------------
+% Empty Footline
+%-------------------------------------------------------------------------------
+
+\defbeamertemplate{footline}{empty}
+{
+	\hbox{\pgfuseshading{beamer@spacer}}
+	\nointerlineskip
+	\hbox{\pgfuseshading{beamer@framefoot_shade}
+		\hskip-\paperwidth
+		\begin{minipage}[b][0.2670866in][c]{0.3\paperwidth}%
+			\strut%
+		\end{minipage}%
+		\begin{minipage}[b][0.2670866in][c]{0.4\paperwidth}%
+			\strut%
+		\end{minipage}%
+		\begin{minipage}[b][0.2670866in][c]{0.3\paperwidth}%
+			\hfill\includegraphics[width=1.118740157in]{logos/rwth_comsys_bild_rgb.pdf}%
+		\end{minipage}%
+		\hskip-1em
+	}
+	\nointerlineskip
+}
+
+
+%-------------------------------------------------------------------------------
+% Frametitle
+%-------------------------------------------------------------------------------
+
+\defbeamertemplate*{frametitle}{comsys}
+{
+	\vskip-2pt
+	\usebeamercolor{frametitle right}
+	\usebeamerfont{frametitle right}
+	\hbox{\hskip-\Gm@lmargin
+		\begin{tikzpicture}[overlay]
+			\begin{scope}
+			\clip (0,0.3678740in) rectangle (\paperwidth,-0.05cm);
+			\shade[shading=beamer@titlepage_shade,shading angle=315] 
+			(0,0.3678740in) rectangle 
+			(\paperwidth,0.3678740in-\paperheight);
+			\end{scope}
+		\end{tikzpicture}
+		\hskip-1.3ex
+		\hskip0.23cm
+		\hskip0.125cm
+		\begin{minipage}[b][0.3678740in][b]{\paperwidth}
+			\raisebox{1.3ex}{\hskip0.0503937in\textbf{\insertframetitle}}
+		\end{minipage}
+	}
+	\nointerlineskip
+	\hbox{\hskip-\Gm@lmargin\pgfuseshading{beamer@spacer}}
+	\nointerlineskip
+	\hbox{\hskip-\Gm@lmargin\pgfuseshading{beamer@frametitle_vertical_shade}}
+	\nointerlineskip
+	\hbox{\hskip-\Gm@lmargin\pgfuseshading{beamer@spacer}}
+	\nointerlineskip
+}
+
+
+%-------------------------------------------------------------------------------
+% Title Page
+%-------------------------------------------------------------------------------
+
+\defbeamertemplate*{title page}{comsys}[1][]
+{
+	\AddToShipoutPictureBG*{%
+		\begin{tikzpicture}
+			\shade[shading=beamer@titlepage_shade,shading angle=315] 
+			(0,0) rectangle (\paperwidth,\paperheight);
+		\end{tikzpicture}
+	}
+	\usebeamercolor{titleslide_right}
+	\vspace{0.2cm}
+	\vspace{-1.13ex}
+	\vspace{1.52cm}%
+	\nointerlineskip
+	\hbox{\hskip-\Gm@lmargin\pgfuseshading{beamer@spacer}}
+	\nointerlineskip
+	\begin{minipage}[t][3.135cm]{\textwidth}%
+		\hspace{\dimexpr0.5\textwidth-0.5\paperwidth\relax}%
+		\colorbox{white}{%
+			\hskip-0.125cm
+			\hspace{0.735cm}
+			\begin{minipage}[t][3.135cm]{\paperwidth}%
+				\begin{minipage}{\dimexpr\paperwidth-0.735cm-0.25cm\relax}%
+					\vspace{0.845cm}
+					{\usebeamerfont{title}\color{maintitle}\inserttitle}%
+					\ifx\insertsubtitle\@empty%
+					\else%
+					\vskip0.25em%
+					{\color{RWTHblau}\usebeamerfont{author}\insertsubtitle}%
+					\fi%
+				\end{minipage}%
+			\end{minipage}%
+		}%
+	\end{minipage}%
+
+	\nointerlineskip
+	\hbox{\hskip-\Gm@lmargin\pgfuseshading{beamer@spacer}}
+	\nointerlineskip
+	\hbox{\hskip-\Gm@lmargin\pgfuseshading{beamer@titlespacer}}
+	\nointerlineskip
+	\hbox{\hskip-\Gm@lmargin\pgfuseshading{beamer@spacer}}
+	\nointerlineskip
+	\vspace{0.18cm}
+	\nointerlineskip
+
+	\begin{minipage}[b][1.27cm][t]{1.0\paperwidth}
+		\vskip 0.125cm
+		\vskip 0.2ex
+		\hskip-0.125cm
+		\hspace{0.735cm}
+		\begin{minipage}[b][1.27cm][t]{\dimexpr1.0\paperwidth-0.735cm}
+			\usebeamerfont{author}
+			\usebeamercolor[fg]{author}
+			\insertauthor
+		\end{minipage}%
+	\end{minipage}%
+
+	\nointerlineskip
+	\vspace{-6.427519685039369cm}
+	\vspace{\textheight}
+	\vspace{-0.5cm}
+	\nointerlineskip
+
+	\begin{minipage}[b][0.5cm][t]{1.0\paperwidth}
+		\vskip 0.125cm
+		\vskip 0.2ex
+		\begin{minipage}[b][0.5cm][t]{\dimexpr1.0\paperwidth-0.25cm}
+			\usebeamerfont{date}
+			\usebeamercolor[fg]{date}
+			\url{https://comsys.rwth-aachen.de/}
+			\hfill
+			\location, \insertdate
+		\end{minipage}%
+	\end{minipage}%
+
+%	\vspace{20em}
+}
+
+
+%-------------------------------------------------------------------------------
+% Section Page
+%-------------------------------------------------------------------------------
+
+\defbeamertemplate*{section page}{comsys}[1][]{
+	\AddToShipoutPictureBG*{%
+		\begin{tikzpicture}
+			\shade[shading=beamer@titlepage_shade,shading angle=315] 
+			(0,0) rectangle (\paperwidth,\paperheight);
+		\end{tikzpicture}
+	}
+	\usebeamercolor{titleslide_right}
+	\vspace{0.2cm}
+	\vspace{-1.13ex}
+	\vspace{1.52cm}%
+	\nointerlineskip
+	\hbox{\hskip-\Gm@lmargin\pgfuseshading{beamer@spacer}}
+	\nointerlineskip
+	\begin{minipage}[t][3.135cm]{\textwidth}%
+		\hspace{\dimexpr0.5\textwidth-0.5\paperwidth\relax}%
+		\colorbox{white}{%
+			\hskip-0.125cm
+			\hspace{0.735cm}
+			\begin{minipage}[t][3.135cm]{\paperwidth}%
+				\begin{minipage}{\dimexpr\paperwidth-0.735cm-0.25cm\relax}%
+					\vspace{0.845cm}
+					{\usebeamerfont{title}\color{maintitle}\insertsection}%
+				\end{minipage}%
+			\end{minipage}%
+		}%
+	\end{minipage}%
+
+	\nointerlineskip
+	\hbox{\hskip-\Gm@lmargin\pgfuseshading{beamer@spacer}}
+	\nointerlineskip
+	\hbox{\hskip-\Gm@lmargin\pgfuseshading{beamer@titlespacer}}
+	\nointerlineskip
+	\hbox{\hskip-\Gm@lmargin\pgfuseshading{beamer@spacer}}
+	\nointerlineskip
+	\vspace{0.18cm}
+	\nointerlineskip
+
+	\vspace{1.27cm}
+	\vspace{-6.427519685039369cm}
+	\vspace{\textheight}
+}
+
+
+%-------------------------------------------------------------------------------
+% Part Page
+%-------------------------------------------------------------------------------
+\defbeamertemplate*{part page}{comsys}[1][]
+{
+	\begin{centering}
+		{\usebeamerfont{part name}\usebeamercolor[fg]{part 
+		name}\partname~\insertromanpartnumber}
+		\vskip1em\par
+		\begin{beamercolorbox}[sep=8pt,center,#1]{part title}
+			\usebeamerfont{part title}\insertpart\par
+		\end{beamercolorbox}
+	\end{centering}
+}
+
+
+%-------------------------------------------------------------------------------
+% Helpfull Commands
+%-------------------------------------------------------------------------------
+
+% A Picture at the Right Border of the Slide
+\newcommand{\illustration}[2][]{%
+	\begin{tikzpicture}[overlay,remember picture]
+		\node[anchor=base] (here) at (0,0) {\strut};
+		\node[anchor=north east] at ($(here.north-|current 
+		page.east)-(0.1159055in,0)$) {\includegraphics[#1]{#2}};
+	\end{tikzpicture}%
+}
+
+
+%-------------------------------------------------------------------------------
+% misc
+%-------------------------------------------------------------------------------
+
+\ifx\location\undefined
+	\def\location{Aachen}
+\fi
+
+\usebackgroundtemplate{}
+
+% order with which things are defined is also important
+\beamertemplatenavigationsymbolsempty
+
+
+% nothing done for the not presentation mode
+\mode<all>

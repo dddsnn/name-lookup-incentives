@@ -1,16 +1,51 @@
-\documentclass{beamer}
+\documentclass[presentation,english]{beamer}
+\usepackage[utf8]{inputenc}
+\usepackage{babel}
+\usepackage{fixltx2e}
+\usepackage{graphicx}
+\usepackage{longtable}
+\usepackage{float}
+\usepackage{wrapfig}
+\usepackage{soul}
+\usepackage{textcomp}
+\usepackage{marvosym}
+\usepackage{wasysym}
+\usepackage{latexsym}
+\usepackage{amssymb}
+\usepackage{hyperref}
+\tolerance=1000
+\usepackage{listings}
+\usepackage[iso]{isodate}
 
-\beamertemplatenavigationsymbolsempty
-\setbeamertemplate{footline}[frame number]
-
-\title{Incentives for cooperation in a peer-to-peer name-lookup service}
+\title[Peer-to-Peer Incentives]{Incentives for Cooperation in a Peer-to-Peer
+Name-Lookup Service}
 \author{Marc Lehmann}
-\date{}
-\begin{document}
-\frame{\titlepage}
+\subtitle{Initial Master Talk}
+\date{\today}
 
+
+\usetheme{Comsys}
+% Adjust the title font size, because my title spans 3 lines otherwise.
+\setbeamerfont{title}{size*={16}{26.4},series=\bfseries}
+
+\begin{document}
+
+\setbeamertemplate{footline}[empty]
 \begin{frame}
-  \frametitle{Introduction}
+  \titlepage
+\end{frame}
+
+\setbeamertemplate{footline}[comsys]
+\begin{frame}
+  \frametitle{Outline}
+  \tableofcontents
+\end{frame}
+
+\section{First Topic}
+\label{sec:first_topic}
+\frame\sectionpage
+
+\begin{frame}{Introduction}
   \begin{itemize}
     \item Mapping names (IDs) to IPs
     \item Like DNS, but more general (flat namespace)
@@ -19,8 +54,7 @@
   \end{itemize}
 \end{frame}
 
-\begin{frame}
-  \frametitle{Motivation}
+\begin{frame}{Motivation}
   \begin{itemize}
     \item DNS basically centralized: typical user's DNS lookups go through one
           server
@@ -34,8 +68,7 @@
   \end{itemize}
 \end{frame}
 
-\begin{frame}
-  \frametitle{Motivation}
+\begin{frame}{Motivation}
   \begin{itemize}
     \item Instead of trusting a central server, spread requests to many
           different nodes
@@ -47,8 +80,7 @@
   \end{itemize}
 \end{frame}
 
-\begin{frame}
-  \frametitle{(c)PIR}
+\begin{frame}{(c)PIR}
   \begin{itemize}
     \item Privacy on central servers with (computationally) private information
           retrieval
@@ -60,8 +92,7 @@
   \end{itemize}
 \end{frame}
 
-\begin{frame}
-  \frametitle{Distributed Hash Table}
+\begin{frame}{Distributed Hash Table}
   \begin{itemize}
     \item Store ID-IP mappings in a structured DHT (like Kademlia or P-Grid)
     \item Every item has an ID
@@ -70,8 +101,7 @@
   \end{itemize}
 \end{frame}
 
-\begin{frame}
-  \frametitle{Distributed Hash Table}
+\begin{frame}{Distributed Hash Table}
   \begin{itemize}
     % TODO illustrate
     \item For other prefixes: know other peers responsible for them
@@ -82,8 +112,7 @@
   \end{itemize}
 \end{frame}
 
-\begin{frame}
-  \frametitle{Incentives}
+\begin{frame}{Incentives}
   \begin{itemize}
     \item Only leverage: users want good service
     \item Users who don't contribute need to be given lower level of service
@@ -94,8 +123,7 @@
   \end{itemize}
 \end{frame}
 
-\begin{frame}
-  \frametitle{Reputation Tracking}
+\begin{frame}{Reputation Tracking}
   \begin{itemize}
     \item If requests can come from anyone, need to be able to find out anyone's
           reputation
@@ -104,8 +132,7 @@
   \end{itemize}
 \end{frame}
 
-\begin{frame}
-  \frametitle{Reputation Tracking}
+\begin{frame}{Reputation Tracking}
   \begin{itemize}
     % TODO illustrate
     \item Peers form small groups in which they forward queries ("the second
@@ -115,8 +142,7 @@
   \end{itemize}
 \end{frame}
 
-\begin{frame}
-  \frametitle{Goal of the Thesis}
+\begin{frame}{Goal of the Thesis}
   \begin{itemize}
     \item Is such an incentive system possible, assuming selfish peers?
     \item Is there inflation or deflation of reputation?
@@ -125,8 +151,7 @@
   \end{itemize}
 \end{frame}
 
-\begin{frame}
-  \frametitle{Methodology}
+\begin{frame}{Methodology}
   \begin{itemize}
     \item Simulate with SimPy/OMNeT++
     \item Focus on behavior of peers, not the network
@@ -136,8 +161,7 @@
   \end{itemize}
 \end{frame}
 
-\begin{frame}
-  \frametitle{Methodology}
+\begin{frame}{Methodology}
   \begin{itemize}
     \item Try an analytical, game-theoretic solution
     \item Are there equilibria?
@@ -149,8 +173,7 @@
 \begin{frame}
 \end{frame}
 
-\begin{frame}
-  \frametitle{Why do we need incentives?}
+\begin{frame}{Why do we need incentives?}
   \begin{itemize}
     \item Maybe we don't
     \item "Just distribute software that contributes to the DHT, people will be
@@ -164,8 +187,7 @@
   \end{itemize}
 \end{frame}
 
-\begin{frame}
-  \frametitle{Some more questions}
+\begin{frame}{Some more questions}
   \begin{itemize}
     \item Could an attacker still collect information by joining many groups (of
           the second kind)?
@@ -177,8 +199,7 @@
   \end{itemize}
 \end{frame}
 
-\begin{frame}
-  \frametitle{Some more questions}
+\begin{frame}{Some more questions}
   \begin{itemize}
     \item What's a sensible number of groups for a peer to be in?
     \item What's a good group size?
