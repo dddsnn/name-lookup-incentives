@@ -58,6 +58,10 @@ Name-Lookup Service}
       \item Can build user profiles
       \item Can become target for others who want to build profiles
     \end{itemize}
+    \item Could be dealt with via (computationally) private information
+          retrieval ((c)PIR)
+    \item But is impractical: server has to process entire database for every
+          request
   \end{itemize}
 \end{frame}
 
@@ -70,18 +74,6 @@ Name-Lookup Service}
     \item Requires users of the service also offering service
     \item Assume people are selfish and rational: incentivize them with better
           service
-  \end{itemize}
-\end{frame}
-
-\begin{frame}{(c)PIR}
-  \begin{itemize}
-    \item Privacy on central servers with (computationally) private information
-          retrieval
-    \item Query a database without the DB knowing what record you're interested
-          in
-    \item Trivial solution: download the entire database, query locally
-    \item More communication efficient approaches exist
-    \item But server must always process the entire database: impractical
   \end{itemize}
 \end{frame}
 
