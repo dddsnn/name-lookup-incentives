@@ -16,6 +16,7 @@
 \tolerance=1000
 \usepackage{listings}
 \usepackage[iso]{isodate}
+\usepackage{pgfgantt}
 
 \title[Peer-to-Peer Incentives]{Incentives for Cooperation in a Peer-to-Peer
 Name-Lookup Service}
@@ -190,6 +191,26 @@ Name-Lookup Service}
     \item Are they always reached?
     \item What is their social value?
   \end{itemize}
+\end{frame}
+
+\begin{frame}{Timeline}
+  \begin{ganttchart}[
+    vgrid={*9{draw=none}, dotted},
+    x unit=0.035cm,
+    title label font=\tiny\bfseries,
+    bar label font=\tiny\bfseries
+  ]{1}{250}
+  \gantttitlelist{1,...,25}{10} \\
+  \ganttbar{Implementation}{1}{40}
+  \ganttbar{}{51}{80}
+  \ganttbar{}{96}{125} \\
+  \ganttbar{Evaluation}{41}{60}
+  \ganttbar{}{76}{105}
+  \ganttbar{}{116}{140}
+  \ganttbar{}{161}{190} \\
+  \ganttbar{Writing}{161}{230} \\
+  \ganttbar{Buffer}{231}{250}
+  \end{ganttchart}
 \end{frame}
 
 \begin{frame}
