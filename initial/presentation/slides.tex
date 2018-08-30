@@ -17,6 +17,7 @@
 \usepackage{listings}
 \usepackage[iso]{isodate}
 \usepackage{pgfgantt}
+\usepackage{caption}
 
 \title[Peer-to-Peer Incentives]{Incentives for Cooperation in a Peer-to-Peer
 Name-Lookup Service}
@@ -79,22 +80,16 @@ Name-Lookup Service}
 
 \begin{frame}{Distributed Hash Table}
   \begin{itemize}
-    \item Store ID-IP mappings in a structured DHT (like Kademlia or P-Grid)
-    \item Every item has an ID
+    \item Store ID-IP mappings in a structured DHT (Kademlia, P-Grid)
     \item Peers pick a prefix and are responsible for items with that prefix
     \item Peers are in contact with others responsible for the same items
+    \item For other prefixes: know other peers closer to them
   \end{itemize}
-\end{frame}
-
-\begin{frame}{Distributed Hash Table}
-  \begin{itemize}
-    % TODO illustrate
-    \item For other prefixes: know other peers responsible for them
-    \item Or know someone who knows someone (who can route to someone
-          responsible)
-    \item Accessing an item: ask a peer whose prefix is closer to being
-          responsible for it
-  \end{itemize}
+  \begin{figure}
+    \centering
+    \includegraphics[width=0.5\textwidth]{p-grid}
+    \caption*{\tiny From \emph{P-Grid: A Self-organizing Structured P2P System}}
+  \end{figure}
 \end{frame}
 
 \begin{frame}{Incentives}
