@@ -1,4 +1,4 @@
-\documentclass[presentation,english]{beamer}
+\documentclass[presentation,english,usenames,dvipsnames]{beamer}
 \usepackage[utf8]{inputenc}
 \usepackage{babel}
 \usepackage{fixltx2e}
@@ -138,10 +138,10 @@ Name-Lookup Service}
         \node[color=blue] (B) at (45:2) {P: 001};
         \node[color=red] (C) at (90:2) {P: 001};
         \node[color=blue] (D) at (135:2) {P: 010};
-        \node[color=green] (E) at (180:2) {P: 010};
+        \node[color=OliveGreen] (E) at (180:2) {P: 010};
         \node[color=blue] (F) at (225:2) {P: 101};
         \node[color=red] (G) at (270:2) {P: 101};
-        \node[color=green] (H) at (315:2) {P: 101};
+        \node[color=OliveGreen] (H) at (315:2) {P: 101};
       \end{scope}
 
       \path (A) edge[thick,dashed,bend right=15] (B);
@@ -157,7 +157,7 @@ Name-Lookup Service}
       \path (B) edge[thick,color=blue] (D);
       \path (D) edge[thick,color=blue,bend left=15] (F);
       \path (B) edge[thick,color=blue] (F);
-      \path (E) edge[thick,color=green] (H);
+      \path (E) edge[thick,color=OliveGreen] (H);
     \end{tikzpicture}
   \end{figure}
 \end{frame}
