@@ -126,12 +126,42 @@ Name-Lookup Service}
 
 \begin{frame}{Reputation Tracking}
   \begin{itemize}
-    % TODO illustrate
     \item Peers form small groups in which they forward queries ("the second
           kind")
     \item Reputation tracked in those groups (locally)
     \item Short-lived for privacy, but long enough that trust can grow
   \end{itemize}
+
+  \begin{figure}
+    \centering
+    \begin{tikzpicture}
+      \begin{scope}[every node/.style={draw}]
+        \node[color=red] (A) at (0:2) {P: 001};
+        \node[color=blue] (B) at (45:2) {P: 001};
+        \node[color=red] (C) at (90:2) {P: 001};
+        \node[color=blue] (D) at (135:2) {P: 010};
+        \node[color=green] (E) at (180:2) {P: 010};
+        \node[color=blue] (F) at (225:2) {P: 101};
+        \node[color=red] (G) at (270:2) {P: 101};
+        \node[color=green] (H) at (315:2) {P: 101};
+      \end{scope}
+
+      \path (A) edge[thick,dashed,bend right=15] (B);
+      \path (B) edge[thick,dashed,bend right=15] (C);
+      \path (A) edge[thick,dashed,bend left=15] (C);
+      \path (D) edge[thick,dashed,bend right=15] (E);
+      \path (F) edge[thick,dashed,bend right=15] (G);
+      \path (G) edge[thick,dashed,bend right=15] (H);
+      \path (F) edge[thick,dashed,bend left=15] (H);
+      \path (A) edge[thick,color=red,bend left=20] (C);
+      \path (C) edge[thick,color=red] (G);
+      \path (A) edge[thick,color=red,bend right=15] (G);
+      \path (B) edge[thick,color=blue] (D);
+      \path (D) edge[thick,color=blue,bend left=15] (F);
+      \path (B) edge[thick,color=blue] (F);
+      \path (E) edge[thick,color=green] (H);
+    \end{tikzpicture}
+  \end{figure}
 \end{frame}
 
 \begin{frame}{Goal of the Thesis}
