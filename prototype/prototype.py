@@ -32,29 +32,27 @@ class Peer:
 
     def handle_request(self, query_id):
         print('{}:{}: request for {} - '.format(self.env.now, self.peer_id,
-                                             query_id), end='')
-        if query_id in self.sync_peers:
-            peer = self.sync_peers[query_id]
-            print('found in sync peers')
-            return
-        for (prefix, query_peers) in self.query_peers.items():
-            # TODO Find the longest matching prefix, not just any.
-            if query_id.startswith(prefix):
-                for query_peer in query_peers:
-                    print('querying {} ... '.format(query_peer.peer_id), end='')
-                    peer = query_peer.query(query_id)
-                    if peer is None:
-                        print('failed')
-                    else:
-                        print('success')
-                        break
-                break
+                                                query_id), end='')
+        peer = self.query(query_id)
+        if peer is None:
+            print('failed')
         else:
-            print('no known peer with prefix matching {}'.format(query_id))
+            print('success')
 
     def query(self, query_id):
-        # TODO
-        return None
+        if query_id == self.peer_id:
+            return self
+        if query_id in self.sync_peers:
+            return self.sync_peers[query_id]
+        for (prefix, query_peers) in self.query_peers.items():
+            # TODO Start with the longest matching prefix, not just any.
+            if query_id.startswith(prefix):
+                for query_peer in query_peers:
+                    peer = query_peer.query(query_id)
+                    if peer is not None:
+                        return peer
+        else:
+            return None
 
 def request_generator(peers, peer):
     while True:
