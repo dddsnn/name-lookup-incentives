@@ -54,7 +54,7 @@ class Peer:
         else:
             return None
 
-def request_generator(peers, peer):
+def request_generator(env, peers, peer):
     while True:
         if len(peers) <= 1:
             break
@@ -75,7 +75,7 @@ if __name__ == '__main__':
             if peer_id not in peers:
                 peer = Peer(env, peer_id)
                 peers[peer_id] = peer
-                env.process(request_generator(peers, peer))
+                env.process(request_generator(env, peers, peer))
                 break
     for peer in peers.values():
         for other_peer in peers.values():
