@@ -2,6 +2,8 @@ import simpy
 import bitstring as bs
 import random
 
+TRANSMISSION_DELAY = 0.1
+
 class Peer:
     ID_LENGTH = 16
     MAX_QUERY_PEERS = 8
@@ -12,6 +14,7 @@ class Peer:
         self.prefix = self.peer_id[:2]
         self.query_peers = {}
         self.sync_peers = {}
+        self.pending_queries = {}
 
     def introduce(self, peer):
         if peer.peer_id == self.peer_id:
@@ -30,29 +33,111 @@ class Peer:
                     self.query_peers[subprefix] = [peer]
                 break
 
-    def handle_request(self, query_id):
-        print('{}:{}: request for {} - '.format(self.env.now, self.peer_id,
-                                                query_id), end='')
-        peer = self.query(query_id)
-        if peer is None:
-            print('failed')
-        else:
-            print('success')
+    def handle_request(self, queried_id):
+        print('{}: {}: request for {} - '.format(self.env.now, self.peer_id,
+                                                queried_id), end='')
+        if queried_id in self.pending_queries:
+            print('request for this ID is already pending')
+            return
+        if queried_id == self.peer_id:
+            print('request for own ID')
+            return
+        if queried_id in self.sync_peers:
+            print('found in sync peers')
+            return
+        print('sending query')
+        self.recv_query(self, queried_id)
 
-    def query(self, query_id):
-        if query_id == self.peer_id:
-            return self
-        if query_id in self.sync_peers:
-            return self.sync_peers[query_id]
+    def recv_query(self, querying_peer, queried_id):
+        if queried_id == self.peer_id:
+            self.env.schedule(SendResponse(self.env, self, querying_peer,
+                                           queried_id, self),
+                                           delay=TRANSMISSION_DELAY)
+            return
+        if queried_id in self.sync_peers:
+            queried_peer = self.sync_peers[queried_id]
+            self.env.schedule(SendResponse(self.env, self, querying_peer,
+                                           queried_id, queried_peer),
+                                           delay=TRANSMISSION_DELAY)
+            return
+        if queried_id in self.pending_queries:
+            # There already is a query for the ID in progress, just note to also
+            # send a resonse to this querying peer.
+            self.pending_queries[queried_id].querying_peers.add(querying_peer)
+            return
+        peers_to_query = []
         for (prefix, query_peers) in self.query_peers.items():
             # TODO Start with the longest matching prefix, not just any.
-            if query_id.startswith(prefix):
-                for query_peer in query_peers:
-                    peer = query_peer.query(query_id)
-                    if peer is not None:
-                        return peer
-        else:
-            return None
+            if queried_id.startswith(prefix):
+                peers_to_query.extend(query_peers)
+        self.pending_queries[queried_id] = PendingQuery(self.env.now,
+                                                      querying_peer)
+        self.env.schedule(SendQuery(self.env, self, peers_to_query.pop(0),
+                                    queried_id),
+                          delay=TRANSMISSION_DELAY)
+        # TODO Schedule a timeout in case the peer doesn't respond.
+        # TODO Send queries to multiple peers at once.
+
+    def recv_response(self, responding_peer, queried_id, queried_peer):
+        # TODO Check that the response is coming from the peer to whom the query
+        # was sent in the first place. This is important later on, when the
+        # correct peer needs to be credited.
+        pending_query = self.pending_queries.get(queried_id)
+        if pending_query is None:
+            return
+        if queried_peer is not None:
+            if self in pending_query.querying_peers:
+                pending_query.querying_peers.remove(self)
+                print(('{}: {}: successful response for query for {} from {}'
+                       ' after {}')
+                      .format(self.env.now, self.peer_id, queried_id,
+                              responding_peer.peer_id,
+                              self.env.now - pending_query.start_time))
+            for querying_peer in pending_query.querying_peers:
+                self.env.schedule(SendResponse(self.env, self, querying_peer,
+                                               queried_id, queried_peer),
+                                               delay=TRANSMISSION_DELAY)
+            del self.pending_queries[queried_id]
+            return
+        print('{}: {}: unsuccessful response for query for {} from {}'
+              .format(self.env.now, self.peer_id, queried_id,
+                      responding_peer.peer_id))
+        self.env.schedule(SendQuery(self.env, self,
+                                    pending_query.query_peers.pop(0),
+                                    queried_id),
+                          delay=TRANSMISSION_DELAY)
+
+class PendingQuery:
+    def __init__(self, start_time, querying_peer):
+        self.start_time = start_time
+        self.querying_peers = set((querying_peer,))
+        self.query_peers = []
+
+class SendQuery(simpy.events.Event):
+    def __init__(self, env, sender, recipient, queried_id):
+        super().__init__(env)
+        self.ok = True
+        self.sender = sender
+        self.recipient = recipient
+        self.queried_id = queried_id
+        self.callbacks.append(SendQuery.action)
+
+    def action(self):
+        self.recipient.recv_query(self.sender, self.queried_id)
+
+class SendResponse(simpy.events.Event):
+    def __init__(self, env, sender, recipient, queried_id, queried_peer):
+        super().__init__(env)
+        self.ok = True
+        self.sender = sender
+        self.recipient = recipient
+        self.queried_id = queried_id
+        self.queried_peer = queried_peer
+        self.callbacks.append(SendResponse.action)
+
+    def action(self):
+        self.recipient.recv_response(self.sender, self.queried_id,
+                                     self.queried_peer)
 
 def request_generator(env, peers, peer):
     while True:
