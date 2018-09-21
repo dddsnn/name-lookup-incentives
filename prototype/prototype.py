@@ -7,6 +7,7 @@ TRANSMISSION_DELAY = 0.1
 class Peer:
     ID_LENGTH = 16
     MAX_QUERY_PEERS = 8
+    QUERY_TIMEOUT = 2
 
     def __init__(self, env, peer_id):
         self.env = env
@@ -70,12 +71,18 @@ class Peer:
             # TODO Start with the longest matching prefix, not just any.
             if queried_id.startswith(prefix):
                 peers_to_query.extend(query_peers)
+        if len(peers_to_query) == 0:
+            print('{}: {}: query for {} impossible, no known peer closer to it'
+                  .format(self.env.now, self.peer_id, queried_id))
+            return
+        peer_to_query = peers_to_query.pop(0)
+        timeout_proc = self.env.process(self.query_timeout(peer_to_query,
+                                                           queried_id))
         self.pending_queries[queried_id] = PendingQuery(self.env.now,
-                                                      querying_peer)
-        self.env.schedule(SendQuery(self.env, self, peers_to_query.pop(0),
-                                    queried_id),
+                                                        querying_peer,
+                                                        timeout_proc)
+        self.env.schedule(SendQuery(self.env, self, peer_to_query, queried_id),
                           delay=TRANSMISSION_DELAY)
-        # TODO Schedule a timeout in case the peer doesn't respond.
         # TODO Send queries to multiple peers at once.
 
     def recv_response(self, responding_peer, queried_id, queried_peer):
@@ -85,6 +92,7 @@ class Peer:
         pending_query = self.pending_queries.get(queried_id)
         if pending_query is None:
             return
+        pending_query.timeout_proc.interrupt()
         if queried_peer is not None:
             if self in pending_query.querying_peers:
                 pending_query.querying_peers.remove(self)
@@ -97,20 +105,56 @@ class Peer:
                 self.env.schedule(SendResponse(self.env, self, querying_peer,
                                                queried_id, queried_peer),
                                                delay=TRANSMISSION_DELAY)
-            del self.pending_queries[queried_id]
+            self.pending_queries.pop(queried_id, None)
             return
-        print('{}: {}: unsuccessful response for query for {} from {}'
+        if len(pending_query.query_peers) == 0:
+            self.pending_queries.pop(queried_id, None)
+            print(('{}: {}: query for {} sent to {} unsuccessful: last known'
+                   ' peer didn\'t have the record')
+                  .format(self.env.now, self.peer_id, queried_id,
+                          responsing_peer.peer_id))
+            return
+        print(('{}: {}: unsuccessful response for query for {} from {}, trying'
+               ' next peer')
               .format(self.env.now, self.peer_id, queried_id,
                       responding_peer.peer_id))
-        self.env.schedule(SendQuery(self.env, self,
-                                    pending_query.query_peers.pop(0),
-                                    queried_id),
+        peer_to_query = pending_query.query_peers.pop(0)
+        timeout_proc = self.env.process(self.query_timeout(peer_to_query,
+                                                           queried_id))
+        pending_query.timeout_proc = timeout_proc
+        self.env.schedule(SendQuery(self.env, self, peer_to_query, queried_id),
+                          delay=TRANSMISSION_DELAY)
+
+    def query_timeout(self, recipient, queried_id):
+        try:
+            yield self.env.timeout(Peer.QUERY_TIMEOUT)
+        except simpy.Interrupt as e:
+            return
+        pending_query = self.pending_queries.get(queried_id)
+        if pending_query is None:
+            return
+        if len(pending_query.query_peers) == 0:
+            self.pending_queries.pop(queried_id, None)
+            print(('{}: {}: query for {} sent to {} unsuccessful: last known'
+                   ' peer timed out')
+                  .format(self.env.now, self.peer_id, queried_id,
+                          recipient.peer_id))
+            return
+        print('{}: {}: query for {} sent to {} timed out, trying next peer'
+              .format(self.env.now, self.peer_id, queried_id,
+                      recipient.peer_id))
+        peer_to_query = pending_query.query_peers.pop(0)
+        timeout_proc = self.env.process(self.query_timeout(peer_to_query,
+                                                           queried_id))
+        pending_query.timeout_proc = timeout_proc
+        self.env.schedule(SendQuery(self.env, self, peer_to_query, queried_id),
                           delay=TRANSMISSION_DELAY)
 
 class PendingQuery:
-    def __init__(self, start_time, querying_peer):
+    def __init__(self, start_time, querying_peer, timeout_proc):
         self.start_time = start_time
         self.querying_peers = set((querying_peer,))
+        self.timeout_proc = timeout_proc
         self.query_peers = []
 
 class SendQuery(simpy.events.Event):
