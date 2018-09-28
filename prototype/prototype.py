@@ -169,11 +169,13 @@ class Peer:
             self.pending_queries.pop(queried_id, None)
             return
         if len(pending_query.peers_to_query) == 0:
-            self.pending_queries.pop(queried_id, None)
             print(('{:.2f}: {}: query for {} sent to {} unsuccessful: last'
                    ' known peer didn\'t have the record')
                   .format(self.env.now, self.peer_id, queried_id,
                           responsing_peer.peer_id))
+            for querying_peer in pending_query.querying_peers:
+                self.send_response(querying_peer, queried_id, None)
+            self.pending_queries.pop(queried_id, None)
             return
         print(('{:.2f}: {}: unsuccessful response for query for {} from {},'
                ' trying next peer')
@@ -190,11 +192,13 @@ class Peer:
         if pending_query is None:
             return
         if len(pending_query.peers_to_query) == 0:
-            self.pending_queries.pop(queried_id, None)
             print(('{:.2f}: {}: query for {} sent to {} unsuccessful: last'
                    ' known peer timed out')
                   .format(self.env.now, self.peer_id, queried_id,
                           recipient.peer_id))
+            for querying_peer in pending_query.querying_peers:
+                self.send_response(querying_peer, queried_id, None)
+            self.pending_queries.pop(queried_id, None)
             return
         print('{:.2f}: {}: query for {} sent to {} timed out, trying next peer'
               .format(self.env.now, self.peer_id, queried_id,
