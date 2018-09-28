@@ -158,7 +158,7 @@ class Peer:
                                                delay=TRANSMISSION_DELAY)
             self.pending_queries.pop(queried_id, None)
             return
-        if len(pending_query.query_peers) == 0:
+        if len(pending_query.peers_to_query) == 0:
             self.pending_queries.pop(queried_id, None)
             print(('{:.2f}: {}: query for {} sent to {} unsuccessful: last'
                    ' known peer didn\'t have the record')
@@ -169,7 +169,7 @@ class Peer:
                ' trying next peer')
               .format(self.env.now, self.peer_id, queried_id,
                       responding_peer.peer_id))
-        peer_to_query = pending_query.query_peers.pop(0)
+        peer_to_query = pending_query.peers_to_query.pop(0)
         timeout_proc = self.env.process(self.query_timeout(peer_to_query,
                                                            queried_id))
         pending_query.timeout_proc = timeout_proc
@@ -184,7 +184,7 @@ class Peer:
         pending_query = self.pending_queries.get(queried_id)
         if pending_query is None:
             return
-        if len(pending_query.query_peers) == 0:
+        if len(pending_query.peers_to_query) == 0:
             self.pending_queries.pop(queried_id, None)
             print(('{:.2f}: {}: query for {} sent to {} unsuccessful: last'
                    ' known peer timed out')
@@ -194,7 +194,7 @@ class Peer:
         print('{:.2f}: {}: query for {} sent to {} timed out, trying next peer'
               .format(self.env.now, self.peer_id, queried_id,
                       recipient.peer_id))
-        peer_to_query = pending_query.query_peers.pop(0)
+        peer_to_query = pending_query.peers_to_query.pop(0)
         timeout_proc = self.env.process(self.query_timeout(peer_to_query,
                                                            queried_id))
         pending_query.timeout_proc = timeout_proc
@@ -206,7 +206,7 @@ class PendingQuery:
         self.start_time = start_time
         self.querying_peers = set((querying_peer,))
         self.timeout_proc = timeout_proc
-        self.query_peers = []
+        self.peers_to_query = []
 
 class SendQuery(simpy.events.Event):
     def __init__(self, env, sender, recipient, queried_id):
