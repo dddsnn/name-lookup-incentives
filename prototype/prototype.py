@@ -10,6 +10,7 @@ class QueryGroup:
 
 class Peer:
     ID_LENGTH = 16
+    PREFIX_LENGTH = 2
     MIN_DESIRED_QUERY_PEERS = 2
     MAX_DESIRED_GROUP_SIZE = 16
     QUERY_TIMEOUT = 2
@@ -17,7 +18,7 @@ class Peer:
     def __init__(self, env, peer_id):
         self.env = env
         self.peer_id = peer_id
-        self.prefix = self.peer_id[:2]
+        self.prefix = self.peer_id[:Peer.PREFIX_LENGTH]
         self.query_groups = set()
         self.sync_peers = {}
         self.pending_queries = {}
