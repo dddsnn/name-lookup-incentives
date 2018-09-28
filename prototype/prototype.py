@@ -4,35 +4,80 @@ import random
 
 TRANSMISSION_DELAY = 0.1
 
+class QueryGroup:
+    def __init__(self, members):
+        self.members = set(members)
+
 class Peer:
     ID_LENGTH = 16
-    MAX_QUERY_PEERS = 8
+    MIN_DESIRED_QUERY_PEERS = 2
+    MAX_DESIRED_GROUP_SIZE = 16
     QUERY_TIMEOUT = 2
 
     def __init__(self, env, peer_id):
         self.env = env
         self.peer_id = peer_id
         self.prefix = self.peer_id[:2]
-        self.query_peers = {}
+        self.query_groups = set()
         self.sync_peers = {}
         self.pending_queries = {}
 
+    # TODO Method to evaluate if there is at least one peer for every subprefix
+    # in the query groups. If not, query for peers with those prefixes (requires
+    # queries for partial IDs).
+
+    def knows(self, peer):
+        return (peer.peer_id == self.peer_id or peer.peer_id in self.sync_peers
+                or peer.peer_id in
+                    (i for g in peer.query_groups for i in g.members))
+
+    def join_group_with(self, peer):
+        # TODO Instead of just adding self or others to groups, send join
+        # requests or invites.
+        if len(peer.query_groups) > 0:
+            # TODO Pick the most useful out of these groups, not just any.
+            for query_group in peer.query_groups:
+                if len(query_group.members) < Peer.MAX_DESIRED_GROUP_SIZE:
+                    query_group.members.add(self)
+                    self.query_groups.add(query_group)
+                    break
+        else:
+            query_group = QueryGroup((self, peer))
+            self.query_groups.add(query_group)
+            peer.query_groups.add(query_group)
+
     def introduce(self, peer):
-        if peer.peer_id == self.peer_id:
+        if self.knows(peer):
             return
         if peer.peer_id.startswith(self.prefix):
             self.sync_peers[peer.peer_id] = peer
             return
-        for i in range(min(len(self.prefix), len(peer.prefix))):
-            if self.prefix[i] != peer.prefix[i]:
-                subprefix = peer.prefix[:i+1]
-                if peer.prefix in self.query_peers:
-                    existing_peers = self.query_peers[subprefix]
-                    if len(existing_peers) < Peer.MAX_QUERY_PEERS:
-                        existing_peers.append(peer)
-                else:
-                    self.query_peers[subprefix] = [peer]
-                break
+        for sp, count in self.subprefixes().items():
+            if (peer.prefix.startswith(sp)
+                    and count < Peer.MIN_DESIRED_QUERY_PEERS):
+                self.join_group_with(peer)
+
+    def subprefixes(self):
+        """
+        Map each subprefix to the number of known peers serving it.
+
+        A subprefix is a k-bit bitstring with k > 0, k <= len(self.prefix), in
+        which the first k-1 bits are equal to the first k-1 bits in self.prefix,
+        and the k-th bit is inverted.
+
+        The dictionary that is returned maps each of the possible
+        len(self.prefix) such subprefixes to the number of peers this peer knows
+        who can serve it.
+        """
+        # TODO Cache.
+        subprefixes = {}
+        for i in range(len(self.prefix)):
+            subprefixes[self.prefix[:i] + ~(self.prefix[i:i+1])] = set()
+        for query_peer in (p for g in self.query_groups for p in g.members):
+            for sp in subprefixes.keys():
+                if query_peer.prefix.startswith(sp):
+                    subprefixes[sp].add(query_peer)
+        return {sp: len(qps) for (sp, qps) in subprefixes.items()}
 
     def handle_request(self, queried_id):
         print('{:.2f}: {}: request for {} - '.format(self.env.now, self.peer_id,
@@ -66,11 +111,16 @@ class Peer:
             # send a resonse to this querying peer.
             self.pending_queries[queried_id].querying_peers.add(querying_peer)
             return
+        own_overlap = bit_overlap(self.prefix, queried_id)
         peers_to_query = []
-        for (prefix, query_peers) in self.query_peers.items():
-            # TODO Start with the longest matching prefix, not just any.
-            if queried_id.startswith(prefix):
-                peers_to_query.extend(query_peers)
+        for query_peer in (qp for qg in self.query_groups for qp in qg.members):
+            # TODO Range queries for performance.
+            if bit_overlap(query_peer.prefix, queried_id) > own_overlap:
+                peers_to_query.append(query_peer)
+        # TODO Instead of sorting for the longest prefix match, use a heap to
+        # begin with.
+        peers_to_query.sort(key=lambda p: bit_overlap(p.prefix, queried_id),
+                            reverse=True)
         if len(peers_to_query) == 0:
             print(('{:.2f}: {}: query for {} impossible, no known peer closer'
                    ' to it')
@@ -183,6 +233,11 @@ class SendResponse(simpy.events.Event):
     def action(self):
         self.recipient.recv_response(self.sender, self.queried_id,
                                      self.queried_peer)
+
+def bit_overlap(a, b):
+    """Calculate the number of bits at the start that are the same."""
+    m = min(len(a), len(b))
+    return len(next((a[:m] ^ b[:m]).split('0b1', count=1)))
 
 def request_generator(env, peers, peer):
     while True:
