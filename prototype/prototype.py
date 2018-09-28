@@ -256,6 +256,7 @@ def request_generator(env, peers, peer):
         yield env.timeout(1)
 
 if __name__ == '__main__':
+    random.seed(a=0, version=2)
     env = simpy.Environment()
     peers = {}
     for i in range(10):
