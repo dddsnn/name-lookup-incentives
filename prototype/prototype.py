@@ -3,10 +3,13 @@ import bitstring as bs
 import random
 
 TRANSMISSION_DELAY = 0.1
+SUCCESSFUL_QUERY_REWARD = 1
+FAILED_QUERY_PENALTY = -2
+TIMEOUT_QUERY_PENALTY = -2
 
 class QueryGroup:
     def __init__(self, members):
-        self.members = set(members)
+        self.members = {m: 0 for m in members}
 
 class Peer:
     ID_LENGTH = 16
@@ -30,7 +33,7 @@ class Peer:
     def knows(self, peer):
         return (peer.peer_id == self.peer_id or peer.peer_id in self.sync_peers
                 or peer.peer_id in
-                    (i for g in peer.query_groups for i in g.members))
+                    (i for g in peer.query_groups for i in g.members.keys()))
 
     def join_group_with(self, peer):
         # TODO Instead of just adding self or others to groups, send join
@@ -39,7 +42,7 @@ class Peer:
             # TODO Pick the most useful out of these groups, not just any.
             for query_group in peer.query_groups:
                 if len(query_group.members) < Peer.MAX_DESIRED_GROUP_SIZE:
-                    query_group.members.add(self)
+                    query_group.members[self] = 0
                     self.query_groups.add(query_group)
                     break
         else:
@@ -74,7 +77,8 @@ class Peer:
         subprefixes = {}
         for i in range(len(self.prefix)):
             subprefixes[self.prefix[:i] + ~(self.prefix[i:i+1])] = set()
-        for query_peer in (p for g in self.query_groups for p in g.members):
+        for query_peer in (p for g in self.query_groups
+                           for p in g.members.keys()):
             for sp in subprefixes.keys():
                 if query_peer.prefix.startswith(sp):
                     subprefixes[sp].add(query_peer)
@@ -173,7 +177,8 @@ class Peer:
     def act_query(self, querying_peer, queried_id):
         own_overlap = bit_overlap(self.prefix, queried_id)
         peers_to_query = []
-        for query_peer in (qp for qg in self.query_groups for qp in qg.members):
+        for query_peer in (qp for qg in self.query_groups
+                           for qp in qg.members.keys()):
             # TODO Range queries for performance.
             if bit_overlap(query_peer.prefix, queried_id) > own_overlap:
                 peers_to_query.append(query_peer)
@@ -190,7 +195,8 @@ class Peer:
                                      peers_to_query)
         self.pending_queries[queried_id] = pending_query
         self.send_query(queried_id, pending_query)
-        # TODO Send queries to multiple peers at once.
+        # TODO Send queries to multiple peers at once. Keep pending query around
+        # until all have answered or timed out, in order to credit them.
 
     def act_response_success(self, pending_query, responding_peer, queried_id,
                              queried_peer):
@@ -203,6 +209,11 @@ class Peer:
                           self.env.now - pending_query.start_time))
         for querying_peer in pending_query.querying_peers:
         self.pending_queries.pop(queried_id, None)
+        # TODO Maintain a map of all peers so we don't have to iterate over all
+        # groups.
+        for query_group in self.query_groups:
+            if responding_peer in query_group.members.keys():
+                query_group.members[responding_peer] += SUCCESSFUL_QUERY_REWARD
 
     def act_response_failure(self, pending_query, responding_peer, queried_id,
                              queried_peer):
@@ -212,6 +223,11 @@ class Peer:
                       responding_peer.peer_id))
         for querying_peer in pending_query.querying_peers:
             self.send_response(querying_peer, queried_id, None)
+        # TODO Maintain a map of all peers so we don't have to iterate over all
+        # groups.
+        for query_group in self.query_groups:
+            if responding_peer in query_group.members.keys():
+                query_group.members[responding_peer] += FAILED_QUERY_PENALTY
 
     def act_response_retry(self, pending_query, responding_peer, queried_id,
                            queried_peer):
@@ -220,6 +236,11 @@ class Peer:
               .format(self.env.now, self.peer_id, queried_id,
                       responding_peer.peer_id))
         self.send_query(queried_id, pending_query)
+        # TODO Maintain a map of all peers so we don't have to iterate over all
+        # groups.
+        for query_group in self.query_groups:
+            if responding_peer in query_group.members.keys():
+                query_group.members[responding_peer] += FAILED_QUERY_PENALTY
 
     def act_timeout_failure(self, pending_query, recipient, queried_id):
         print(('{:.2f}: {}: query for {} sent to {} unsuccessful: last'
@@ -228,12 +249,22 @@ class Peer:
                       recipient.peer_id))
         for querying_peer in pending_query.querying_peers:
             self.send_response(querying_peer, queried_id, None)
+        # TODO Maintain a map of all peers so we don't have to iterate over all
+        # groups.
+        for query_group in self.query_groups:
+            if recipient in query_group.members.keys():
+                query_group.members[recipient] += TIMEOUT_QUERY_PENALTY
 
     def act_timeout_retry(self, pending_query, recipient, queried_id):
         print('{:.2f}: {}: query for {} sent to {} timed out, trying next peer'
               .format(self.env.now, self.peer_id, queried_id,
                       recipient.peer_id))
         self.send_query(queried_id, pending_query)
+        # TODO Maintain a map of all peers so we don't have to iterate over all
+        # groups.
+        for query_group in self.query_groups:
+            if recipient in query_group.members.keys():
+                query_group.members[recipient] += TIMEOUT_QUERY_PENALTY
 
 class PendingQuery:
     def __init__(self, start_time, querying_peer, peers_to_query,
