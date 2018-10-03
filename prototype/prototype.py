@@ -17,6 +17,7 @@ class Peer:
     MIN_DESIRED_QUERY_PEERS = 2
     MAX_DESIRED_GROUP_SIZE = 16
     QUERY_TIMEOUT = 2
+    COMPLETED_QUERY_RETENTION_TIME = 100
 
     def __init__(self, env, peer_id):
         self.env = env
@@ -25,6 +26,7 @@ class Peer:
         self.query_groups = set()
         self.sync_peers = {}
         self.pending_queries = {}
+        self.completed_queries = {}
 
     # TODO Method to evaluate if there is at least one peer for every subprefix
     # in the query groups. If not, query for peers with those prefixes (requires
@@ -111,6 +113,7 @@ class Peer:
         timeout_proc = self.env.process(self.query_timeout(peer_to_query,
                                                            queried_id))
         pending_query.timeout_proc = timeout_proc
+        pending_query.queries_sent[peer_to_query] = self.env.now
         self.env.schedule(SendQuery(self.env, self, peer_to_query, queried_id),
                           delay=TRANSMISSION_DELAY)
 
@@ -133,25 +136,74 @@ class Peer:
         self.act_query(querying_peer, queried_id)
 
     def recv_response(self, responding_peer, queried_id, queried_peer):
-        # TODO Check that the response is coming from the peer to whom the query
-        # was sent in the first place. This is important later on, when the
-        # correct peer needs to be credited.
         pending_query = self.pending_queries.get(queried_id)
         if pending_query is None:
+            self.check_completed_queries(responding_peer, queried_id,
+                                         queried_peer)
+            return
+        if responding_peer not in pending_query.queries_sent:
+            self.check_completed_queries(responding_peer, queried_id,
+                                         queried_peer)
             return
         pending_query.timeout_proc.interrupt()
         if queried_peer is not None:
+            time_sent = pending_query.queries_sent.pop(responding_peer)
+            time_taken = self.env.now - time_sent
             self.act_response_success(pending_query, responding_peer,
-                                      queried_id, queried_peer)
+                                      queried_id, queried_peer, time_taken)
             self.pending_queries.pop(queried_id, None)
+            self.archive_completed_query(pending_query, queried_id)
             return
         if len(pending_query.peers_to_query) == 0:
             self.act_response_failure(pending_query, responding_peer,
-                                      queried_id, queried_peer)
+                                      queried_id)
             self.pending_queries.pop(queried_id, None)
+            self.archive_completed_query(pending_query, queried_id)
             return
-        self.act_response_retry(pending_query, responding_peer, queried_id,
-                                queried_peer)
+        self.act_response_retry(pending_query, responding_peer, queried_id)
+
+    def check_completed_queries(self, responding_peer, queried_id,
+                                queried_peer):
+        completed_queries = self.completed_queries.get(queried_id)
+        if completed_queries is None:
+            return
+        for i, pending_query in enumerate(completed_queries):
+            pending_query.queries_sent.pop(responding_peer, None)
+            if pending_query is None:
+                continue
+            if queried_peer is not None:
+                self.act_rep_success(responding_peer)
+            else:
+                self.act_rep_failure(responding_peer)
+            break
+        else:
+            return
+        if len(pending_query.queries_sent) == 0:
+            completed_queries.pop(i)
+        if len(completed_queries) == 0:
+            self.completed_queries.pop(queried_id, None)
+
+    def archive_completed_query(self, pending_query, queried_id):
+        if len(pending_query.queries_sent) == 0:
+            return
+        completed_queries = self.completed_queries.get(queried_id)
+        if completed_queries is not None:
+            completed_queries.append(pending_query)
+        else:
+            self.completed_queries[queried_id] = [pending_query]
+        self.env.process(self.remove_completed_query(pending_query, queried_id))
+
+    def remove_completed_query(self, pending_query, queried_id):
+        yield env.timeout(Peer.COMPLETED_QUERY_RETENTION_TIME)
+        completed_queries = self.completed_queries.get(queried_id)
+        if completed_queries is None:
+            return
+        try:
+            completed_queries.remove(pending_query)
+        except ValueError:
+            pass
+        if len(completed_queries) == 0:
+            self.completed_queries.pop(queried_id, None)
 
     def query_timeout(self, recipient, queried_id):
         try:
@@ -164,6 +216,7 @@ class Peer:
         if len(pending_query.peers_to_query) == 0:
             self.act_timeout_failure(pending_query, recipient, queried_id)
             self.pending_queries.pop(queried_id, None)
+            self.archive_completed_query(pending_query, queried_id)
             return
         self.act_timeout_retry(pending_query, recipient, queried_id)
 
@@ -199,48 +252,34 @@ class Peer:
         # until all have answered or timed out, in order to credit them.
 
     def act_response_success(self, pending_query, responding_peer, queried_id,
-                             queried_peer):
+                             queried_peer, time_taken):
         if self in pending_query.querying_peers:
             pending_query.querying_peers.remove(self)
             print(('{:.2f}: {}: successful response for query for {} from'
-                   ' {} after {:.2f}')
+                   ' {} after {:.2f}, total time {:.2f}')
                   .format(self.env.now, self.peer_id, queried_id,
-                          responding_peer.peer_id,
+                          responding_peer.peer_id, time_taken,
                           self.env.now - pending_query.start_time))
         for querying_peer in pending_query.querying_peers:
-        self.pending_queries.pop(queried_id, None)
-        # TODO Maintain a map of all peers so we don't have to iterate over all
-        # groups.
-        for query_group in self.query_groups:
-            if responding_peer in query_group.members.keys():
-                query_group.members[responding_peer] += SUCCESSFUL_QUERY_REWARD
+            self.send_response(querying_peer, queried_id, queried_peer)
+        self.act_rep_success(responding_peer)
 
-    def act_response_failure(self, pending_query, responding_peer, queried_id,
-                             queried_peer):
+    def act_response_failure(self, pending_query, responding_peer, queried_id):
         print(('{:.2f}: {}: query for {} sent to {} unsuccessful: last'
                ' known peer didn\'t have the record')
               .format(self.env.now, self.peer_id, queried_id,
                       responding_peer.peer_id))
         for querying_peer in pending_query.querying_peers:
             self.send_response(querying_peer, queried_id, None)
-        # TODO Maintain a map of all peers so we don't have to iterate over all
-        # groups.
-        for query_group in self.query_groups:
-            if responding_peer in query_group.members.keys():
-                query_group.members[responding_peer] += FAILED_QUERY_PENALTY
+        self.act_rep_failure(responding_peer)
 
-    def act_response_retry(self, pending_query, responding_peer, queried_id,
-                           queried_peer):
+    def act_response_retry(self, pending_query, responding_peer, queried_id):
         print(('{:.2f}: {}: unsuccessful response for query for {} from {},'
                ' trying next peer')
               .format(self.env.now, self.peer_id, queried_id,
                       responding_peer.peer_id))
         self.send_query(queried_id, pending_query)
-        # TODO Maintain a map of all peers so we don't have to iterate over all
-        # groups.
-        for query_group in self.query_groups:
-            if responding_peer in query_group.members.keys():
-                query_group.members[responding_peer] += FAILED_QUERY_PENALTY
+        self.act_rep_failure(responding_peer)
 
     def act_timeout_failure(self, pending_query, recipient, queried_id):
         print(('{:.2f}: {}: query for {} sent to {} unsuccessful: last'
@@ -249,22 +288,35 @@ class Peer:
                       recipient.peer_id))
         for querying_peer in pending_query.querying_peers:
             self.send_response(querying_peer, queried_id, None)
-        # TODO Maintain a map of all peers so we don't have to iterate over all
-        # groups.
-        for query_group in self.query_groups:
-            if recipient in query_group.members.keys():
-                query_group.members[recipient] += TIMEOUT_QUERY_PENALTY
+        self.act_rep_timeout(recipient)
 
     def act_timeout_retry(self, pending_query, recipient, queried_id):
         print('{:.2f}: {}: query for {} sent to {} timed out, trying next peer'
               .format(self.env.now, self.peer_id, queried_id,
                       recipient.peer_id))
         self.send_query(queried_id, pending_query)
+        self.act_rep_timeout(recipient)
+
+    def act_rep_success(self, peer):
         # TODO Maintain a map of all peers so we don't have to iterate over all
         # groups.
         for query_group in self.query_groups:
-            if recipient in query_group.members.keys():
-                query_group.members[recipient] += TIMEOUT_QUERY_PENALTY
+            if peer in query_group.members.keys():
+                query_group.members[peer] += SUCCESSFUL_QUERY_REWARD
+
+    def act_rep_failure(self, peer):
+        # TODO Maintain a map of all peers so we don't have to iterate over all
+        # groups.
+        for query_group in self.query_groups:
+            if peer in query_group.members.keys():
+                query_group.members[peer] += FAILED_QUERY_PENALTY
+
+    def act_rep_timeout(self, peer):
+        # TODO Maintain a map of all peers so we don't have to iterate over all
+        # groups.
+        for query_group in self.query_groups:
+            if peer in query_group.members.keys():
+                query_group.members[peer] += TIMEOUT_QUERY_PENALTY
 
 class PendingQuery:
     def __init__(self, start_time, querying_peer, peers_to_query,
@@ -273,6 +325,7 @@ class PendingQuery:
         self.querying_peers = set((querying_peer,))
         self.timeout_proc = timeout_proc
         self.peers_to_query = peers_to_query
+        self.queries_sent = {}
 
 class SendQuery(simpy.events.Event):
     def __init__(self, env, sender, recipient, queried_id):
