@@ -6,6 +6,8 @@ TRANSMISSION_DELAY = 0.1
 SUCCESSFUL_QUERY_REWARD = 1
 FAILED_QUERY_PENALTY = -2
 TIMEOUT_QUERY_PENALTY = -2
+DECAY_TIMESTEP = 1
+DECAY_PER_TIMESTEP = 0.1
 
 class QueryGroup:
     def __init__(self, members):
@@ -19,9 +21,10 @@ class Peer:
     QUERY_TIMEOUT = 2
     COMPLETED_QUERY_RETENTION_TIME = 100
 
-    def __init__(self, env, peer_id):
+    def __init__(self, env, peer_id, all_query_groups):
         self.env = env
         self.peer_id = peer_id
+        self.all_query_groups = all_query_groups
         self.prefix = self.peer_id[:Peer.PREFIX_LENGTH]
         self.query_groups = set()
         self.sync_peers = {}
@@ -49,6 +52,7 @@ class Peer:
                     break
         else:
             query_group = QueryGroup((self, peer))
+            self.all_query_groups.add(query_group)
             self.query_groups.add(query_group)
             peer.query_groups.add(query_group)
 
@@ -237,6 +241,8 @@ class Peer:
                 peers_to_query.append(query_peer)
         # TODO Instead of sorting for the longest prefix match, use a heap to
         # begin with.
+        # TODO Also consider reputation in the query group when selecting a peer
+        # to query.
         peers_to_query.sort(key=lambda p: bit_overlap(p.prefix, queried_id),
                             reverse=True)
         if len(peers_to_query) == 0:
@@ -369,20 +375,31 @@ def request_generator(env, peers, peer):
         peer.handle_request(query_peer_id)
         yield env.timeout(1)
 
+def decay_reputation(env, all_query_groups):
+    while True:
+        yield env.timeout(DECAY_TIMESTEP)
+        decay = DECAY_PER_TIMESTEP * DECAY_TIMESTEP
+        for query_group in all_query_groups:
+            query_group.members.update(
+                {p: min(0, r - decay) for p, r in query_group.members.items()}
+            )
+
 if __name__ == '__main__':
     random.seed(a=0, version=2)
     env = simpy.Environment()
     peers = {}
+    all_query_groups = set()
     for i in range(10):
         while True:
             peer_id_uint = random.randrange(2 ** Peer.ID_LENGTH)
             peer_id = bs.Bits(uint=peer_id_uint, length = Peer.ID_LENGTH)
             if peer_id not in peers:
-                peer = Peer(env, peer_id)
+                peer = Peer(env, peer_id, all_query_groups)
                 peers[peer_id] = peer
                 env.process(request_generator(env, peers, peer))
                 break
     for peer in peers.values():
         for other_peer in peers.values():
             peer.introduce(other_peer)
+    env.process(decay_reputation(env, all_query_groups))
     env.run(until=float('inf'))
