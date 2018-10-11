@@ -1,6 +1,7 @@
 import simpy
 import bitstring as bs
 import random
+from functools import partial
 
 TRANSMISSION_DELAY = 0.1
 SUCCESSFUL_QUERY_REWARD = 1
@@ -30,6 +31,20 @@ class Peer:
         self.sync_peers = {}
         self.pending_queries = {}
         self.completed_queries = {}
+
+        self.act_query_self = partial(self.act_query_self_default)
+        self.act_query_sync = partial(self.act_query_sync_default)
+        self.act_query = partial(self.act_query_default)
+        self.act_response_success = partial(self.act_response_success_default)
+        self.act_response_failure = partial(self.act_response_failure_default)
+        self.act_response_retry = partial(self.act_response_retry_default)
+        self.act_timeout_failure = partial(self.act_timeout_failure_default)
+        self.act_timeout_retry = partial(self.act_timeout_retry_default)
+        self.act_rep_success = partial(self.act_rep_success_default)
+        self.act_rep_failure = partial(self.act_rep_failure_default)
+        self.act_rep_timeout = partial(self.act_rep_timeout_default)
+        self.act_decide_delay = partial(self.act_decide_delay_default)
+        self.act_expect_delay = partial(self.act_decide_delay_default)
 
     # TODO Method to evaluate if there is at least one peer for every subprefix
     # in the query groups. If not, query for peers with those prefixes (requires
@@ -240,16 +255,16 @@ class Peer:
         """
         return (p for g in self.query_groups for p in g.members.keys())
 
-    def act_query_self(self, querying_peer):
+    def act_query_self_default(self, querying_peer):
         delay = self.act_decide_delay(querying_peer)
         self.send_response(querying_peer, self.peer_id, self, delay=delay)
 
-    def act_query_sync(self, querying_peer, queried_id):
+    def act_query_sync_default(self, querying_peer, queried_id):
         queried_peer = self.sync_peers[queried_id]
         delay = self.act_decide_delay(querying_peer)
         self.send_response(querying_peer, queried_id, queried_peer, delay=delay)
 
-    def act_query(self, querying_peer, queried_id):
+    def act_query_default(self, querying_peer, queried_id):
         own_overlap = bit_overlap(self.prefix, queried_id)
         peers_to_query = []
         for query_peer in set(self.known_query_peers()):
@@ -274,8 +289,8 @@ class Peer:
         # TODO Send queries to multiple peers at once. Keep pending query around
         # until all have answered or timed out, in order to credit them.
 
-    def act_response_success(self, pending_query, responding_peer, queried_id,
-                             queried_peer, time_taken):
+    def act_response_success_default(self, pending_query, responding_peer,
+                                     queried_id, queried_peer, time_taken):
         if self in pending_query.querying_peers:
             pending_query.querying_peers.remove(self)
             print(('{:.2f}: {}: successful response for query for {} from'
@@ -289,7 +304,8 @@ class Peer:
                                delay=delay)
         self.act_rep_success(responding_peer)
 
-    def act_response_failure(self, pending_query, responding_peer, queried_id):
+    def act_response_failure_default(self, pending_query, responding_peer,
+                                     queried_id):
         print(('{:.2f}: {}: query for {} sent to {} unsuccessful: last'
                ' known peer didn\'t have the record')
               .format(self.env.now, self.peer_id, queried_id,
@@ -299,7 +315,8 @@ class Peer:
             self.send_response(querying_peer, queried_id, None, delay=delay)
         self.act_rep_failure(responding_peer)
 
-    def act_response_retry(self, pending_query, responding_peer, queried_id):
+    def act_response_retry_default(self, pending_query, responding_peer,
+                                   queried_id):
         print(('{:.2f}: {}: unsuccessful response for query for {} from {},'
                ' trying next peer')
               .format(self.env.now, self.peer_id, queried_id,
@@ -307,7 +324,7 @@ class Peer:
         self.send_query(queried_id, pending_query)
         self.act_rep_failure(responding_peer)
 
-    def act_timeout_failure(self, pending_query, recipient, queried_id):
+    def act_timeout_failure_default(self, pending_query, recipient, queried_id):
         print(('{:.2f}: {}: query for {} sent to {} unsuccessful: last'
                ' known peer timed out')
               .format(self.env.now, self.peer_id, queried_id,
@@ -317,31 +334,33 @@ class Peer:
             self.send_response(querying_peer, queried_id, None, delay=delay)
         self.act_rep_timeout(recipient)
 
-    def act_timeout_retry(self, pending_query, recipient, queried_id):
+    def act_timeout_retry_default(self, pending_query, recipient, queried_id):
         print('{:.2f}: {}: query for {} sent to {} timed out, trying next peer'
               .format(self.env.now, self.peer_id, queried_id,
                       recipient.peer_id))
         self.send_query(queried_id, pending_query)
         self.act_rep_timeout(recipient)
 
-    def act_rep_success(self, peer):
+    # TODO Don't allow negative reputation.
+
+    def act_rep_success_default(self, peer):
         for query_group in self.peer_query_groups(peer):
             query_group.members[peer] += SUCCESSFUL_QUERY_REWARD
 
-    def act_rep_failure(self, peer):
+    def act_rep_failure_default(self, peer):
         for query_group in self.peer_query_groups(peer):
             query_group.members[peer] += FAILED_QUERY_PENALTY
 
-    def act_rep_timeout(self, peer):
+    def act_rep_timeout_default(self, peer):
         for query_group in self.peer_query_groups(peer):
             query_group.members[peer] += TIMEOUT_QUERY_PENALTY
 
-    def act_decide_delay(self, querying_peer):
+    def act_decide_delay_default(self, querying_peer):
         max_rep = max(g.members[querying_peer]
                       for g in self.peer_query_groups(querying_peer))
         return min(max(10 - max_rep, 0), 10)
 
-    def act_expect_delay(self, peer_to_query):
+    def act_expect_delay_default(self, peer_to_query):
         max_rep = max(g.members[self] for g in self.peer_query_groups(self))
         return min(max(10 - max_rep, 0), 10)
 
