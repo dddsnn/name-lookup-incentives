@@ -472,7 +472,7 @@ if __name__ == '__main__':
     env = simpy.Environment()
     peers = {}
     all_query_groups = set()
-    for i in range(10):
+    for i in range(64):
         while True:
             peer_id_uint = random.randrange(2 ** Peer.ID_LENGTH)
             peer_id = bs.Bits(uint=peer_id_uint, length = Peer.ID_LENGTH)
@@ -482,7 +482,7 @@ if __name__ == '__main__':
                 env.process(request_generator(env, peers, peer))
                 break
     for peer in peers.values():
-        for other_peer in peers.values():
+        for other_peer in random.sample(list(peers.values()), 8):
             peer.introduce(other_peer)
     env.process(decay_reputation(env, all_query_groups))
     env.run(until=float('inf'))
