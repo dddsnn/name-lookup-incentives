@@ -107,15 +107,21 @@ class Peer:
     def handle_request(self, queried_id):
         print('{:.2f}: {}: request for {} - '.format(self.env.now, self.peer_id,
                                                      queried_id), end='')
-        if queried_id in self.pending_queries:
-            print('request for this ID is already pending')
-            return
+        for pending_queried_id in self.pending_queries:
+            if pending_queried_id.startswith(queried_id):
+                print('request for matching ID {} is already pending'
+                      .format(pending_queried_id))
+                return
         if queried_id == self.peer_id:
             print('request for own ID')
             return
-        if queried_id in self.sync_peers:
-            print('found in sync peers')
-            return
+        for sync_peer_id in self.sync_peers:
+            if sync_peer_id.startswith(queried_id):
+                # TODO Actually send query in case queried_id is a prefix. This
+                # behavior is useless for the purpose of finding more sync
+                # peers.
+                print('found matching ID {} in sync peers'.format(sync_peer_id))
+                return
         print('sending query')
         self.recv_query(self, queried_id)
 
@@ -135,27 +141,40 @@ class Peer:
         self.env.schedule(SendQuery(self.env, self, peer_to_query, queried_id),
                           delay=TRANSMISSION_DELAY)
 
-    def send_response(self, recipient, queried_id, queried_peer, delay=0):
+    def send_response(self, recipient, queried_ids, queried_peer, delay=0):
         delay += TRANSMISSION_DELAY
-        self.env.schedule(SendResponse(self.env, self, recipient, queried_id,
+        self.env.schedule(SendResponse(self.env, self, recipient, queried_ids,
                                        queried_peer), delay=delay)
 
     def recv_query(self, querying_peer, queried_id):
-        if queried_id == self.peer_id:
-            self.act_query_self(querying_peer)
+        # TODO In case of a query for a partial ID, randomize which peer is
+        # returned.
+        if self.peer_id.startswith(queried_id):
+            self.act_query_self(querying_peer, queried_id)
             return
-        if queried_id in self.sync_peers:
-            self.act_query_sync(querying_peer, queried_id)
-            return
-        if queried_id in self.pending_queries:
-            # There already is a query for the ID in progress, just note to also
-            # send a resonse to this querying peer.
-            self.pending_queries[queried_id].querying_peers.add(querying_peer)
-            return
+        for sync_peer_id, sync_peer in self.sync_peers.items():
+            if sync_peer_id.startswith(queried_id):
+                self.act_query_sync(querying_peer, queried_id, sync_peer)
+                return
+        for pending_query_id, pending_query in self.pending_queries.items():
+            if pending_query_id.startswith(queried_id):
+                # There already is a query for a fitting ID in progress, just
+                # note to also send a resonse to this querying peer.
+                pending_query.querying_peers.setdefault(querying_peer,
+                    set()).add(queried_id)
+                return
         self.act_query(querying_peer, queried_id)
 
-    def recv_response(self, responding_peer, queried_id, queried_peer):
-        pending_query = self.pending_queries.get(queried_id)
+    def recv_response(self, responding_peer, queried_ids, queried_peer):
+        for queried_id in queried_ids:
+            pending_query = self.pending_queries.get(queried_id)
+            if pending_query is not None:
+                break
+        for qid in queried_ids:
+            # Only one of the queried IDs for which we receive a response should
+            # have a pending query on record (namely the longest one). The other
+            # IDs should be part of that record, but not the key for it.
+            assert qid == queried_id or qid not in self.pending_queries
         if pending_query is None:
             self.check_completed_queries(responding_peer, queried_id,
                                          queried_peer)
@@ -255,14 +274,14 @@ class Peer:
         """
         return (p for g in self.query_groups for p in g.members.keys())
 
-    def act_query_self_default(self, querying_peer):
+    def act_query_self_default(self, querying_peer, queried_id):
         delay = self.act_decide_delay(querying_peer)
-        self.send_response(querying_peer, self.peer_id, self, delay=delay)
+        self.send_response(querying_peer, set((queried_id,)), self, delay=delay)
 
-    def act_query_sync_default(self, querying_peer, queried_id):
-        queried_peer = self.sync_peers[queried_id]
+    def act_query_sync_default(self, querying_peer, queried_id, sync_peer):
         delay = self.act_decide_delay(querying_peer)
-        self.send_response(querying_peer, queried_id, queried_peer, delay=delay)
+        self.send_response(querying_peer, set((queried_id,)), sync_peer,
+                           delay=delay)
 
     def act_query_default(self, querying_peer, queried_id):
         own_overlap = bit_overlap(self.prefix, queried_id)
@@ -282,62 +301,79 @@ class Peer:
                    ' to it')
                   .format(self.env.now, self.peer_id, queried_id))
             return
-        pending_query = PendingQuery(self.env.now, querying_peer,
+        pending_query = PendingQuery(self.env.now, querying_peer, queried_id,
                                      peers_to_query)
         self.pending_queries[queried_id] = pending_query
         self.send_query(queried_id, pending_query)
-        # TODO Send queries to multiple peers at once. Keep pending query around
-        # until all have answered or timed out, in order to credit them.
+        # TODO Send queries to multiple peers at once.
 
     def act_response_success_default(self, pending_query, responding_peer,
                                      queried_id, queried_peer, time_taken):
-        if self in pending_query.querying_peers:
-            pending_query.querying_peers.remove(self)
+        queried_ids = pending_query.querying_peers.pop(self, None)
+        if queried_ids is not None:
             print(('{:.2f}: {}: successful response for query for {} from'
                    ' {} after {:.2f}, total time {:.2f}')
-                  .format(self.env.now, self.peer_id, queried_id,
+                  .format(self.env.now, self.peer_id,
+                          format_ids(queried_id, queried_ids),
                           responding_peer.peer_id, time_taken,
                           self.env.now - pending_query.start_time))
-        for querying_peer in pending_query.querying_peers:
+        for querying_peer, queried_ids in pending_query.querying_peers.items():
             delay = self.act_decide_delay(querying_peer)
-            self.send_response(querying_peer, queried_id, queried_peer,
+            self.send_response(querying_peer, queried_ids, queried_peer,
                                delay=delay)
         self.act_rep_success(responding_peer)
 
     def act_response_failure_default(self, pending_query, responding_peer,
                                      queried_id):
-        print(('{:.2f}: {}: query for {} sent to {} unsuccessful: last'
-               ' known peer didn\'t have the record')
-              .format(self.env.now, self.peer_id, queried_id,
-                      responding_peer.peer_id))
-        for querying_peer in pending_query.querying_peers:
+        queried_ids = pending_query.querying_peers.get(self)
+        if queried_ids is not None:
+            queried_ids = pending_query.querying_peers[self]
+            print(('{:.2f}: {}: unsuccessful query for {} last sent to {}:'
+                   ' unsuccessful response from last known peer')
+                  .format(self.env.now, self.peer_id,
+                          format_ids(queried_id, queried_ids),
+                          responding_peer.peer_id))
+        for querying_peer, queried_ids in pending_query.querying_peers.items():
             delay = self.act_decide_delay(querying_peer)
-            self.send_response(querying_peer, queried_id, None, delay=delay)
+            self.send_response(querying_peer, queried_ids, None, delay=delay)
         self.act_rep_failure(responding_peer)
 
     def act_response_retry_default(self, pending_query, responding_peer,
                                    queried_id):
-        print(('{:.2f}: {}: unsuccessful response for query for {} from {},'
-               ' trying next peer')
-              .format(self.env.now, self.peer_id, queried_id,
-                      responding_peer.peer_id))
+        queried_ids = pending_query.querying_peers.get(self)
+        if queried_ids is not None:
+            queried_ids = pending_query.querying_peers[self]
+            print(('{:.2f}: {}: unsuccessful response for query for {} from {},'
+                   ' trying next peer')
+                  .format(self.env.now, self.peer_id, format_ids(queried_id,
+                                                                 queried_ids),
+                          responding_peer.peer_id))
         self.send_query(queried_id, pending_query)
         self.act_rep_failure(responding_peer)
 
     def act_timeout_failure_default(self, pending_query, recipient, queried_id):
-        print(('{:.2f}: {}: query for {} sent to {} unsuccessful: last'
-               ' known peer timed out')
-              .format(self.env.now, self.peer_id, queried_id,
-                      recipient.peer_id))
-        for querying_peer in pending_query.querying_peers:
+        queried_ids = pending_query.querying_peers.get(self)
+        if queried_ids is not None:
+            queried_ids = pending_query.querying_peers[self]
+            print(('{:.2f}: {}: unsuccessful query for {} last sent to {}:'
+                   ' last known peer timed out')
+                  .format(self.env.now, self.peer_id,
+                          format_ids(queried_id, queried_ids),
+                          recipient.peer_id))
+        for querying_peer, queried_ids in pending_query.querying_peers.items():
             delay = self.act_decide_delay(querying_peer)
-            self.send_response(querying_peer, queried_id, None, delay=delay)
+            self.send_response(querying_peer, queried_ids, None, delay=delay)
         self.act_rep_timeout(recipient)
 
     def act_timeout_retry_default(self, pending_query, recipient, queried_id):
-        print('{:.2f}: {}: query for {} sent to {} timed out, trying next peer'
-              .format(self.env.now, self.peer_id, queried_id,
-                      recipient.peer_id))
+        queried_ids = pending_query.querying_peers.get(self)
+        if queried_ids is not None:
+            queried_ids = pending_query.querying_peers[self]
+            print('{:.2f}: {}: timed out response for query for {} sent to {},'
+                  ' trying next peer'
+                  .format(self.env.now, self.peer_id,
+                          format_ids(queried_id, queried_ids),
+                          recipient.peer_id))
         self.send_query(queried_id, pending_query)
         self.act_rep_timeout(recipient)
 
@@ -365,10 +401,10 @@ class Peer:
         return min(max(10 - max_rep, 0), 10)
 
 class PendingQuery:
-    def __init__(self, start_time, querying_peer, peers_to_query,
+    def __init__(self, start_time, querying_peer, queried_id, peers_to_query,
                  timeout_proc=None):
         self.start_time = start_time
-        self.querying_peers = set((querying_peer,))
+        self.querying_peers = {querying_peer: set((queried_id,))}
         self.timeout_proc = timeout_proc
         self.peers_to_query = peers_to_query
         self.queries_sent = {}
@@ -386,17 +422,17 @@ class SendQuery(simpy.events.Event):
         self.recipient.recv_query(self.sender, self.queried_id)
 
 class SendResponse(simpy.events.Event):
-    def __init__(self, env, sender, recipient, queried_id, queried_peer):
+    def __init__(self, env, sender, recipient, queried_ids, queried_peer):
         super().__init__(env)
         self.ok = True
         self.sender = sender
         self.recipient = recipient
-        self.queried_id = queried_id
+        self.queried_ids = queried_ids
         self.queried_peer = queried_peer
         self.callbacks.append(SendResponse.action)
 
     def action(self):
-        self.recipient.recv_response(self.sender, self.queried_id,
+        self.recipient.recv_response(self.sender, self.queried_ids,
                                      self.queried_peer)
 
 def bit_overlap(a, b):
@@ -423,6 +459,13 @@ def decay_reputation(env, all_query_groups):
             query_group.members.update(
                 {p: min(0, r - decay) for p, r in query_group.members.items()}
             )
+
+def format_ids(queried_id, queried_ids):
+    """Pretty-print an ID and set of prefixes."""
+    s = str(queried_id)
+    if len(queried_ids) > 1:
+        s += ' ({' + ', '.join((str(qid) for qid in queried_ids)) + '})'
+    return s
 
 if __name__ == '__main__':
     random.seed(a=0, version=2)
