@@ -16,7 +16,7 @@ class QueryGroup:
 
 class Peer:
     ID_LENGTH = 16
-    PREFIX_LENGTH = 2
+    PREFIX_LENGTH = 4
     MIN_DESIRED_QUERY_PEERS = 2
     MAX_DESIRED_GROUP_SIZE = 16
     QUERY_TIMEOUT = 2
@@ -471,6 +471,7 @@ if __name__ == '__main__':
     random.seed(a=0, version=2)
     env = simpy.Environment()
     peers = {}
+    sync_groups = {}
     all_query_groups = set()
     for i in range(64):
         while True:
@@ -479,8 +480,14 @@ if __name__ == '__main__':
             if peer_id not in peers:
                 peer = Peer(env, peer_id, all_query_groups)
                 peers[peer_id] = peer
+                sync_groups.setdefault(peer_id[:Peer.PREFIX_LENGTH],
+                                           set()).add(peer)
                 env.process(request_generator(env, peers, peer))
                 break
+    for sync_group in sync_groups.values():
+        for peer in sync_group:
+            for other_peer in (p for p in sync_group if p != peer):
+                peer.introduce(other_peer)
     for peer in peers.values():
         for other_peer in random.sample(list(peers.values()), 8):
             peer.introduce(other_peer)
