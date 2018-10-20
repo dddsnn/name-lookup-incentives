@@ -64,18 +64,25 @@ class Peer:
     def join_group_with(self, peer):
         # TODO Instead of just adding self or others to groups, send join
         # requests or invites.
-        if len(peer.query_groups) > 0:
+        # Attempt to join one of the peer's groups.
+        for query_group in peer.query_groups:
             # TODO Pick the most useful out of these groups, not just any.
-            for query_group in peer.query_groups:
-                if len(query_group.members) < Peer.MAX_DESIRED_GROUP_SIZE:
-                    query_group.members[self] = 0
-                    self.query_groups.add(query_group)
-                    break
-        else:
-            query_group = QueryGroup((self, peer))
-            self.all_query_groups.add(query_group)
-            self.query_groups.add(query_group)
-            peer.query_groups.add(query_group)
+            if len(query_group.members) < Peer.MAX_DESIRED_GROUP_SIZE:
+                query_group.members[self] = 0
+                self.query_groups.add(query_group)
+                return
+        # Attempt to add the peer to one of my groups.
+        for query_group in self.query_groups:
+            # TODO Pick the most useful out of these groups, not just any.
+            if len(query_group.members) < Peer.MAX_DESIRED_GROUP_SIZE:
+                query_group.members[peer] = 0
+                peer.query_groups.add(query_group)
+                return
+        # Create a new query group.
+        query_group = QueryGroup((self, peer))
+        self.all_query_groups.add(query_group)
+        self.query_groups.add(query_group)
+        peer.query_groups.add(query_group)
 
     def introduce(self, peer):
         if self.knows(peer):
