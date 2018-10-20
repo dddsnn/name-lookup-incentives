@@ -2,6 +2,7 @@ import simpy
 import bitstring as bs
 import random
 from functools import partial
+import networkx as nx
 
 TRANSMISSION_DELAY = 0.1
 SUCCESSFUL_QUERY_REWARD = 1
@@ -22,15 +23,20 @@ class Peer:
     QUERY_TIMEOUT = 2
     COMPLETED_QUERY_RETENTION_TIME = 100
 
-    def __init__(self, env, peer_id, all_query_groups):
+    def __init__(self, env, peer_id, all_query_groups, peer_graph):
         self.env = env
         self.peer_id = peer_id
         self.all_query_groups = all_query_groups
+        self.peer_graph = peer_graph
         self.prefix = self.peer_id[:Peer.PREFIX_LENGTH]
         self.query_groups = set()
         self.sync_peers = {}
         self.pending_queries = {}
         self.completed_queries = {}
+
+        # Add self-loop to the peer graph so that networkx considers the node
+        # for this peer a component.
+        self.peer_graph.add_edge(self, self)
 
         self.act_query_self = partial(self.act_query_self_default)
         self.act_query_sync = partial(self.act_query_sync_default)
@@ -76,11 +82,13 @@ class Peer:
             return
         if peer.peer_id.startswith(self.prefix):
             self.sync_peers[peer.peer_id] = peer
+            self.peer_graph.add_edge(self, peer)
             return
         for sp, count in self.subprefixes().items():
             if (peer.prefix.startswith(sp)
                     and count < Peer.MIN_DESIRED_QUERY_PEERS):
                 self.join_group_with(peer)
+                self.peer_graph.add_edge(self, peer)
 
     def subprefixes(self):
         """
@@ -473,23 +481,43 @@ if __name__ == '__main__':
     peers = {}
     sync_groups = {}
     all_query_groups = set()
+    peer_graph = nx.DiGraph()
     for i in range(64):
         while True:
             peer_id_uint = random.randrange(2 ** Peer.ID_LENGTH)
             peer_id = bs.Bits(uint=peer_id_uint, length = Peer.ID_LENGTH)
             if peer_id not in peers:
-                peer = Peer(env, peer_id, all_query_groups)
+                peer = Peer(env, peer_id, all_query_groups, peer_graph)
                 peers[peer_id] = peer
                 sync_groups.setdefault(peer_id[:Peer.PREFIX_LENGTH],
-                                           set()).add(peer)
+                                       set()).add(peer)
                 env.process(request_generator(env, peers, peer))
                 break
     for sync_group in sync_groups.values():
         for peer in sync_group:
-            for other_peer in (p for p in sync_group if p != peer):
+            for other_peer in sync_group:
                 peer.introduce(other_peer)
     for peer in peers.values():
         for other_peer in random.sample(list(peers.values()), 8):
             peer.introduce(other_peer)
+
+    print('sync groups (prefix: {peers}):')
+    for pr, sg in sorted(sync_groups.items(), key=lambda t: t[0].uint):
+        print('{}: {{{}}}'.format(pr, ', '.join(str(p.peer_id) for p in sg)))
+    print()
+    print('query_groups:')
+    for query_group in all_query_groups:
+        print('{{{}}}'.format(', '.join(str(p.peer_id)
+                                        for p in query_group.members)))
+    print()
+    print('strongly connected components:')
+    from networkx import strongly_connected_components as scc
+    for i, comp in enumerate((peer_graph.subgraph(c) for c in scc(peer_graph))):
+        print('component {}: {} nodes, diameter {}, degree histogram: {}'
+              .format(i, nx.number_of_nodes(comp), nx.diameter(comp),
+                       nx.degree_histogram(comp)))
+    print()
+
+    print('starting simulation')
     env.process(decay_reputation(env, all_query_groups))
     env.run(until=float('inf'))
