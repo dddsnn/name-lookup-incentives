@@ -510,7 +510,8 @@ if __name__ == '__main__':
 
     print('sync groups (prefix: {peers}):')
     for pr, sg in sorted(sync_groups.items(), key=lambda t: t[0].uint):
-        print('{}: {{{}}}'.format(pr, ', '.join(str(p.peer_id) for p in sg)))
+        print('{}: {{{}}}'.format(pr.bin,
+                                  ', '.join(str(p.peer_id) for p in sg)))
     print()
     print('query_groups:')
     for query_group in all_query_groups:
@@ -524,7 +525,7 @@ if __name__ == '__main__':
             any_missing = True
             missing = set(sp for sp, c in peer.subprefixes().items() if c == 0)
             print('{}: missing prefixes {{{}}}'
-                  .format(peer.peer_id, ', '.join((str(i) for i in missing))))
+                  .format(peer.peer_id, ', '.join((i.bin for i in missing))))
     if not any_missing:
         print('none')
     print()
