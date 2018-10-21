@@ -517,6 +517,17 @@ if __name__ == '__main__':
         print('{{{}}}'.format(', '.join(str(p.peer_id)
                                         for p in query_group.members)))
     print()
+    print('missing subprefix coverage per peer:')
+    any_missing = False
+    for peer in sorted(peers.values(), key=lambda p: p.peer_id.uint):
+        if any(n == 0 for n in peer.subprefixes().values()):
+            any_missing = True
+            missing = set(sp for sp, c in peer.subprefixes().items() if c == 0)
+            print('{}: missing prefixes {{{}}}'
+                  .format(peer.peer_id, ', '.join((str(i) for i in missing))))
+    if not any_missing:
+        print('none')
+    print()
     print('strongly connected components:')
     from networkx import strongly_connected_components as scc
     for i, comp in enumerate((peer_graph.subgraph(c) for c in scc(peer_graph))):
