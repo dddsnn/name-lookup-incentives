@@ -52,10 +52,6 @@ class Peer:
         self.act_decide_delay = partial(self.act_decide_delay_default)
         self.act_expect_delay = partial(self.act_decide_delay_default)
 
-    # TODO Method to evaluate if there is at least one peer for every subprefix
-    # in the query groups. If not, query for peers with those prefixes (requires
-    # queries for partial IDs).
-
     def knows(self, peer):
         return (peer.peer_id == self.peer_id or peer.peer_id in self.sync_peers
                 or peer.peer_id in
@@ -83,6 +79,18 @@ class Peer:
         self.all_query_groups.add(query_group)
         self.query_groups.add(query_group)
         peer.query_groups.add(query_group)
+
+    def find_missing_query_peers(self):
+        """
+        Find peers to cover prefixes for which there are no known peers.
+
+        It's not enough in this case to simply query for a prefix, because there
+        may not be any known peer closer to it. Instead, all peers are queried
+        by calling act_query() directly with query_all set to True. This way,
+        sync peers will be queried as well.
+        """
+        for subprefix in (sp for sp, c in self.subprefixes().items() if c == 0):
+            self.act_query(self, subprefix, True)
 
     def introduce(self, peer):
         if self.knows(peer):
@@ -206,6 +214,7 @@ class Peer:
                                       queried_id, queried_peer, time_taken)
             self.pending_queries.pop(queried_id, None)
             self.archive_completed_query(pending_query, queried_id)
+            self.introduce(queried_peer)
             return
         if len(pending_query.peers_to_query) == 0:
             self.act_response_failure(pending_query, responding_peer,
@@ -289,16 +298,17 @@ class Peer:
         """
         return (p for g in self.query_groups for p in g.members.keys())
 
-    def act_query_self_default(self, querying_peer, queried_id):
-        delay = self.act_decide_delay(querying_peer)
-        self.send_response(querying_peer, set((queried_id,)), self, delay=delay)
+    def select_peers_to_query(self, queried_id):
+        """
+        List peers to send a query to.
 
-    def act_query_sync_default(self, querying_peer, queried_id, sync_peer):
-        delay = self.act_decide_delay(querying_peer)
-        self.send_response(querying_peer, set((queried_id,)), sync_peer,
-                           delay=delay)
+        Creates a list containing all peers that should be queried for the given
+        ID. These are all known peers who are closer to that ID, i.e. whose
+        bit_overlap() is larger than for this peer.
 
-    def act_query_default(self, querying_peer, queried_id):
+        The list is sorted by the overlap, with the largest, i.e. the closest to
+        the ID (and thus most useful) first.
+        """
         own_overlap = bit_overlap(self.prefix, queried_id)
         peers_to_query = []
         for query_peer in set(self.known_query_peers()):
@@ -311,6 +321,38 @@ class Peer:
         # to query.
         peers_to_query.sort(key=lambda p: bit_overlap(p.prefix, queried_id),
                             reverse=True)
+        return peers_to_query
+
+    def act_query_self_default(self, querying_peer, queried_id):
+        delay = self.act_decide_delay(querying_peer)
+        self.send_response(querying_peer, set((queried_id,)), self, delay=delay)
+
+    def act_query_sync_default(self, querying_peer, queried_id, sync_peer):
+        delay = self.act_decide_delay(querying_peer)
+        self.send_response(querying_peer, set((queried_id,)), sync_peer,
+                           delay=delay)
+
+    def act_query_default(self, querying_peer, queried_id, query_all=False):
+        """
+        Act when a query is necessary.
+
+        This method implements the "good" default behavior. A list of peers is
+        created that will be queried and sorted based on how close they are to
+        the queried ID. A PendingQuery is created with these peers and used to
+        send a query.
+
+        By default, the peers that will be queried are only ones whose prefix
+        has a larger overlap with the queried ID than this peer, i.e. who are
+        closer to the target ID. However, if query_all is True, all known peers,
+        including sync peers, will be queried.
+        """
+        if query_all:
+            peers_to_query = (list(self.known_query_peers())
+                             + list(self.sync_peers.values()))
+            peers_to_query.sort(key=lambda p: bit_overlap(p.prefix, queried_id),
+                                reverse=True)
+        else:
+            peers_to_query = self.select_peers_to_query(queried_id)
         if len(peers_to_query) == 0:
             print(('{:.2f}: {}: query for {} impossible, no known peer closer'
                    ' to it')
@@ -407,12 +449,24 @@ class Peer:
             query_group.members[peer] += TIMEOUT_QUERY_PENALTY
 
     def act_decide_delay_default(self, querying_peer):
-        max_rep = max(g.members[querying_peer]
-                      for g in self.peer_query_groups(querying_peer))
+        # TODO Handle the case if querying_peer is not in a query group. That
+        # can happen if a sync peer is sending out a prefix query to all known
+        # peers in order to complete his subprefix connectivity. Currently, when
+        # computing max_rep, the default=0 treats queries from sync_peers as
+        # though they are to be maximally penalized. Obviously, there needs to
+        # be a reputation mechanism for sync peers that this method honors once
+        # the sync group management is actually handled by the peers via
+        # messages.
+        max_rep = max((g.members[querying_peer]
+                      for g in self.peer_query_groups(querying_peer)),
+                      default=0)
         return min(max(10 - max_rep, 0), 10)
 
     def act_expect_delay_default(self, peer_to_query):
-        max_rep = max(g.members[self] for g in self.peer_query_groups(self))
+        # TODO Handle the case where peer_to_query is a sync_peer. See comment
+        # in act_decide_delay_default().
+        max_rep = max((g.members[self] for g in self.query_groups(self)),
+                       default=0)
         return min(max(10 - max_rep, 0), 10)
 
 class PendingQuery:
@@ -537,6 +591,10 @@ if __name__ == '__main__':
                        nx.degree_histogram(comp)))
     print()
 
+    print('scheduling queries for missing subprefixes')
+    for peer in peers.values():
+        peer.find_missing_query_peers()
+    print()
     print('starting simulation')
     env.process(decay_reputation(env, all_query_groups))
     env.run(until=float('inf'))
