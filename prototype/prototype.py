@@ -465,8 +465,9 @@ class Peer:
     def act_expect_delay_default(self, peer_to_query):
         # TODO Handle the case where peer_to_query is a sync_peer. See comment
         # in act_decide_delay_default().
-        max_rep = max((g.members[self] for g in self.query_groups(self)),
-                       default=0)
+        max_rep = max((g.members[self]
+                       for g in self.query_groups(peer_to_query)),
+                      default=0)
         return min(max(10 - max_rep, 0), 10)
 
 class PendingQuery:
