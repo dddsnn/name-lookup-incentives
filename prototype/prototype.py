@@ -207,9 +207,9 @@ class Peer:
                                          queried_peer)
             return
         pending_query.timeout_proc.interrupt()
+        time_sent = pending_query.queries_sent.pop(responding_peer)
+        time_taken = self.env.now - time_sent
         if queried_peer is not None:
-            time_sent = pending_query.queries_sent.pop(responding_peer)
-            time_taken = self.env.now - time_sent
             self.act_response_success(pending_query, responding_peer,
                                       queried_id, queried_peer, time_taken)
             self.pending_queries.pop(queried_id, None)
@@ -218,7 +218,7 @@ class Peer:
             return
         if len(pending_query.peers_to_query) == 0:
             self.act_response_failure(pending_query, responding_peer,
-                                      queried_id)
+                                      queried_id, time_taken)
             self.pending_queries.pop(queried_id, None)
             self.archive_completed_query(pending_query, queried_id)
             return
@@ -367,31 +367,33 @@ class Peer:
     def act_response_success_default(self, pending_query, responding_peer,
                                      queried_id, queried_peer, time_taken):
         queried_ids = pending_query.querying_peers.pop(self, None)
+        total_time = self.env.now - pending_query.start_time
         if queried_ids is not None:
             print(('{:.2f}: {}: successful response for query for {} from'
                    ' {} after {:.2f}, total time {:.2f}')
                   .format(self.env.now, self.peer_id,
                           format_ids(queried_id, queried_ids),
-                          responding_peer.peer_id, time_taken,
-                          self.env.now - pending_query.start_time))
+                          responding_peer.peer_id, time_taken, total_time))
         for querying_peer, queried_ids in pending_query.querying_peers.items():
-            delay = self.act_decide_delay(querying_peer)
+            delay = max(self.act_decide_delay(querying_peer) - total_time, 0)
             self.send_response(querying_peer, queried_ids, queried_peer,
                                delay=delay)
         self.act_rep_success(responding_peer)
 
     def act_response_failure_default(self, pending_query, responding_peer,
-                                     queried_id):
+                                     queried_id, time_taken):
         queried_ids = pending_query.querying_peers.get(self)
+        total_time = self.env.now - pending_query.start_time
         if queried_ids is not None:
             queried_ids = pending_query.querying_peers[self]
             print(('{:.2f}: {}: unsuccessful query for {} last sent to {}:'
-                   ' unsuccessful response from last known peer')
+                   ' unsuccessful response from last known peer after {:.2f},'
+                   ' total time {:.2f}')
                   .format(self.env.now, self.peer_id,
                           format_ids(queried_id, queried_ids),
-                          responding_peer.peer_id))
+                          responding_peer.peer_id, time_taken, total_time))
         for querying_peer, queried_ids in pending_query.querying_peers.items():
-            delay = self.act_decide_delay(querying_peer)
+            delay = max(self.act_decide_delay(querying_peer) - total_time, 0)
             self.send_response(querying_peer, queried_ids, None, delay=delay)
         self.act_rep_failure(responding_peer)
 
@@ -410,15 +412,16 @@ class Peer:
 
     def act_timeout_failure_default(self, pending_query, recipient, queried_id):
         queried_ids = pending_query.querying_peers.get(self)
+        total_time = self.env.now - pending_query.start_time
         if queried_ids is not None:
             queried_ids = pending_query.querying_peers[self]
             print(('{:.2f}: {}: unsuccessful query for {} last sent to {}:'
-                   ' last known peer timed out')
+                   ' last known peer timed out, total time {:.2f}')
                   .format(self.env.now, self.peer_id,
                           format_ids(queried_id, queried_ids),
-                          recipient.peer_id))
+                          recipient.peer_id, total_time))
         for querying_peer, queried_ids in pending_query.querying_peers.items():
-            delay = self.act_decide_delay(querying_peer)
+            delay = max(self.act_decide_delay(querying_peer) - total_time, 0)
             self.send_response(querying_peer, queried_ids, None, delay=delay)
         self.act_rep_timeout(recipient)
 
