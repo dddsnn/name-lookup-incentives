@@ -50,7 +50,7 @@ class Peer:
         self.act_rep_failure = partial(self.act_rep_failure_default)
         self.act_rep_timeout = partial(self.act_rep_timeout_default)
         self.act_decide_delay = partial(self.act_decide_delay_default)
-        self.act_expect_delay = partial(self.act_decide_delay_default)
+        self.act_expect_delay = partial(self.act_expect_delay_default)
 
     def knows(self, peer):
         return (peer.peer_id == self.peer_id or peer.peer_id in self.sync_peers
@@ -469,7 +469,7 @@ class Peer:
         # TODO Handle the case where peer_to_query is a sync_peer. See comment
         # in act_decide_delay_default().
         max_rep = max((g.members[self]
-                       for g in self.query_groups(peer_to_query)),
+                       for g in self.peer_query_groups(peer_to_query)),
                       default=0)
         return min(max(10 - max_rep, 0), 10)
 
