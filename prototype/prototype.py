@@ -540,32 +540,13 @@ def format_ids(queried_id, queried_ids):
         s += ' ({' + ', '.join((str(qid) for qid in queried_ids)) + '})'
     return s
 
-if __name__ == '__main__':
-    random.seed(a=0, version=2)
-    env = simpy.Environment()
-    peers = {}
-    sync_groups = {}
-    all_query_groups = set()
-    peer_graph = nx.DiGraph()
-    for i in range(64):
-        while True:
-            peer_id_uint = random.randrange(2 ** Peer.ID_LENGTH)
-            peer_id = bs.Bits(uint=peer_id_uint, length = Peer.ID_LENGTH)
-            if peer_id not in peers:
-                peer = Peer(env, peer_id, all_query_groups, peer_graph)
-                peers[peer_id] = peer
-                sync_groups.setdefault(peer_id[:Peer.PREFIX_LENGTH],
-                                       set()).add(peer)
-                env.process(request_generator(env, peers, peer))
-                break
-    for sync_group in sync_groups.values():
-        for peer in sync_group:
-            for other_peer in sync_group:
-                peer.introduce(other_peer)
-    for peer in peers.values():
-        for other_peer in random.sample(list(peers.values()), 8):
-            peer.introduce(other_peer)
+def print_info_process(env, peers, sync_groups, all_query_groups):
+    while True:
+        yield env.timeout(10)
+        print_info(peers, sync_groups, all_query_groups)
 
+def print_info(peers, sync_groups, all_query_groups):
+    print()
     print('sync groups (prefix: {peers}):')
     for pr, sg in sorted(sync_groups.items(), key=lambda t: t[0].uint):
         print('{}: {{{}}}'.format(pr.bin,
@@ -595,6 +576,34 @@ if __name__ == '__main__':
                        nx.degree_histogram(comp)))
     print()
 
+if __name__ == '__main__':
+    random.seed(a=0, version=2)
+    env = simpy.Environment()
+    peers = {}
+    sync_groups = {}
+    all_query_groups = set()
+    peer_graph = nx.DiGraph()
+    for i in range(64):
+        while True:
+            peer_id_uint = random.randrange(2 ** Peer.ID_LENGTH)
+            peer_id = bs.Bits(uint=peer_id_uint, length = Peer.ID_LENGTH)
+            if peer_id not in peers:
+                peer = Peer(env, peer_id, all_query_groups, peer_graph)
+                peers[peer_id] = peer
+                sync_groups.setdefault(peer_id[:Peer.PREFIX_LENGTH],
+                                       set()).add(peer)
+                env.process(request_generator(env, peers, peer))
+                break
+    for sync_group in sync_groups.values():
+        for peer in sync_group:
+            for other_peer in sync_group:
+                peer.introduce(other_peer)
+    for peer in peers.values():
+        for other_peer in random.sample(list(peers.values()), 8):
+            peer.introduce(other_peer)
+
+    print_info(peers, sync_groups, all_query_groups)
+    env.process(print_info_process(env, peers, sync_groups, all_query_groups))
     print('scheduling queries for missing subprefixes')
     for peer in peers.values():
         peer.find_missing_query_peers()
