@@ -552,10 +552,13 @@ def print_info(peers, sync_groups, all_query_groups):
         print('{}: {{{}}}'.format(pr.bin,
                                   ', '.join(str(p.peer_id) for p in sg)))
     print()
-    print('query_groups:')
+    print('query_groups (peer: reputation):')
     for query_group in all_query_groups:
-        print('{{{}}}'.format(', '.join(str(p.peer_id)
-                                        for p in query_group.members)))
+        print('{{{}}}'.format(', '.join(
+            str(p.peer_id) + ': ' + '{:.1f}'.format(r)
+            for p, r in sorted(query_group.members.items(), key=lambda t:t[1],
+                               reverse=True)))
+        )
     print()
     print('missing subprefix coverage per peer:')
     any_missing = False
