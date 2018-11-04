@@ -9,7 +9,7 @@ SUCCESSFUL_QUERY_REWARD = 1
 FAILED_QUERY_PENALTY = -2
 TIMEOUT_QUERY_PENALTY = -2
 DECAY_TIMESTEP = 1
-DECAY_PER_TIMESTEP = 0.1
+DECAY_PER_TIME_UNIT = 0.1
 
 class QueryGroup:
     def __init__(self, members):
@@ -527,10 +527,10 @@ def request_generator(env, peers, peer):
 def decay_reputation(env, all_query_groups):
     while True:
         yield env.timeout(DECAY_TIMESTEP)
-        decay = DECAY_PER_TIMESTEP * DECAY_TIMESTEP
+        decay = DECAY_PER_TIME_UNIT * DECAY_TIMESTEP
         for query_group in all_query_groups:
             query_group.members.update(
-                {p: min(0, r - decay) for p, r in query_group.members.items()}
+                {p: max(0, r - decay) for p, r in query_group.members.items()}
             )
 
 def format_ids(queried_id, queried_ids):
