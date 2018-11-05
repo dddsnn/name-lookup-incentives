@@ -437,19 +437,20 @@ class Peer:
         self.send_query(queried_id, pending_query)
         self.act_rep_timeout(recipient)
 
-    # TODO Don't allow negative reputation.
-
     def act_rep_success_default(self, peer):
         for query_group in self.peer_query_groups(peer):
-            query_group.members[peer] += SUCCESSFUL_QUERY_REWARD
+            rep = max(query_group.members[peer] + SUCCESSFUL_QUERY_REWARD, 0)
+            query_group.members[peer] = rep
 
     def act_rep_failure_default(self, peer):
         for query_group in self.peer_query_groups(peer):
-            query_group.members[peer] += FAILED_QUERY_PENALTY
+            rep = max(query_group.members[peer] + FAILED_QUERY_PENALTY, 0)
+            query_group.members[peer] = rep
 
     def act_rep_timeout_default(self, peer):
         for query_group in self.peer_query_groups(peer):
-            query_group.members[peer] += TIMEOUT_QUERY_PENALTY
+            rep = max(query_group.members[peer] + TIMEOUT_QUERY_PENALTY, 0)
+            query_group.members[peer] = rep
 
     def act_decide_delay_default(self, querying_peer):
         # TODO Handle the case if querying_peer is not in a query group. That
