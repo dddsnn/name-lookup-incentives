@@ -1,7 +1,6 @@
 import simpy
 import bitstring as bs
 import random
-from functools import partial
 import networkx as nx
 
 TRANSMISSION_DELAY = 0.1
@@ -37,20 +36,6 @@ class Peer:
         # Add self-loop to the peer graph so that networkx considers the node
         # for this peer a component.
         self.peer_graph.add_edge(self, self)
-
-        self.act_query_self = partial(self.act_query_self_default)
-        self.act_query_sync = partial(self.act_query_sync_default)
-        self.act_query = partial(self.act_query_default)
-        self.act_response_success = partial(self.act_response_success_default)
-        self.act_response_failure = partial(self.act_response_failure_default)
-        self.act_response_retry = partial(self.act_response_retry_default)
-        self.act_timeout_failure = partial(self.act_timeout_failure_default)
-        self.act_timeout_retry = partial(self.act_timeout_retry_default)
-        self.act_rep_success = partial(self.act_rep_success_default)
-        self.act_rep_failure = partial(self.act_rep_failure_default)
-        self.act_rep_timeout = partial(self.act_rep_timeout_default)
-        self.act_decide_delay = partial(self.act_decide_delay_default)
-        self.act_expect_delay = partial(self.act_expect_delay_default)
 
     def knows(self, peer):
         return (peer.peer_id == self.peer_id or peer.peer_id in self.sync_peers
@@ -322,6 +307,50 @@ class Peer:
         peers_to_query.sort(key=lambda p: bit_overlap(p.prefix, queried_id),
                             reverse=True)
         return peers_to_query
+
+    def act_query_self(self, querying_peer, queried_id):
+        self.act_query_self_default(querying_peer, queried_id)
+
+    def act_query_sync(self, querying_peer, queried_id, sync_peer):
+        self.act_query_sync_default(querying_peer, queried_id, sync_peer)
+
+    def act_query(self, querying_peer, queried_id, query_all=False):
+        self.act_query_default(querying_peer, queried_id, query_all)
+
+    def act_response_success(self, pending_query, responding_peer, queried_id,
+                             queried_peer, time_taken):
+        self.act_response_success_default(pending_query, responding_peer,
+                                          queried_id, queried_peer, time_taken)
+
+    def act_response_failure(self, pending_query, responding_peer, queried_id,
+                             time_taken):
+        self.act_response_failure_default(pending_query, responding_peer,
+                                          queried_id, time_taken)
+
+    def act_response_retry(self, pending_query, responding_peer, queried_id):
+        self.act_response_retry_default(pending_query, responding_peer,
+                                        queried_id)
+
+    def act_timeout_failure(self, pending_query, recipient, queried_id):
+        self.act_timeout_failure_default(pending_query, recipient, queried_id)
+
+    def act_timeout_retry(self, pending_query, recipient, queried_id):
+        self.act_timeout_retry_default(pending_query, recipient, queried_id)
+
+    def act_rep_success(self, peer):
+        self.act_rep_success_default(peer)
+
+    def act_rep_failure(self, peer):
+        self.act_rep_failure_default(peer)
+
+    def act_rep_timeout(self, peer):
+        self.act_rep_timeout_default(peer)
+
+    def act_decide_delay(self, querying_peer):
+        return self.act_decide_delay_default(querying_peer)
+
+    def act_expect_delay(self, peer_to_query):
+        return self.act_expect_delay_default(peer_to_query)
 
     def act_query_self_default(self, querying_peer, queried_id):
         delay = self.act_decide_delay(querying_peer)
