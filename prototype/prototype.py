@@ -12,7 +12,34 @@ DECAY_PER_TIME_UNIT = 0.1
 
 class QueryGroup:
     def __init__(self, members):
-        self.members = {m: 0 for m in members}
+        self._members = {m: 0 for m in members}
+
+    def __len__(self):
+        return self._members.__len__()
+
+    def __getitem__(self, key):
+        return self._members.__getitem__(key)
+
+    def __setitem__(self, key, value):
+        return self._members.__setitem__(key, value)
+
+    def __delitem__(self, key):
+        return self._members.__delitem__(key)
+
+    def __iter__(self):
+        return self._members.__iter__()
+
+    def __contains__(self, key):
+        return self._members.__contains__(key)
+
+    def members(self):
+        return self._members.keys()
+
+    def items(self):
+        return self._members.items()
+
+    def update(self, *args):
+        return self._members.update(*args)
 
 class Peer:
     ID_LENGTH = 16
@@ -40,7 +67,7 @@ class Peer:
     def knows(self, peer):
         return (peer.peer_id == self.peer_id or peer.peer_id in self.sync_peers
                 or peer.peer_id in
-                    (i for g in peer.query_groups for i in g.members.keys()))
+                    (i for g in peer.query_groups for i in g.members()))
 
     def join_group_with(self, peer):
         # TODO Instead of just adding self or others to groups, send join
@@ -48,15 +75,15 @@ class Peer:
         # Attempt to join one of the peer's groups.
         for query_group in peer.query_groups:
             # TODO Pick the most useful out of these groups, not just any.
-            if len(query_group.members) < Peer.MAX_DESIRED_GROUP_SIZE:
-                query_group.members[self] = 0
+            if len(query_group) < Peer.MAX_DESIRED_GROUP_SIZE:
+                query_group[self] = 0
                 self.query_groups.add(query_group)
                 return
         # Attempt to add the peer to one of my groups.
         for query_group in self.query_groups:
             # TODO Pick the most useful out of these groups, not just any.
-            if len(query_group.members) < Peer.MAX_DESIRED_GROUP_SIZE:
-                query_group.members[peer] = 0
+            if len(query_group) < Peer.MAX_DESIRED_GROUP_SIZE:
+                query_group[peer] = 0
                 peer.query_groups.add(query_group)
                 return
         # Create a new query group.
@@ -272,7 +299,7 @@ class Peer:
         """Iterate query groups that contain a peer."""
         # TODO Maintain a map of all peers so we don't have to iterate over all
         # groups.
-        return (g for g in self.query_groups if peer in g.members.keys())
+        return (g for g in self.query_groups if peer in g.members())
 
     def known_query_peers(self):
         """
@@ -281,7 +308,7 @@ class Peer:
         Not guaranteed to be unique, will contain peers multiple times if they
         share multiple query groups.
         """
-        return (p for g in self.query_groups for p in g.members.keys())
+        return (p for g in self.query_groups for p in g.members())
 
     def select_peers_to_query(self, queried_id):
         """
@@ -468,18 +495,18 @@ class Peer:
 
     def act_rep_success_default(self, peer):
         for query_group in self.peer_query_groups(peer):
-            rep = max(query_group.members[peer] + SUCCESSFUL_QUERY_REWARD, 0)
-            query_group.members[peer] = rep
+            rep = max(query_group[peer] + SUCCESSFUL_QUERY_REWARD, 0)
+            query_group[peer] = rep
 
     def act_rep_failure_default(self, peer):
         for query_group in self.peer_query_groups(peer):
-            rep = max(query_group.members[peer] + FAILED_QUERY_PENALTY, 0)
-            query_group.members[peer] = rep
+            rep = max(query_group[peer] + FAILED_QUERY_PENALTY, 0)
+            query_group[peer] = rep
 
     def act_rep_timeout_default(self, peer):
         for query_group in self.peer_query_groups(peer):
-            rep = max(query_group.members[peer] + TIMEOUT_QUERY_PENALTY, 0)
-            query_group.members[peer] = rep
+            rep = max(query_group[peer] + TIMEOUT_QUERY_PENALTY, 0)
+            query_group[peer] = rep
 
     def act_decide_delay_default(self, querying_peer):
         # TODO Handle the case if querying_peer is not in a query group. That
@@ -490,7 +517,7 @@ class Peer:
         # be a reputation mechanism for sync peers that this method honors once
         # the sync group management is actually handled by the peers via
         # messages.
-        max_rep = max((g.members[querying_peer]
+        max_rep = max((g[querying_peer]
                       for g in self.peer_query_groups(querying_peer)),
                       default=0)
         return min(max(10 - max_rep, 0), 10)
@@ -498,7 +525,7 @@ class Peer:
     def act_expect_delay_default(self, peer_to_query):
         # TODO Handle the case where peer_to_query is a sync_peer. See comment
         # in act_decide_delay_default().
-        max_rep = max((g.members[self]
+        max_rep = max((g[self]
                        for g in self.peer_query_groups(peer_to_query)),
                       default=0)
         return min(max(10 - max_rep, 0), 10)
@@ -559,8 +586,8 @@ def decay_reputation(env, all_query_groups):
         yield env.timeout(DECAY_TIMESTEP)
         decay = DECAY_PER_TIME_UNIT * DECAY_TIMESTEP
         for query_group in all_query_groups:
-            query_group.members.update(
-                {p: max(0, r - decay) for p, r in query_group.members.items()}
+            query_group.update(
+                {p: max(0, r - decay) for p, r in query_group.items()}
             )
 
 def format_ids(queried_id, queried_ids):
@@ -586,7 +613,7 @@ def print_info(peers, sync_groups, all_query_groups):
     for query_group in all_query_groups:
         print('{{{}}}'.format(', '.join(
             str(p.peer_id) + ': ' + '{:.1f}'.format(r)
-            for p, r in sorted(query_group.members.items(), key=lambda t:t[1],
+            for p, r in sorted(query_group.items(), key=lambda t:t[1],
                                reverse=True)))
         )
     print()
