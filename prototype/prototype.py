@@ -337,13 +337,25 @@ class Peer:
         return peers_to_query
 
     def act_query_self(self, querying_peer, queried_id):
-        self.act_query_self_default(querying_peer, queried_id)
+        min_rep = min((g[self] for g in self.peer_query_groups(querying_peer)),
+                      default=0)
+        # TODO Unhardcode
+        if querying_peer == self or min_rep < 15:
+            self.act_query_self_default(querying_peer, queried_id)
 
     def act_query_sync(self, querying_peer, queried_id, sync_peer):
-        self.act_query_sync_default(querying_peer, queried_id, sync_peer)
+        min_rep = min((g[self] for g in self.peer_query_groups(querying_peer)),
+                      default=0)
+        # TODO Unhardcode
+        if querying_peer == self or min_rep < 15:
+            self.act_query_sync_default(querying_peer, queried_id, sync_peer)
 
     def act_query(self, querying_peer, queried_id, query_all=False):
-        self.act_query_default(querying_peer, queried_id, query_all)
+        min_rep = min((g[self] for g in self.peer_query_groups(querying_peer)),
+                      default=0)
+        # TODO Unhardcode
+        if querying_peer == self or min_rep < 15:
+            self.act_query_default(querying_peer, queried_id, query_all)
 
     def act_response_success(self, pending_query, responding_peer, queried_id,
                              queried_peer, time_taken):
@@ -521,6 +533,7 @@ class Peer:
         max_rep = max((g[querying_peer]
                       for g in self.peer_query_groups(querying_peer)),
                       default=0)
+        # TODO Unhardcode
         return min(max(10 - max_rep, 0), 10)
 
     def act_expect_delay_default(self, peer_to_query):
@@ -529,6 +542,7 @@ class Peer:
         max_rep = max((g[self]
                        for g in self.peer_query_groups(peer_to_query)),
                       default=0)
+        # TODO Unhardcode
         return min(max(10 - max_rep, 0), 10)
 
 class PendingQuery:
