@@ -177,7 +177,8 @@ class Peer:
                           delay=TRANSMISSION_DELAY)
 
     def send_response(self, recipient, queried_ids, queried_peer, delay=0):
-        delay += TRANSMISSION_DELAY
+        if recipient != self:
+            delay += TRANSMISSION_DELAY
         self.env.schedule(SendResponse(self.env, self, recipient, queried_ids,
                                        queried_peer), delay=delay)
 
