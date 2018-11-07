@@ -1,0 +1,36 @@
+- Reputation tracking in query groups is not done in-network, all peers simply
+  have access to a shared dictionary.
+- Peers never go offline, so sync groups don't need to maintain any information.
+- Peers are honest about applying rewards and penalties.
+- Each peer generates exactly one request every time unit, the ID is randomized.
+- Peers don't have addresses, a reference to the object is used instead.
+- There's no mechanism for inviting to or requesting to join a query group.
+  Peers simply add themselves or another peer to a query group.
+- Reputation decay is handled by a central authority.
+- Peers are responsible for a prefix of their own ID, and nothing more. The
+  prefix length is fixed.
+- Every peer knows every other peer in its sync group.
+- Peers only send one request and wait until it times out before trying another
+  peer.
+- The penalty delay is proportional to the reputation and capped at 10 time
+  units.
+- There are not yet any penalties for responses that arrive too late or too
+  early (other than timeout penalties).
+- Peers don't collude.
+- Peers return the correct peers in responses (i.e. the one matching the ID).
+- All peers have the same policy regarding maximum desired query group size.
+- Penalties and rewards are fixed (e.g. successful response is always rewarded
+  by the same amount).
+- The default (rule-conformant) implementation answers all queries eventually.
+- Peers assume their queries will be answered with not more delay than there
+  should be according to their reputation, even if the peers they're querying
+  needs to make a further lookup in a query group where he has bad reputation.
+- Clocks are perfectly synchronized.
+- All peers start with 0 reputation.
+- In case of a timeout, a query is considered failed and another one issued,
+  even if a response to the original query arrives late.
+- Peers are interested in receiving the best possible service and will pay
+  whatever price it takes.
+- Peers try to maintain a fixed number of query peers per subprefix.
+
+- Test and refactor.
