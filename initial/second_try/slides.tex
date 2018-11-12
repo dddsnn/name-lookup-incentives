@@ -59,10 +59,6 @@ Name-Lookup Service}
       \item Can build user profiles
       \item Can become target for others who want to build profiles
     \end{itemize}
-    \item Could be dealt with via (computationally) private information
-          retrieval ((c)PIR)
-    \item But is impractical: server has to process entire database for every
-          request
   \end{itemize}
 \end{frame}
 
@@ -78,20 +74,6 @@ Name-Lookup Service}
   \end{itemize}
 \end{frame}
 
-\begin{frame}{Distributed Hash Table}
-  \begin{itemize}
-    \item Store ID-IP mappings in a structured DHT (Kademlia, P-Grid)
-    \item Peers pick a prefix and are responsible for items with that prefix
-    \item Peers are in contact with others responsible for the same items
-    \item For other prefixes: know other peers closer to them
-  \end{itemize}
-  \begin{figure}
-    \centering
-    \includegraphics[width=0.5\textwidth]{p-grid}
-    \caption*{\tiny From \emph{P-Grid: A Self-organizing Structured P2P System}}
-  \end{figure}
-\end{frame}
-
 \begin{frame}{Incentives}
   \begin{itemize}
     \item Only leverage: users want good service
@@ -100,22 +82,6 @@ Name-Lookup Service}
     \item Peers need to know what level of service to grant: reputation system
     \item Track how well peers contribute (abide by the rules)
     \item E.g. point system (credit-debit/credit-only)
-  \end{itemize}
-\end{frame}
-
-\begin{frame}{Related Work}
-  \begin{itemize}
-    \item Free-riding given cheap pseudonyms {\color{gray}\tiny[Feldman et al.;
-          Friedman, Resnick]}
-    \item Cooperation incentives have been investigated {\color{gray}\tiny[
-          Feldman et al.; Hassen et al.]}
-    \begin{itemize}
-      \item Reputation tracking seen as given, centralized, or deferred to a DHT
-    \end{itemize}
-    \item Alternative reputation systems: tokens {\color{gray}\tiny[Levien;
-          Moreton, Twigg]}
-    \item Collusion detection based on typical behavior {\color{gray}\tiny[Li
-          et al.]}
   \end{itemize}
 \end{frame}
 
@@ -194,26 +160,6 @@ Name-Lookup Service}
     \item Are they always reached?
     \item What is their social value?
   \end{itemize}
-\end{frame}
-
-\begin{frame}{Timeline}
-  \begin{ganttchart}[
-    vgrid={*9{draw=none}, dotted},
-    x unit=0.035cm,
-    title label font=\tiny\bfseries,
-    bar label font=\tiny\bfseries
-  ]{1}{250}
-  \gantttitlelist{1,...,25}{10} \\
-  \ganttbar{Implementation}{1}{40}
-  \ganttbar{}{51}{80}
-  \ganttbar{}{96}{125} \\
-  \ganttbar{Evaluation}{41}{60}
-  \ganttbar{}{76}{105}
-  \ganttbar{}{116}{140}
-  \ganttbar{}{161}{190} \\
-  \ganttbar{Writing}{161}{230} \\
-  \ganttbar{Buffer}{231}{250}
-  \end{ganttchart}
 \end{frame}
 
 \begin{frame}
