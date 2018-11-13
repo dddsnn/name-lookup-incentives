@@ -39,38 +39,18 @@ Name-Lookup Service}
 
 \setbeamertemplate{footline}[comsys]
 
-\begin{frame}{Overview}
-  \begin{itemize}
-    \item Mapping names (IDs) to IPs
-    \item Like DNS, but more general (flat namespace)
-    \item Decentralized service (DHT)
-    \item Goal: get everyone who uses it to contribute
-  \end{itemize}
-\end{frame}
-
 \begin{frame}{Motivation}
   \begin{itemize}
-    \item DNS basically centralized: typical user's DNS lookups go through one
-          server
-    \item Privacy concerns
+    \item Name-mapping service (IDs to IPs)
+    \item Privacy concerns in centralized systems
     \begin{itemize}
-      \item DNS server gets a lot of information about what servers a user
-            contacts
+      \item Server gets a lot of information about whom a user communicates with
       \item Can build user profiles
       \item Can become target for others who want to build profiles
     \end{itemize}
-  \end{itemize}
-\end{frame}
-
-\begin{frame}{Motivation}
-  \begin{itemize}
-    \item Instead of trusting a central server, spread requests to many
-          different nodes
-    \item Each of them only gets a small amount of data, harder to build a
-          profile
-    \item Requires users of the service also offering service
-    \item Assume people are selfish and rational: incentivize them with better
-          service
+    \item Spread requests to many different nodes
+    \item Requires lots of nodes \rightarrow users need to participate
+          themselves
   \end{itemize}
 \end{frame}
 
@@ -80,8 +60,8 @@ Name-Lookup Service}
     \item Users who don't contribute need to be given lower level of service
           (responses deliberately delayed)
     \item Peers need to know what level of service to grant: reputation system
+          (points)
     \item Track how well peers contribute (abide by the rules)
-    \item E.g. point system (credit-debit/credit-only)
   \end{itemize}
 \end{frame}
 
@@ -96,8 +76,7 @@ Name-Lookup Service}
 
 \begin{frame}{Reputation Tracking}
   \begin{itemize}
-    \item Peers form small groups in which they forward queries ("the second
-          kind")
+    \item Peers form small groups in which they forward queries
     \item Reputation tracked in those groups (locally)
     \item Short-lived for privacy, but long enough that trust can grow
   \end{itemize}
@@ -136,24 +115,23 @@ Name-Lookup Service}
 
 \begin{frame}{Goal of the Thesis}
   \begin{itemize}
-    \item Is such an incentive system possible, assuming selfish peers?
-    \item Is there inflation or deflation of reputation?
-    \item Could the resulting system be practically useful?
+    \item Does such an incentive system lead to a functioning system?
+    \item Does every well-behaving peer have enough reputation to receive good
+          (non-penalized) service?
     \item What's the overhead?
   \end{itemize}
 \end{frame}
 
-\begin{frame}{Methodology}
+\begin{frame}{Simulation}
   \begin{itemize}
-    \item Simulate with SimPy/OMNeT++
-    \item Focus on behavior of peers, not the network
-    \item Let them update their strategy
-    \item Observe how peers' strategies change and what level of service is
-          achieved
+    \item Simulate with SimPy
+    \item Let peers choose their behavior to maximize their gain
+    \item Observe how peers' behavior evolves and what level of service is
+          achieved (query response times)
   \end{itemize}
 \end{frame}
 
-\begin{frame}{Methodology}
+\begin{frame}{Analytical}
   \begin{itemize}
     \item Optional: analytical, game-theoretic solution
     \item Are there equilibria?
