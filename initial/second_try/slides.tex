@@ -76,8 +76,12 @@ Name-Lookup Service}
 
 \begin{frame}{Reputation Tracking}
   \begin{itemize}
-    \item Peers form small groups in which they forward queries
-    \item Reputation tracked in those groups (locally)
+    \item Two kinds of groups
+    \begin{itemize}
+      \item sync groups: necessary for DHT, updates for own key space
+      \item query groups: small groups in which queries are sent
+    \end{itemize}
+    \item Reputation tracked in query groups (locally)
     \item Short-lived for privacy, but long enough that trust can grow
   \end{itemize}
 
@@ -126,8 +130,98 @@ Name-Lookup Service}
   \begin{itemize}
     \item Simulate with SimPy
     \item Let peers choose their behavior to maximize their gain
-    \item Observe how peers' behavior evolves and what level of service is
-          achieved (query response times)
+    \item Observe how system performance develops
+    \begin{itemize}
+      \item Query response times
+      \item Unanswered queries
+      \item Distribution of reputation
+      \item Query group connectedness
+    \end{itemize}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Setup}
+  \begin{itemize}
+    \item Prototype
+    \item Create a number of peers
+    \item Make them aware of each other
+    \item Peers form groups with others they now know
+    \item Query for peers required to fill missing connections
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Setup}
+  \begin{itemize}
+    \item Start simulation: Generate requests peers need to answer (simulating a
+          user)
+    \item Peers issue queries in their groups
+    \item Peers choose their behavior, e.g. whether they answer an incoming
+          query
+    \item Peers apply reputation bonus/penalty accordingly
+    \item Monitor performance, most notably query response time
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Peer Behavior}
+  \begin{itemize}
+    \item Peers can decide
+    \begin{itemize}
+      \item whether they answer an incoming query at all
+      \item how long of a penalty delay they add to an answer
+      \item which peer to query
+      \item how much reputation they credit for an answer
+      \item how much reputation they debit for late/early answers
+    \end{itemize}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Peer Behavior}
+  \begin{itemize}
+    \item Decisions aimed at doing as little as possible, while maintaining good
+          service (i.e. good reputation)
+    \item Peers can base these decisions on
+    \begin{itemize}
+      \item their current reputation in the relevant query group
+      \item expected behavior of others (in the query group) in response to
+            their action
+      \item the other peers reputation
+      \item previous interactions with that peer
+    \end{itemize}
+    \item Increasing levels of sophistication
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Preparations on Prototype}
+  \begin{itemize}
+    \item Refactor, make testable
+    \item Test
+    \item Logging (currently all events are printed to stdout)
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Remove simplifications}
+  \begin{itemize}
+    \item Do reputation tracking in-network
+    \item More realistic request generation
+    \item Query group invite/request to join
+    \item Remove central authority doing reputation decay
+    \item Penalties for responses that are early/late
+    \item Make peers go offline
+    \item Allow peers to lie about rewards and penalties
+    \item Allow prefix extension/retraction and prefixes independent of the
+          peer's ID
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Remove simplifications}
+  \begin{itemize}
+    \item Allow peers to change address
+    \item Allow sparsely connected sync groups
+    \item Allow peers to send more than one query per request
+    \item Iterative queries with reputation "vouchers"
+    \item Peers that are content with suboptimal service
+    \item Collusion/Sybil attack
+    \item Malicious peers
   \end{itemize}
 \end{frame}
 
