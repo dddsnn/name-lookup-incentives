@@ -1,7 +1,6 @@
 \documentclass[presentation,english,usenames,dvipsnames]{beamer}
 \usepackage[utf8]{inputenc}
 \usepackage{babel}
-\usepackage{fixltx2e}
 \usepackage{graphicx}
 \usepackage{longtable}
 \usepackage{float}
@@ -17,10 +16,14 @@
 \usepackage{listings}
 \usepackage[iso]{isodate}
 \usepackage{pgfgantt}
-\usepackage{caption}
+\usepackage[font=scriptsize, skip=0pt]{caption}
+\usepackage[font=scriptsize, skip=0pt]{subcaption}
+\usepackage{pgfplots, pgfplotstable}
+\pgfplotsset{compat=1.14}
+\usetikzlibrary{fit}
 
-\title[Peer-to-Peer Incentives]{Incentives for Cooperation in a Peer-to-Peer
-Name-Lookup Service}
+\title[Peer-to-Peer Incentives]{Incentivizing Peers to contribute in a
+Low-Latency Name-Lookup Service}
 \author{Marc Lehmann}
 \subtitle{Initial Master Talk, 2nd try}
 \date{\today}
@@ -41,50 +44,438 @@ Name-Lookup Service}
 
 \begin{frame}{Motivation}
   \begin{itemize}
-    \item Name-mapping service (IDs to IPs)
+    \item Name-mapping service important to facilitate communication
+    \begin{itemize}
+      \item names to IPs (DNS)
+      \item people to devices (instant messaging)
+    \end{itemize}
     \item Privacy concerns in centralized systems
     \begin{itemize}
       \item Server gets a lot of information about whom a user communicates with
       \item Can build user profiles
       \item Can become target for others who want to build profiles
     \end{itemize}
-    \item Spread requests to many different nodes
+    \item Spread requests to many different nodes in a DHT
     \item Requires lots of nodes \rightarrow users need to participate
           themselves
   \end{itemize}
 \end{frame}
 
-\begin{frame}{Incentives}
+\begin{frame}{Encouraging peers to contribute}
   \begin{itemize}
     \item Only leverage: users want good service
-    \item Users who don't contribute need to be given lower level of service
-          (responses deliberately delayed)
-    \item Peers need to know what level of service to grant: reputation system
-          (points)
-    \item Track how well peers contribute (abide by the rules)
-  \end{itemize}
-\end{frame}
-
-\begin{frame}{Reputation Tracking}
-  \begin{itemize}
-    \item Requests can come from anyone (that's the point)
-    \item Need to be able to find out anyone's reputation
-    \item Storing locally impractical for large networks
-    \item Name-lookup somewhat latency-sensitive: storing in a DHT is too slow
-  \end{itemize}
-\end{frame}
-
-\begin{frame}{Reputation Tracking}
-  \begin{itemize}
-    \item Two kinds of groups
+    \item Give bad peers bad service
+    \item Track how good peers are via a reputation system
+    \item Existing solutions to track reputation insufficient
     \begin{itemize}
-      \item sync groups: necessary for DHT, updates for own key space
-      \item query groups: small groups in which queries are sent
+      \item Require central authority
+      \item Or introduce additional latency (using another DHT)
     \end{itemize}
-    \item Reputation tracked in query groups (locally)
-    \item Short-lived for privacy, but long enough that trust can grow
+    \item Solution: Track reputation in small subsets of peers (query groups)
   \end{itemize}
+\end{frame}
 
+\begin{frame}{Query Groups (Chord)}
+  \begin{minipage}{0.5\textwidth}
+    \begin{itemize}
+      \item Using Chord to illustrate
+      \item Need to be able to reach peers in finger table
+      \item Need to share a query group with each of these peers
+      \item (Not necessarily the same for all)
+    \end{itemize}
+  \end{minipage}% This comment is necessary to remove any space between the minipages
+  \begin{minipage}{0.5\textwidth}
+    \begin{figure}
+      \centering
+      \begin{tikzpicture}
+        \begin{scope}[every node/.style={
+          circle,
+          fill=black,
+          inner sep=0pt,
+          minimum size=5pt
+          }]
+          \node[minimum size=8pt] (A) at (90:2) {};
+          \node[red] (B) at (30:2) {};
+          \node[blue] (C) at (330:2) {};
+          \node[violet] (D) at (270:2) {};
+          \node[OliveGreen] (E) at (210:2) {};
+          \node (F) at (150:2) {};
+        \end{scope}
+
+        \draw (B) -- (C)[draw=none] node[midway, sloped] {\ldots};
+        \draw (C) -- (D)[draw=none] node[midway, sloped] {\ldots};
+        \draw (D) -- (E)[draw=none] node[midway, sloped] {\ldots};
+        \draw (E) -- (F)[draw=none] node[midway, sloped] {\ldots};
+        \draw (F) -- (A)[draw=none] node[midway, sloped] {\ldots};
+
+        \draw[->] (A) -- (B);
+        \draw[->] (A) -- (C);
+        \draw[->] (A) -- (D);
+        \draw[->] (A) -- (E);
+      \end{tikzpicture}
+    \end{figure}
+  \end{minipage}
+\end{frame}
+
+\begin{frame}{Query Groups (Chord)}
+  \begin{minipage}{0.5\textwidth}
+    \begin{itemize}
+      \item Join query group with red peer
+    \end{itemize}
+  \end{minipage}% This comment is necessary to remove any space between the minipages
+  \begin{minipage}{0.5\textwidth}
+    \begin{figure}
+      \centering
+      \begin{tikzpicture}
+        \begin{scope}[every node/.style={
+          circle,
+          fill=black,
+          inner sep=0pt,
+          minimum size=5pt
+          }]
+          \node[minimum size=8pt] (A) at (90:2) {};
+          \node[red] (B) at (30:2) {};
+          \node[blue] (C) at (330:2) {};
+          \node[violet] (D) at (270:2) {};
+          \node[OliveGreen] (E) at (210:2) {};
+          \node (F) at (150:2) {};
+        \end{scope}
+
+        \draw (B) -- (C)[draw=none] node[midway, sloped] {\ldots};
+        \draw (C) -- (D)[draw=none] node[midway, sloped] {\ldots};
+        \draw (D) -- (E)[draw=none] node[midway, sloped] {\ldots};
+        \draw (E) -- (F)[draw=none] node[midway, sloped] {\ldots};
+        \draw (F) -- (A)[draw=none] node[midway, sloped] {\ldots};
+
+        \draw[->] (A) -- (B);
+        \draw[->] (A) -- (C);
+        \draw[->] (A) -- (D);
+        \draw[->] (A) -- (E);
+
+        \begin{pgfonlayer}{background}
+          \begin{scope}[every node/.style={
+            ellipse,
+            draw=black,
+            thick,
+            inner sep=0pt,
+            inner xsep=0pt,
+            inner ysep=0pt
+          }]
+            \node[fit=(A)(B), fill=red!30, rotate=-30] {};
+          \end{scope}
+        \end{pgfonlayer}
+      \end{tikzpicture}
+    \end{figure}
+  \end{minipage}
+\end{frame}
+
+\begin{frame}{Query Groups (Chord)}
+  \begin{minipage}{0.5\textwidth}
+    \begin{itemize}
+      \item Join query group with red peer
+      \item Join query group with blue peer
+      \item Purple peer is also in that group
+    \end{itemize}
+  \end{minipage}% This comment is necessary to remove any space between the minipages
+  \begin{minipage}{0.5\textwidth}
+    \begin{figure}
+      \centering
+      \begin{tikzpicture}
+        \begin{scope}[every node/.style={
+          circle,
+          fill=black,
+          inner sep=0pt,
+          minimum size=5pt
+          }]
+          \node[minimum size=8pt] (A) at (90:2) {};
+          \node[red] (B) at (30:2) {};
+          \node[blue] (C) at (330:2) {};
+          \node[violet] (D) at (270:2) {};
+          \node[OliveGreen] (E) at (210:2) {};
+          \node (F) at (150:2) {};
+        \end{scope}
+
+        \draw (B) -- (C)[draw=none] node[midway, sloped] {\ldots};
+        \draw (C) -- (D)[draw=none] node[midway, sloped] {\ldots};
+        \draw (D) -- (E)[draw=none] node[midway, sloped] {\ldots};
+        \draw (E) -- (F)[draw=none] node[midway, sloped] {\ldots};
+        \draw (F) -- (A)[draw=none] node[midway, sloped] {\ldots};
+
+        \draw[->] (A) -- (B);
+        \draw[->] (A) -- (C);
+        \draw[->] (A) -- (D);
+        \draw[->] (A) -- (E);
+
+        \begin{pgfonlayer}{background}
+          \begin{scope}[every node/.style={
+            ellipse,
+            draw=black,
+            thick,
+            inner sep=0pt,
+            inner xsep=0pt,
+            inner ysep=0pt
+          }]
+            \node[fit=(A)(C)(D), fill=violet!30, rotate=18, xshift=-15pt] {};
+            \node[fit=(A)(B), fill=red!30, rotate=-30] {};
+          \end{scope}
+        \end{pgfonlayer}
+      \end{tikzpicture}
+    \end{figure}
+  \end{minipage}
+\end{frame}
+
+\begin{frame}{Query Groups (Chord)}
+  \begin{minipage}{0.5\textwidth}
+    \begin{itemize}
+      \item Join query group with red peer
+      \item Join query group with blue peer
+      \item Purple peer is also in that group
+      \item Join query group with green peer
+    \end{itemize}
+  \end{minipage}% This comment is necessary to remove any space between the minipages
+  \begin{minipage}{0.5\textwidth}
+    \begin{figure}
+      \centering
+      \begin{tikzpicture}
+        \begin{scope}[every node/.style={
+          circle,
+          fill=black,
+          inner sep=0pt,
+          minimum size=5pt
+          }]
+          \node[minimum size=8pt] (A) at (90:2) {};
+          \node[red] (B) at (30:2) {};
+          \node[blue] (C) at (330:2) {};
+          \node[violet] (D) at (270:2) {};
+          \node[OliveGreen] (E) at (210:2) {};
+          \node (F) at (150:2) {};
+        \end{scope}
+
+        \draw (B) -- (C)[draw=none] node[midway, sloped] {\ldots};
+        \draw (C) -- (D)[draw=none] node[midway, sloped] {\ldots};
+        \draw (D) -- (E)[draw=none] node[midway, sloped] {\ldots};
+        \draw (E) -- (F)[draw=none] node[midway, sloped] {\ldots};
+        \draw (F) -- (A)[draw=none] node[midway, sloped] {\ldots};
+
+        \draw[->] (A) -- (B);
+        \draw[->] (A) -- (C);
+        \draw[->] (A) -- (D);
+        \draw[->] (A) -- (E);
+
+        \begin{pgfonlayer}{background}
+          \begin{scope}[every node/.style={
+            ellipse,
+            draw=black,
+            thick,
+            inner sep=0pt,
+            inner xsep=0pt,
+            inner ysep=0pt
+          }]
+            \node[fit=(A)(C)(D), fill=violet!30, rotate=18, xshift=-15pt] {};
+            \node[fit=(A)(B), fill=red!30, rotate=-30] {};
+            \node[fit=(A)(E), fill=OliveGreen!30, rotate=-30,
+                  inner xsep=-15pt] {};
+          \end{scope}
+        \end{pgfonlayer}
+      \end{tikzpicture}
+    \end{figure}
+  \end{minipage}
+\end{frame}
+
+\begin{frame}{Goal of the Thesis}
+  \begin{itemize}
+    \item Does such an incentive system lead to a useful system?
+    \item Simulate a network of peers with discrete event simulation
+    \item Vary parameters of the system
+    \item Observe performance characteristics during different runs
+    \begin{itemize}
+      \item Query response times
+      \item Unanswered queries
+      \item Distribution of reputation
+      \item Query group connectedness
+    \end{itemize}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Simulation - Example}
+  \begin{itemize}
+    \item Existing prototype in SimPy, many simplifications
+    \item Compare 2 runs
+    \begin{itemize}
+      \item Peers respond to every query
+      \item Peers only respond if they profit from it
+      \begin{itemize}
+        \item Optimal service is granted to peers with at least 10 reputation
+              points
+        \item Peers only respond if they have less than 15 reputation points
+      \end{itemize}
+    \end{itemize}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Simulation - Example}
+  \begin{table}
+    \centering
+    \begin{tabular}{|l|l|l|}
+      \hline
+      & good peers & selfish peers \\
+      \hline
+      successful & 2841 (92.8\%) & 2868 (69.4\%) \\
+      \hline
+      timed out & 217 (7.1\%) & 1236 (29.9\%) \\
+      \hline
+      unsuccessful & 1 (<0.1\%) & 10 (0.2\%) \\
+      \hline
+      ultimately timed out & 3 (0.1\%)  & 21 (0.5\%) \\
+      \hline
+      ultimately unsuccessful & 0 & 0 \\
+      \hline
+      total & 3062 & 4135 \\
+      \hline
+    \end{tabular}
+    \caption*{Responses arriving during simulated time 50-100}
+  \end{table}
+  \begin{itemize}
+    \item Selfish peers let queries time out
+    \item Also means more traffic in total (retries)
+    \item Good peer timeouts: unexpected penalty during a recursive query
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Simulation - Example}
+  \begin{figure}
+    \centering
+    \begin{subfigure}{.5\textwidth}
+      \begin{tikzpicture}[font=\tiny]
+        \begin{axis}[
+          width=\textwidth,
+          height=4cm,
+          ybar,
+          ymin=0,
+          nodes near coords={
+            \pgfmathparse{int(round(\pgfplotspointmetatransformed))}
+            \ifnum \pgfmathresult < 5
+              \pgfmathprintnumber{\pgfplotspointmeta}
+            \fi},
+          every node near coord/.append style={
+            anchor=south,
+            xshift=2pt
+          }
+        ]
+          \addplot +[hist={bins=24, data min=0, data max=24}]
+            table[y index=0]{good_response_times.csv};
+        \end{axis}
+      \end{tikzpicture}
+      \caption*{Good peers}
+    \end{subfigure}% This comment is necessary to remove any space between the subfigures
+    \begin{subfigure}{.5\textwidth}
+      \begin{tikzpicture}[font=\tiny]
+        \begin{axis}[
+          width=\textwidth,
+          height=4cm,
+          ybar,
+          ymin=0,
+          nodes near coords={
+            \pgfmathparse{int(round(\pgfplotspointmetatransformed))}
+            \ifnum \pgfmathresult < 5
+              \pgfmathprintnumber{\pgfplotspointmeta}
+            \fi},
+          every node near coord/.append style={
+            anchor=south,
+            xshift=1.4pt
+          }
+        ]
+          \addplot +[hist={bins=37, data min=0, data max=37}]
+            table[y index=0]{selfish_response_times.csv};
+        \end{axis}
+      \end{tikzpicture}
+      \caption*{Selfish peers}
+    \end{subfigure}
+    \caption*{Response times during simulated time 50-100}
+  \end{figure}
+  \begin{itemize}
+    \item Up to 10 time units penalty delay
+    \item Good: Many responses at maximum delay, many peers with no reputation
+          (artefact of simulation)
+    \item Selfish: somtimes multiple attempts necessary (timeouts)
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Simulation - Example}
+  \begin{figure}
+    \centering
+    \begin{subfigure}{.5\textwidth}
+      \begin{tikzpicture}[font=\tiny]
+        \begin{axis}[
+          width=\textwidth,
+          height=4cm,
+          ybar,
+          ymin=0,
+          xtick distance=25
+        ]
+          \addplot +[hist={bins=25, data min=0, data max=125}]
+            table[y index=1]{good_query_group.csv};
+        \end{axis}
+      \end{tikzpicture}
+      \caption*{Good peers}
+    \end{subfigure}% This comment is necessary to remove any space between the subfigures
+    \begin{subfigure}{.5\textwidth}
+      \begin{tikzpicture}[font=\tiny]
+        \begin{axis}[
+          width=\textwidth,
+          height=4cm,
+          ybar,
+          ymin=0,
+          xtick distance=25
+        ]
+          \addplot +[hist={bins=25, data min=0, data max=125}]
+            table[y index=1]{selfish_query_group.csv};
+        \end{axis}
+      \end{tikzpicture}
+      \caption*{Selfish peers}
+    \end{subfigure}
+    \caption*{Reputation distribution at simulation time 100 in a particular
+              query group}
+  \end{figure}
+  \begin{itemize}
+    \item Good: Many peers with little reputation, because peers chosen in same
+          order (artefact of simulation)
+    \item Peers that get chosen a lot have much greater reputation
+    \item Selfish: Peers don't get much more than 15 reputation
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Simplification - Example}
+  \begin{itemize}
+    \item Currently, query groups are just sets
+    \item Peers just add themselves or others
+    \item Always iterate in the same order \rightarrow uneven reputation
+          distribution
+    \item Each peer needs to maintain group information locally
+    \item Join by being invited
+    \item Observe how query groups form
+    \begin{itemize}
+      \item Peers can decline invites if there's no benefit for them
+      \item Peers can leave query groups if they get too full
+      \item Do peers have trouble getting connectivity?
+    \end{itemize}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Summary}
+  \begin{itemize}
+    \item Get peers to contribute to a name-lookup service
+    \item Proposed a reputation tracking system that's supposed to handle the
+          low-latency requirement
+    \item Implement and evaluate via discrete event simulation
+    \item Optional: analytical, game-theoretic solution
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
+\end{frame}
+
+\begin{frame}{Query Groups}
   \begin{figure}
     \centering
     \begin{tikzpicture}
@@ -115,29 +506,6 @@ Name-Lookup Service}
       \path (E) edge[thick,color=OliveGreen] (H);
     \end{tikzpicture}
   \end{figure}
-\end{frame}
-
-\begin{frame}{Goal of the Thesis}
-  \begin{itemize}
-    \item Does such an incentive system lead to a functioning system?
-    \item Does every well-behaving peer have enough reputation to receive good
-          (non-penalized) service?
-    \item What's the overhead?
-  \end{itemize}
-\end{frame}
-
-\begin{frame}{Simulation}
-  \begin{itemize}
-    \item Simulate with SimPy
-    \item Let peers choose their behavior to maximize their gain
-    \item Observe how system performance develops
-    \begin{itemize}
-      \item Query response times
-      \item Unanswered queries
-      \item Distribution of reputation
-      \item Query group connectedness
-    \end{itemize}
-  \end{itemize}
 \end{frame}
 
 \begin{frame}{Setup}
@@ -191,15 +559,7 @@ Name-Lookup Service}
   \end{itemize}
 \end{frame}
 
-\begin{frame}{Preparations on Prototype}
-  \begin{itemize}
-    \item Refactor, make testable
-    \item Test
-    \item Logging (currently all events are printed to stdout)
-  \end{itemize}
-\end{frame}
-
-\begin{frame}{Remove simplifications}
+\begin{frame}{Simplifications to Remove}
   \begin{itemize}
     \item Do reputation tracking in-network
     \item More realistic request generation
@@ -213,7 +573,7 @@ Name-Lookup Service}
   \end{itemize}
 \end{frame}
 
-\begin{frame}{Remove simplifications}
+\begin{frame}{Simplifications to Remove}
   \begin{itemize}
     \item Allow peers to change address
     \item Allow sparsely connected sync groups
@@ -223,18 +583,6 @@ Name-Lookup Service}
     \item Collusion/Sybil attack
     \item Malicious peers
   \end{itemize}
-\end{frame}
-
-\begin{frame}{Analytical}
-  \begin{itemize}
-    \item Optional: analytical, game-theoretic solution
-    \item Are there equilibria?
-    \item Are they always reached?
-    \item What is their social value?
-  \end{itemize}
-\end{frame}
-
-\begin{frame}
 \end{frame}
 
 \begin{frame}{Why do we need incentives?}
@@ -255,7 +603,6 @@ Name-Lookup Service}
   \begin{itemize}
     \item Could an attacker still collect information by joining many groups (of
           the second kind)?
-    \item How many defectors can the system tolerate?
     \item How many malicious peers can the system tolerate?
     \item How many peers behaving too generously can the system tolerate?
     \item How annoying is starting out with no reputation anywhere?
