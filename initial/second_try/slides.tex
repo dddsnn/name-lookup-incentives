@@ -112,45 +112,6 @@ Low-Latency Name-Lookup Service}
         \draw[->] (A) -- (C);
         \draw[->] (A) -- (D);
         \draw[->] (A) -- (E);
-      \end{tikzpicture}
-    \end{figure}
-  \end{minipage}
-\end{frame}
-
-\begin{frame}{Query Groups (Chord)}
-  \begin{minipage}{0.5\textwidth}
-    \begin{itemize}
-      \item Join query group with red peer
-    \end{itemize}
-  \end{minipage}% This comment is necessary to remove any space between the minipages
-  \begin{minipage}{0.5\textwidth}
-    \begin{figure}
-      \centering
-      \begin{tikzpicture}
-        \begin{scope}[every node/.style={
-          circle,
-          fill=black,
-          inner sep=0pt,
-          minimum size=5pt
-          }]
-          \node[minimum size=8pt] (A) at (90:2) {};
-          \node[red] (B) at (30:2) {};
-          \node[blue] (C) at (330:2) {};
-          \node[violet] (D) at (270:2) {};
-          \node[OliveGreen] (E) at (210:2) {};
-          \node (F) at (150:2) {};
-        \end{scope}
-
-        \draw (B) -- (C)[draw=none] node[midway, sloped] {\ldots};
-        \draw (C) -- (D)[draw=none] node[midway, sloped] {\ldots};
-        \draw (D) -- (E)[draw=none] node[midway, sloped] {\ldots};
-        \draw (E) -- (F)[draw=none] node[midway, sloped] {\ldots};
-        \draw (F) -- (A)[draw=none] node[midway, sloped] {\ldots};
-
-        \draw[->] (A) -- (B);
-        \draw[->] (A) -- (C);
-        \draw[->] (A) -- (D);
-        \draw[->] (A) -- (E);
 
         \begin{pgfonlayer}{background}
           \begin{scope}[every node/.style={
@@ -159,9 +120,19 @@ Low-Latency Name-Lookup Service}
             thick,
             inner sep=0pt,
             inner xsep=0pt,
-            inner ysep=0pt
+            inner ysep=0pt,
+            opacity=0.5
           }]
-            \node[fit=(A)(B), fill=red!30, rotate=-30] {};
+            \invisible{
+              \node[fit=(A)(B), fill=red!30, rotate=-30] {};
+            }
+            \invisible{
+              \node[fit=(A)(C)(D), fill=violet!30, rotate=18, xshift=-15pt] {};
+            }
+            \invisible{
+              \node[fit=(A)(E), fill=OliveGreen!30, rotate=-30,
+                    inner xsep=-15pt] {};
+            }
           \end{scope}
         \end{pgfonlayer}
       \end{tikzpicture}
@@ -172,9 +143,10 @@ Low-Latency Name-Lookup Service}
 \begin{frame}{Query Groups (Chord)}
   \begin{minipage}{0.5\textwidth}
     \begin{itemize}
-      \item Join query group with red peer
-      \item Join query group with blue peer
-      \item Purple peer is also in that group
+      \item \visible<1->{Join query group with red peer}
+      \item \visible<2->{Join query group with blue peer}
+      \item \visible<2->{Purple peer is also in that group}
+      \item \visible<3->{Join query group with green peer}
     \end{itemize}
   \end{minipage}% This comment is necessary to remove any space between the minipages
   \begin{minipage}{0.5\textwidth}
@@ -213,68 +185,19 @@ Low-Latency Name-Lookup Service}
             thick,
             inner sep=0pt,
             inner xsep=0pt,
-            inner ysep=0pt
+            inner ysep=0pt,
+            opacity=0.5
           }]
-            \node[fit=(A)(C)(D), fill=violet!30, rotate=18, xshift=-15pt] {};
-            \node[fit=(A)(B), fill=red!30, rotate=-30] {};
-          \end{scope}
-        \end{pgfonlayer}
-      \end{tikzpicture}
-    \end{figure}
-  \end{minipage}
-\end{frame}
-
-\begin{frame}{Query Groups (Chord)}
-  \begin{minipage}{0.5\textwidth}
-    \begin{itemize}
-      \item Join query group with red peer
-      \item Join query group with blue peer
-      \item Purple peer is also in that group
-      \item Join query group with green peer
-    \end{itemize}
-  \end{minipage}% This comment is necessary to remove any space between the minipages
-  \begin{minipage}{0.5\textwidth}
-    \begin{figure}
-      \centering
-      \begin{tikzpicture}
-        \begin{scope}[every node/.style={
-          circle,
-          fill=black,
-          inner sep=0pt,
-          minimum size=5pt
-          }]
-          \node[minimum size=8pt] (A) at (90:2) {};
-          \node[red] (B) at (30:2) {};
-          \node[blue] (C) at (330:2) {};
-          \node[violet] (D) at (270:2) {};
-          \node[OliveGreen] (E) at (210:2) {};
-          \node (F) at (150:2) {};
-        \end{scope}
-
-        \draw (B) -- (C)[draw=none] node[midway, sloped] {\ldots};
-        \draw (C) -- (D)[draw=none] node[midway, sloped] {\ldots};
-        \draw (D) -- (E)[draw=none] node[midway, sloped] {\ldots};
-        \draw (E) -- (F)[draw=none] node[midway, sloped] {\ldots};
-        \draw (F) -- (A)[draw=none] node[midway, sloped] {\ldots};
-
-        \draw[->] (A) -- (B);
-        \draw[->] (A) -- (C);
-        \draw[->] (A) -- (D);
-        \draw[->] (A) -- (E);
-
-        \begin{pgfonlayer}{background}
-          \begin{scope}[every node/.style={
-            ellipse,
-            draw=black,
-            thick,
-            inner sep=0pt,
-            inner xsep=0pt,
-            inner ysep=0pt
-          }]
-            \node[fit=(A)(C)(D), fill=violet!30, rotate=18, xshift=-15pt] {};
-            \node[fit=(A)(B), fill=red!30, rotate=-30] {};
-            \node[fit=(A)(E), fill=OliveGreen!30, rotate=-30,
-                  inner xsep=-15pt] {};
+            \visible<1->{
+              \node[fit=(A)(B), fill=red!30, rotate=-30] {};
+            }
+            \visible<2->{
+              \node[fit=(A)(C)(D), fill=violet!30, rotate=18, xshift=-15pt] {};
+            }
+            \visible<3->{
+              \node[fit=(A)(E), fill=OliveGreen!30, rotate=-30,
+                    inner xsep=-15pt] {};
+            }
           \end{scope}
         \end{pgfonlayer}
       \end{tikzpicture}
