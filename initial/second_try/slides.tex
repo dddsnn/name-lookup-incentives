@@ -398,7 +398,26 @@ Low-Latency Name-Lookup Service}
 \begin{frame}
 \end{frame}
 
-\begin{frame}{Query Groups}
+\begin{frame}{Query Groups (Kademlia/P-Grid)}
+  \begin{itemize}
+    \item View keys as bitstring
+    \item Peers have a prefix (bitstring): store keys that start with that
+          prefix
+    \item Peers are in contact with others with the same prefix (replication)
+    \item Other prefixes: know other peers closer to them
+  \end{itemize}
+  \begin{figure}
+    \centering
+    \includegraphics[width=0.5\textwidth]{p-grid}
+    \caption*{\tiny From \emph{P-Grid: A Self-organizing Structured P2P System}}
+  \end{figure}
+\end{frame}
+
+\begin{frame}{Query Groups (Kademlia/P-Grid)}
+  \begin{itemize}
+    \item Dashed: Same prefix, replication (sync groups)
+    \item Solid: Query groups
+  \end{itemize}
   \begin{figure}
     \centering
     \begin{tikzpicture}
