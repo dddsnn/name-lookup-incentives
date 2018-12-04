@@ -63,6 +63,7 @@ Low-Latency Name-Lookup Service}
 
 \begin{frame}{Encouraging peers to contribute}
   \begin{itemize}
+    \item Assume peers are selfish
     \item Only leverage: users want good service
     \item Give bad peers bad service
     \item Track how good peers are via a reputation system
@@ -71,7 +72,8 @@ Low-Latency Name-Lookup Service}
       \item Require central authority
       \item Or introduce additional latency (using another DHT)
     \end{itemize}
-    \item Solution: Track reputation in small subsets of peers (query groups)
+    \item Solution: Create small subsets of peers (query groups), track
+          information in those
   \end{itemize}
 \end{frame}
 
