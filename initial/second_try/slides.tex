@@ -65,15 +65,15 @@ Low-Latency Name-Lookup Service}
   \begin{itemize}
     \item Assume peers are selfish
     \item Only leverage: users want good service
-    \item Give bad peers bad service
+    \item Give bad peers bad service (delayed responses)
     \item Track how good peers are via a reputation system
     \item Existing solutions to track reputation insufficient
     \begin{itemize}
       \item Require central authority
       \item Or introduce additional latency (using another DHT)
     \end{itemize}
-    \item Solution: Create small subsets of peers (query groups), track
-          reputation information in those
+    \item Solution: Create small subsets of peers (query groups),
+          broadcast/gossip reputation updates in those
   \end{itemize}
 \end{frame}
 
@@ -207,6 +207,117 @@ Low-Latency Name-Lookup Service}
   \end{minipage}
 \end{frame}
 
+\begin{frame}{Query Groups (Chord)}
+  \begin{minipage}{0.5\textwidth}
+    \begin{itemize}
+      \item Query groups also contain other peers
+      \item Everybody knows everybody's reputation
+    \end{itemize}
+  \end{minipage}% This comment is necessary to remove any space between the minipages
+  \begin{minipage}{0.5\textwidth}
+    \begin{figure}
+      \centering
+      \begin{tikzpicture}
+        \begin{scope}[every node/.style={
+          circle,
+          fill=black,
+          inner sep=0pt,
+          minimum size=5pt
+          }]
+          \node[minimum size=8pt] (A) at (90:2) {};
+          \invisible{\node[red] (B) at (30:2) {};}
+          \node[blue] (C) at (330:2) {};
+          \node[violet] (D) at (270:2) {};
+          \invisible{\node[OliveGreen] (E) at (210:2) {};}
+          \invisible{\node (F) at (150:2) {};}
+        \end{scope}
+        \begin{scope}[every node/.style={
+          circle,
+          draw=black,
+          inner sep=0pt,
+          minimum size=5pt
+          }]
+          \node (G) at (90:1) {};
+          \node (H) at (180:0.5) {};
+          \node (I) at (135:1.2) {};
+          \node (J) at (280:1.3) {};
+          \node (K) at (0:1) {};
+          \node (L) at (330:1) {};
+        \end{scope}
+
+        \draw (A) -- (C)[draw=gray, opacity=0.8];
+        \draw (A) -- (D)[draw=gray, opacity=0.8];
+        \draw (A) -- (G)[draw=gray, opacity=0.8];
+        \draw (A) -- (H)[draw=gray, opacity=0.8];
+        \draw (A) -- (I)[draw=gray, opacity=0.8];
+        \draw (A) -- (J)[draw=gray, opacity=0.8];
+        \draw (A) -- (K)[draw=gray, opacity=0.8];
+        \draw (A) -- (L)[draw=gray, opacity=0.8];
+        \draw (C) -- (D)[draw=gray, opacity=0.8];
+        \draw (C) -- (G)[draw=gray, opacity=0.8];
+        \draw (C) -- (H)[draw=gray, opacity=0.8];
+        \draw (C) -- (I)[draw=gray, opacity=0.8];
+        \draw (C) -- (J)[draw=gray, opacity=0.8];
+        \draw (C) -- (K)[draw=gray, opacity=0.8];
+        \draw (C) -- (L)[draw=gray, opacity=0.8];
+        \draw (D) -- (G)[draw=gray, opacity=0.8];
+        \draw (D) -- (H)[draw=gray, opacity=0.8];
+        \draw (D) -- (I)[draw=gray, opacity=0.8];
+        \draw (D) -- (J)[draw=gray, opacity=0.8];
+        \draw (D) -- (K)[draw=gray, opacity=0.8];
+        \draw (D) -- (L)[draw=gray, opacity=0.8];
+        \draw (G) -- (H)[draw=gray, opacity=0.8];
+        \draw (G) -- (I)[draw=gray, opacity=0.8];
+        \draw (G) -- (J)[draw=gray, opacity=0.8];
+        \draw (G) -- (K)[draw=gray, opacity=0.8];
+        \draw (G) -- (L)[draw=gray, opacity=0.8];
+        \draw (H) -- (I)[draw=gray, opacity=0.8];
+        \draw (H) -- (J)[draw=gray, opacity=0.8];
+        \draw (H) -- (K)[draw=gray, opacity=0.8];
+        \draw (H) -- (L)[draw=gray, opacity=0.8];
+        \draw (I) -- (J)[draw=gray, opacity=0.8];
+        \draw (I) -- (K)[draw=gray, opacity=0.8];
+        \draw (I) -- (L)[draw=gray, opacity=0.8];
+        \draw (J) -- (K)[draw=gray, opacity=0.8];
+        \draw (J) -- (L)[draw=gray, opacity=0.8];
+        \draw (K) -- (L)[draw=gray, opacity=0.8];
+
+        \invisible{\draw (B) -- (C)[draw=none] node[midway, sloped] {\ldots};}
+        \invisible{\draw (C) -- (D)[draw=none] node[midway, sloped] {\ldots};}
+        \invisible{\draw (D) -- (E)[draw=none] node[midway, sloped] {\ldots};}
+        \invisible{\draw (E) -- (F)[draw=none] node[midway, sloped] {\ldots};}
+        \invisible{\draw (F) -- (A)[draw=none] node[midway, sloped] {\ldots};}
+
+        \invisible{\draw[->] (A) -- (B);}
+        \invisible{\draw[->] (A) -- (C);}
+        \invisible{\draw[->] (A) -- (D);}
+        \invisible{\draw[->] (A) -- (E);}
+
+        \begin{pgfonlayer}{background}
+          \begin{scope}[every node/.style={
+            ellipse,
+            draw=black,
+            thick,
+            inner sep=0pt,
+            inner xsep=0pt,
+            inner ysep=0pt,
+            opacity=0.5
+          }]
+            \invisible{
+              \node[fit=(A)(B), fill=red!30, rotate=-30] {};
+            }
+            \node[fit=(A)(C)(D), fill=violet!30, rotate=18, xshift=-15pt] {};
+            \invisible{
+              \node[fit=(A)(E), fill=OliveGreen!30, rotate=-30,
+                    inner xsep=-15pt] {};
+            }
+          \end{scope}
+        \end{pgfonlayer}
+      \end{tikzpicture}
+    \end{figure}
+  \end{minipage}
+\end{frame}
+
 \begin{frame}{Goal of the Thesis}
   \begin{itemize}
     \item Does such an incentive system lead to a useful system?
@@ -249,7 +360,7 @@ Low-Latency Name-Lookup Service}
       \hline
       successful & 2841 (92.8\%) & 2868 (69.4\%) \\
       \hline
-      timed out & 217 (7.1\%) & 1236 (29.9\%) \\
+      timed out & \textbf{217 (7.1\%)} & \textbf{1236 (29.9\%)} \\
       \hline
       unsuccessful & 1 (<0.1\%) & 10 (0.2\%) \\
       \hline
@@ -265,7 +376,8 @@ Low-Latency Name-Lookup Service}
   \begin{itemize}
     \item Selfish peers let queries time out
     \item Also means more traffic in total (retries)
-    \item Good peer timeouts: unexpected penalty during a recursive query
+    \visible<2->{\item Good peer timeouts: unexpected penalty during a recursive
+                       query}
   \end{itemize}
 \end{frame}
 
@@ -326,8 +438,7 @@ Low-Latency Name-Lookup Service}
   \end{figure}
   \begin{itemize}
     \item Up to 10 time units penalty delay
-    \item Good: Many responses at maximum delay, many peers with no reputation
-          (artefact of simulation)
+    \item Good: Many peers with little reputation
     \item Selfish: somtimes multiple attempts necessary (timeouts)
   \end{itemize}
 \end{frame}
@@ -373,10 +484,8 @@ Low-Latency Name-Lookup Service}
               query group}
   \end{figure}
   \begin{itemize}
-    \item Good: Many peers with little reputation, because peers chosen in same
-          order (artefact of simulation)
-    \item Peers that get chosen a lot have much greater reputation
-    \item Selfish: Peers don't get much more than 15 reputation
+    \item Good: Uneven reputation distribution
+    \item Selfish: Peers stop answering when they have enough
   \end{itemize}
 \end{frame}
 
@@ -405,6 +514,25 @@ Low-Latency Name-Lookup Service}
     \item Implement and evaluate via discrete event simulation
     \item Optional: analytical, game-theoretic solution
   \end{itemize}
+\end{frame}
+
+\begin{frame}{Timeline}
+  \begin{ganttchart}[
+    vgrid={*9{draw=none}, dotted},
+    x unit=0.035cm,
+    title label font=\tiny\bfseries,
+    bar label font=\tiny\bfseries
+  ]{1}{250}
+  \gantttitlelist{1,...,25}{10} \\
+  \ganttbar{Implementation}{1}{60}
+  \ganttbar{}{71}{100}
+  \ganttbar{}{116}{145} \\
+  \ganttbar{Evaluation}{61}{80}
+  \ganttbar{}{96}{125}
+  \ganttbar{}{136}{190} \\
+  \ganttbar{Writing}{161}{230} \\
+  \ganttbar{Buffer}{231}{250}
+  \end{ganttchart}
 \end{frame}
 
 \begin{frame}
