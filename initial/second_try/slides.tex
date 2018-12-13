@@ -56,7 +56,7 @@ Low-Latency Name-Lookup Service}
       \item Can become target for others who want to build profiles
     \end{itemize}
     \item Spread requests to many different nodes in a DHT
-    \item Requires lots of nodes \rightarrow users need to participate
+    \item Requires lots of nodes\rightarrow users need to participate
           themselves
   \end{itemize}
 \end{frame}
@@ -69,8 +69,10 @@ Low-Latency Name-Lookup Service}
     \item Track how good peers are via a reputation system
     \item Existing solutions to track reputation insufficient
     \begin{itemize}
-      \item Require central authority
-      \item Or introduce additional latency (using another DHT)
+      \item Assume a central authority {\color{gray}\tiny[Gupta et al.]}
+      \item Aren't Scalable {\color{gray}\tiny[Zhou et al.]}
+      \item Or propose using another DHT {\color{gray}\tiny[Feldman et al.]},
+            introducing additional latency
     \end{itemize}
     \item Solution: Create small subsets of peers (query groups),
           broadcast/gossip reputation updates in those
@@ -489,19 +491,26 @@ Low-Latency Name-Lookup Service}
   \end{itemize}
 \end{frame}
 
-\begin{frame}{Simplification - Example}
+\begin{frame}{Work to Be Done}
   \begin{itemize}
     \item Currently, query groups are just sets
-    \item Peers just add themselves or others
-    \item Always iterate in the same order \rightarrow uneven reputation
+    \item Always iterate in the same order\rightarrow uneven reputation
           distribution
-    \item Each peer needs to maintain group information locally
-    \item Join by being invited
-    \item Observe how query groups form
+    \item More simplifications like this need to be removed
     \begin{itemize}
-      \item Peers can decline invites if there's no benefit for them
-      \item Peers can leave query groups if they get too full
-      \item Do peers have trouble getting connectivity?
+      \item Peers can simply add themselves to a query group\rightarrow invite
+            system
+      \item Peers never go offline\rightarrow need to deal with coming back
+            online
+    \end{itemize}
+    \item Make peers more selfish, trying to exploit the system
+    \begin{itemize}
+      \item Neglect the proper delay, answer immediately\rightarrow early
+            responses need to be penalized
+    \end{itemize}
+    \item Make peers smarter
+    \begin{itemize}
+      \item Select a peer to query with low reputation (more likely to answer)
     \end{itemize}
   \end{itemize}
 \end{frame}
@@ -634,7 +643,7 @@ Low-Latency Name-Lookup Service}
       \item their current reputation in the relevant query group
       \item expected behavior of others (in the query group) in response to
             their action
-      \item the other peers reputation
+      \item the other peers' reputation
       \item previous interactions with that peer
     \end{itemize}
     \item Increasing levels of sophistication
