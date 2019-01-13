@@ -9,3 +9,5 @@
 *.snm
 *.toc
 */__pycache__
+.project
+.pydevproject
