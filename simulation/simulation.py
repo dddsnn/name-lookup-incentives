@@ -281,7 +281,7 @@ class Peer:
         timeout = Peer.QUERY_TIMEOUT + self.act_expect_delay(recipient)
         try:
             yield self.env.timeout(timeout)
-        except simpy.Interrupt as e:
+        except simpy.Interrupt:
             return
         pending_query = self.pending_queries.get(queried_id)
         if pending_query is None:
@@ -640,12 +640,12 @@ def format_ids(queried_id, queried_ids):
         s += ' ({' + ', '.join((str(qid) for qid in queried_ids)) + '})'
     return s
 
-def print_info_process(env, peers, sync_groups, all_query_groups):
+def print_info_process(env, peers, sync_groups, all_query_groups, peer_graph):
     while True:
         yield env.timeout(10)
-        print_info(peers, sync_groups, all_query_groups)
+        print_info(peers, sync_groups, all_query_groups, peer_graph)
 
-def print_info(peers, sync_groups, all_query_groups):
+def print_info(peers, sync_groups, all_query_groups, peer_graph):
     print()
     print('sync groups (prefix: {peers}):')
     for pr, sg in sorted(sync_groups.items(), key=lambda t: t[0].uint):
@@ -706,8 +706,9 @@ if __name__ == '__main__':
         for other_peer in random.sample(list(peers.values()), 8):
             peer.introduce(other_peer)
 
-    print_info(peers, sync_groups, all_query_groups)
-    env.process(print_info_process(env, peers, sync_groups, all_query_groups))
+    print_info(peers, sync_groups, all_query_groups, peer_graph)
+    env.process(print_info_process(env, peers, sync_groups, all_query_groups,
+                                   peer_graph))
     print('scheduling queries for missing subprefixes')
     for peer in peers.values():
         peer.find_missing_query_peers()
