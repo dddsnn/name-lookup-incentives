@@ -3,7 +3,6 @@ import bitstring as bs
 import random
 import networkx as nx
 
-TRANSMISSION_DELAY = 0.1
 SUCCESSFUL_QUERY_REWARD = 1
 FAILED_QUERY_PENALTY = -2
 TIMEOUT_QUERY_PENALTY = -2
@@ -49,8 +48,9 @@ class Peer:
     QUERY_TIMEOUT = 2
     COMPLETED_QUERY_RETENTION_TIME = 100
 
-    def __init__(self, env, peer_id, all_query_groups, peer_graph):
+    def __init__(self, env, network, peer_id, all_query_groups, peer_graph):
         self.env = env
+        self.network = network
         self.peer_id = peer_id
         self.all_query_groups = all_query_groups
         self.peer_graph = peer_graph
@@ -173,14 +173,11 @@ class Peer:
                                                            queried_id))
         pending_query.timeout_proc = timeout_proc
         pending_query.queries_sent[peer_to_query] = self.env.now
-        self.env.schedule(SendQuery(self.env, self, peer_to_query, queried_id),
-                          delay=TRANSMISSION_DELAY)
+        self.network.send_query(self, peer_to_query, queried_id)
 
     def send_response(self, recipient, queried_ids, queried_peer, delay=0):
-        if recipient != self:
-            delay += TRANSMISSION_DELAY
-        self.env.schedule(SendResponse(self.env, self, recipient, queried_ids,
-                                       queried_peer), delay=delay)
+        do_delayed(self.env, delay, self.network.send_response, self,
+                   recipient, queried_ids, queried_peer)
 
     def recv_query(self, querying_peer, queried_id):
         # TODO In case of a query for a partial ID, randomize which peer is
@@ -545,6 +542,26 @@ class Peer:
         # TODO Unhardcode
         return min(max(10 - max_rep, 0), 10)
 
+class Network:
+    TRANSMISSION_DELAY = 0.1
+
+    def __init__(self, env):
+        self.env = env
+
+    def send_query(self, sender, recipient, queried_id):
+        delay = 0
+        if sender != recipient:
+            delay += Network.TRANSMISSION_DELAY
+        self.env.schedule(SendQuery(self.env, sender, recipient, queried_id),
+                          delay=delay)
+
+    def send_response(self, sender, recipient, queried_ids, queried_peer):
+        delay = 0
+        if sender != recipient:
+            delay += Network.TRANSMISSION_DELAY
+        self.env.schedule(SendResponse(self.env, sender, recipient, queried_ids,
+                                       queried_peer), delay=delay)
+
 class PendingQuery:
     def __init__(self, start_time, querying_peer, queried_id, peers_to_query,
                  timeout_proc=None):
@@ -605,6 +622,17 @@ def decay_reputation(env, all_query_groups):
                 {p: max(0, r - decay) for p, r in query_group.items()}
             )
 
+def do_delayed(env, delay, function, *args):
+    """
+    Do something with a delay.
+
+    Creates a process that calls function with args after delay.
+    """
+    def gen():
+        yield env.timeout(delay)
+        function(*args)
+    env.process(gen())
+
 def format_ids(queried_id, queried_ids):
     """Pretty-print an ID and set of prefixes."""
     s = str(queried_id)
@@ -658,12 +686,13 @@ if __name__ == '__main__':
     sync_groups = {}
     all_query_groups = set()
     peer_graph = nx.DiGraph()
+    network = Network(env)
     for i in range(64):
         while True:
             peer_id_uint = random.randrange(2 ** Peer.ID_LENGTH)
             peer_id = bs.Bits(uint=peer_id_uint, length = Peer.ID_LENGTH)
             if peer_id not in peers:
-                peer = Peer(env, peer_id, all_query_groups, peer_graph)
+                peer = Peer(env, network, peer_id, all_query_groups, peer_graph)
                 peers[peer_id] = peer
                 sync_groups.setdefault(peer_id[:Peer.PREFIX_LENGTH],
                                        set()).add(peer)
