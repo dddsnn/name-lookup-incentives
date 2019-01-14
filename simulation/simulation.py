@@ -9,6 +9,7 @@ TIMEOUT_QUERY_PENALTY = -2
 DECAY_TIMESTEP = 1
 DECAY_PER_TIME_UNIT = 0.1
 
+
 class QueryGroup:
     def __init__(self, members):
         self._members = {m: 0 for m in members}
@@ -40,6 +41,7 @@ class QueryGroup:
     def update(self, *args):
         return self._members.update(*args)
 
+
 class Peer:
     ID_LENGTH = 16
     PREFIX_LENGTH = 4
@@ -67,7 +69,7 @@ class Peer:
     def knows(self, peer):
         return (peer.peer_id == self.peer_id or peer.peer_id in self.sync_peers
                 or peer.peer_id in
-                    (i for g in peer.query_groups for i in g.members()))
+                (i for g in peer.query_groups for i in g.members()))
 
     def join_group_with(self, peer):
         # TODO Instead of just adding self or others to groups, send join
@@ -96,12 +98,13 @@ class Peer:
         """
         Find peers to cover prefixes for which there are no known peers.
 
-        It's not enough in this case to simply query for a prefix, because there
-        may not be any known peer closer to it. Instead, all peers are queried
-        by calling act_query() directly with query_all set to True. This way,
-        sync peers will be queried as well.
+        It's not enough in this case to simply query for a prefix, because
+        there may not be any known peer closer to it. Instead, all peers are
+        queried by calling act_query() directly with query_all set to True.
+        This way, sync peers will be queried as well.
         """
-        for subprefix in (sp for sp, c in self.subprefixes().items() if c == 0):
+        for subprefix in (sp for sp, c in self.subprefixes().items()
+                          if c == 0):
             self.act_query(self, subprefix, True)
 
     def introduce(self, peer):
@@ -122,12 +125,12 @@ class Peer:
         Map each subprefix to the number of known peers serving it.
 
         A subprefix is a k-bit bitstring with k > 0, k <= len(self.prefix), in
-        which the first k-1 bits are equal to the first k-1 bits in self.prefix,
-        and the k-th bit is inverted.
+        which the first k-1 bits are equal to the first k-1 bits in
+        self.prefix, and the k-th bit is inverted.
 
         The dictionary that is returned maps each of the possible
-        len(self.prefix) such subprefixes to the number of peers this peer knows
-        who can serve it.
+        len(self.prefix) such subprefixes to the number of peers this peer
+        knows who can serve it.
         """
         # TODO Cache.
         subprefixes = {}
@@ -140,7 +143,8 @@ class Peer:
         return {sp: len(qps) for (sp, qps) in subprefixes.items()}
 
     def handle_request(self, queried_id):
-        print('{:.2f}: {}: request for {} - '.format(self.env.now, self.peer_id,
+        print('{:.2f}: {}: request for {} - '.format(self.env.now,
+                                                     self.peer_id,
                                                      queried_id), end='')
         for pending_queried_id in self.pending_queries:
             if pending_queried_id.startswith(queried_id):
@@ -155,7 +159,8 @@ class Peer:
                 # TODO Actually send query in case queried_id is a prefix. This
                 # behavior is useless for the purpose of finding more sync
                 # peers.
-                print('found matching ID {} in sync peers'.format(sync_peer_id))
+                print('found matching ID {} in sync peers'
+                      .format(sync_peer_id))
                 return
         print('sending query')
         self.recv_query(self, queried_id)
@@ -165,8 +170,8 @@ class Peer:
         Send a query for an ID.
 
         Takes the first element of pending_query.peers_to_query as recipient,
-        therefore this list must not be empty. Also starts a timeout process and
-        stores it in pending_query.timeout_proc.
+        therefore this list must not be empty. Also starts a timeout process
+        and stores it in pending_query.timeout_proc.
         """
         peer_to_query = pending_query.peers_to_query.pop(0)
         timeout_proc = self.env.process(self.query_timeout(peer_to_query,
@@ -194,7 +199,7 @@ class Peer:
                 # There already is a query for a fitting ID in progress, just
                 # note to also send a resonse to this querying peer.
                 pending_query.querying_peers.setdefault(querying_peer,
-                    set()).add(queried_id)
+                                                        set()).add(queried_id)
                 return
         self.act_query(querying_peer, queried_id)
 
@@ -204,9 +209,10 @@ class Peer:
             if pending_query is not None:
                 break
         for qid in queried_ids:
-            # Only one of the queried IDs for which we receive a response should
-            # have a pending query on record (namely the longest one). The other
-            # IDs should be part of that record, but not the key for it.
+            # Only one of the queried IDs for which we receive a response
+            # should have a pending query on record (namely the longest one).
+            # The other IDs should be part of that record, but not the key for
+            # it.
             assert qid == queried_id or qid not in self.pending_queries
         if pending_query is None:
             self.check_completed_queries(responding_peer, queried_id,
@@ -263,7 +269,8 @@ class Peer:
             completed_queries.append(pending_query)
         else:
             self.completed_queries[queried_id] = [pending_query]
-        self.env.process(self.remove_completed_query(pending_query, queried_id))
+        self.env.process(self.remove_completed_query(pending_query,
+                                                     queried_id))
 
     def remove_completed_query(self, pending_query, queried_id):
         yield env.timeout(Peer.COMPLETED_QUERY_RETENTION_TIME)
@@ -312,12 +319,12 @@ class Peer:
         """
         List peers to send a query to.
 
-        Creates a list containing all peers that should be queried for the given
-        ID. These are all known peers who are closer to that ID, i.e. whose
-        bit_overlap() is larger than for this peer.
+        Creates a list containing all peers that should be queried for the
+        given ID. These are all known peers who are closer to that ID, i.e.
+        whose bit_overlap() is larger than for this peer.
 
-        The list is sorted by the overlap, with the largest, i.e. the closest to
-        the ID (and thus most useful) first.
+        The list is sorted by the overlap, with the largest, i.e. the closest
+        to the ID (and thus most useful) first.
         """
         own_overlap = bit_overlap(self.prefix, queried_id)
         peers_to_query = []
@@ -327,8 +334,8 @@ class Peer:
                 peers_to_query.append(query_peer)
         # TODO Instead of sorting for the longest prefix match, use a heap to
         # begin with.
-        # TODO Also consider reputation in the query group when selecting a peer
-        # to query.
+        # TODO Also consider reputation in the query group when selecting a
+        # peer to query.
         peers_to_query.sort(key=lambda p: bit_overlap(p.prefix, queried_id),
                             reverse=True)
         return peers_to_query
@@ -391,7 +398,8 @@ class Peer:
 
     def act_query_self_default(self, querying_peer, queried_id):
         delay = self.act_decide_delay(querying_peer)
-        self.send_response(querying_peer, set((queried_id,)), self, delay=delay)
+        self.send_response(querying_peer, set((queried_id,)), self,
+                           delay=delay)
 
     def act_query_sync_default(self, querying_peer, queried_id, sync_peer):
         delay = self.act_decide_delay(querying_peer)
@@ -409,13 +417,14 @@ class Peer:
 
         By default, the peers that will be queried are only ones whose prefix
         has a larger overlap with the queried ID than this peer, i.e. who are
-        closer to the target ID. However, if query_all is True, all known peers,
-        including sync peers, will be queried.
+        closer to the target ID. However, if query_all is True, all known
+        peers, including sync peers, will be queried.
         """
         if query_all:
             peers_to_query = (list(self.known_query_peers())
-                             + list(self.sync_peers.values()))
-            peers_to_query.sort(key=lambda p: bit_overlap(p.prefix, queried_id),
+                              + list(self.sync_peers.values()))
+            peers_to_query.sort(key=lambda p: bit_overlap(p.prefix,
+                                                          queried_id),
                                 reverse=True)
         else:
             peers_to_query = self.select_peers_to_query(queried_id)
@@ -468,15 +477,16 @@ class Peer:
         queried_ids = pending_query.querying_peers.get(self)
         if queried_ids is not None:
             queried_ids = pending_query.querying_peers[self]
-            print(('{:.2f}: {}: unsuccessful response for query for {} from {},'
-                   ' trying next peer')
+            print(('{:.2f}: {}: unsuccessful response for query for {} from'
+                   ' {}, trying next peer')
                   .format(self.env.now, self.peer_id, format_ids(queried_id,
                                                                  queried_ids),
                           responding_peer.peer_id))
         self.send_query(queried_id, pending_query)
         self.act_rep_failure(responding_peer)
 
-    def act_timeout_failure_default(self, pending_query, recipient, queried_id):
+    def act_timeout_failure_default(self, pending_query, recipient,
+                                    queried_id):
         queried_ids = pending_query.querying_peers.get(self)
         total_time = self.env.now - pending_query.start_time
         if queried_ids is not None:
@@ -521,11 +531,11 @@ class Peer:
     def act_decide_delay_default(self, querying_peer):
         # TODO Handle the case if querying_peer is not in a query group. That
         # can happen if a sync peer is sending out a prefix query to all known
-        # peers in order to complete his subprefix connectivity. Currently, when
-        # computing max_rep, the default=0 treats queries from sync_peers as
-        # though they are to be maximally penalized. Obviously, there needs to
-        # be a reputation mechanism for sync peers that this method honors once
-        # the sync group management is actually handled by the peers via
+        # peers in order to complete his subprefix connectivity. Currently,
+        # when computing max_rep, the default=0 treats queries from sync_peers
+        # as though they are to be maximally penalized. Obviously, there needs
+        # to be a reputation mechanism for sync peers that this method honors
+        # once the sync group management is actually handled by the peers via
         # messages.
         max_rep = max((g[querying_peer]
                       for g in self.peer_query_groups(querying_peer)),
@@ -541,6 +551,7 @@ class Peer:
                       default=0)
         # TODO Unhardcode
         return min(max(10 - max_rep, 0), 10)
+
 
 class Network:
     TRANSMISSION_DELAY = 0.1
@@ -559,8 +570,9 @@ class Network:
         delay = 0
         if sender != recipient:
             delay += Network.TRANSMISSION_DELAY
-        self.env.schedule(SendResponse(self.env, sender, recipient, queried_ids,
-                                       queried_peer), delay=delay)
+        self.env.schedule(SendResponse(self.env, sender, recipient,
+                                       queried_ids, queried_peer), delay=delay)
+
 
 class PendingQuery:
     def __init__(self, start_time, querying_peer, queried_id, peers_to_query,
@@ -570,6 +582,7 @@ class PendingQuery:
         self.timeout_proc = timeout_proc
         self.peers_to_query = peers_to_query
         self.queries_sent = {}
+
 
 class SendQuery(simpy.events.Event):
     def __init__(self, env, sender, recipient, queried_id):
@@ -582,6 +595,7 @@ class SendQuery(simpy.events.Event):
 
     def action(self):
         self.recipient.recv_query(self.sender, self.queried_id)
+
 
 class SendResponse(simpy.events.Event):
     def __init__(self, env, sender, recipient, queried_ids, queried_peer):
@@ -597,10 +611,12 @@ class SendResponse(simpy.events.Event):
         self.recipient.recv_response(self.sender, self.queried_ids,
                                      self.queried_peer)
 
+
 def bit_overlap(a, b):
     """Calculate the number of bits at the start that are the same."""
     m = min(len(a), len(b))
     return len(next((a[:m] ^ b[:m]).split('0b1', count=1)))
+
 
 def request_generator(env, peers, peer):
     while True:
@@ -613,6 +629,7 @@ def request_generator(env, peers, peer):
         peer.handle_request(query_peer_id)
         yield env.timeout(1)
 
+
 def decay_reputation(env, all_query_groups):
     while True:
         yield env.timeout(DECAY_TIMESTEP)
@@ -621,6 +638,7 @@ def decay_reputation(env, all_query_groups):
             query_group.update(
                 {p: max(0, r - decay) for p, r in query_group.items()}
             )
+
 
 def do_delayed(env, delay, function, *args):
     """
@@ -633,6 +651,7 @@ def do_delayed(env, delay, function, *args):
         function(*args)
     env.process(gen())
 
+
 def format_ids(queried_id, queried_ids):
     """Pretty-print an ID and set of prefixes."""
     s = str(queried_id)
@@ -640,10 +659,12 @@ def format_ids(queried_id, queried_ids):
         s += ' ({' + ', '.join((str(qid) for qid in queried_ids)) + '})'
     return s
 
+
 def print_info_process(env, peers, sync_groups, all_query_groups, peer_graph):
     while True:
         yield env.timeout(10)
         print_info(peers, sync_groups, all_query_groups, peer_graph)
+
 
 def print_info(peers, sync_groups, all_query_groups, peer_graph):
     print()
@@ -656,9 +677,8 @@ def print_info(peers, sync_groups, all_query_groups, peer_graph):
     for query_group in all_query_groups:
         print('{{{}}}'.format(', '.join(
             str(p.peer_id) + ': ' + '{:.1f}'.format(r)
-            for p, r in sorted(query_group.items(), key=lambda t:t[1],
-                               reverse=True)))
-        )
+            for p, r in sorted(query_group.items(), key=lambda t: t[1],
+                               reverse=True))))
     print()
     print('missing subprefix coverage per peer:')
     any_missing = False
@@ -673,11 +693,13 @@ def print_info(peers, sync_groups, all_query_groups, peer_graph):
     print()
     print('strongly connected components:')
     from networkx import strongly_connected_components as scc
-    for i, comp in enumerate((peer_graph.subgraph(c) for c in scc(peer_graph))):
+    for i, comp in enumerate((peer_graph.subgraph(c)
+                              for c in scc(peer_graph))):
         print('component {}: {} nodes, diameter {}, degree histogram: {}'
               .format(i, nx.number_of_nodes(comp), nx.diameter(comp),
-                       nx.degree_histogram(comp)))
+                      nx.degree_histogram(comp)))
     print()
+
 
 if __name__ == '__main__':
     random.seed(a=0, version=2)
@@ -690,9 +712,10 @@ if __name__ == '__main__':
     for i in range(64):
         while True:
             peer_id_uint = random.randrange(2 ** Peer.ID_LENGTH)
-            peer_id = bs.Bits(uint=peer_id_uint, length = Peer.ID_LENGTH)
+            peer_id = bs.Bits(uint=peer_id_uint, length=Peer.ID_LENGTH)
             if peer_id not in peers:
-                peer = Peer(env, network, peer_id, all_query_groups, peer_graph)
+                peer = Peer(env, network, peer_id, all_query_groups,
+                            peer_graph)
                 peers[peer_id] = peer
                 sync_groups.setdefault(peer_id[:Peer.PREFIX_LENGTH],
                                        set()).add(peer)
