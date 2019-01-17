@@ -307,8 +307,9 @@ class Peer:
         if completed_queries is None:
             return
         for i, pending_query in enumerate(completed_queries):
-            pending_query.queries_sent.pop(responding_peer, None)
-            if pending_query is None:
+            sent_query = pending_query.queries_sent.pop(responding_peer, None)
+            if sent_query is None:
+                # This particular pending query was not sent toresponding_peer.
                 continue
             if queried_peer is not None:
                 status = 'late_success'
