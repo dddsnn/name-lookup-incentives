@@ -334,11 +334,10 @@ class Peer:
             completed_queries.append(pending_query)
         else:
             self.completed_queries[queried_id] = [pending_query]
-        self.env.process(self.remove_completed_query(pending_query,
-                                                     queried_id))
+        do_delayed(self.env, Peer.COMPLETED_QUERY_RETENTION_TIME,
+                   self.remove_completed_query, pending_query, queried_id)
 
     def remove_completed_query(self, pending_query, queried_id):
-        yield env.timeout(Peer.COMPLETED_QUERY_RETENTION_TIME)
         completed_queries = self.completed_queries.get(queried_id)
         if completed_queries is None:
             return
