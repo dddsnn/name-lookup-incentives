@@ -356,8 +356,10 @@ class Peer:
         except simpy.Interrupt:
             return
         pending_query = self.pending_queries.get(queried_id)
-        if pending_query is None:
-            return
+        # pending_query shouldn't be None here. When the timeout is started, it
+        # must be added to the pending queries, and is only removed once a
+        # response has been received and the timeout is interrupted.
+        assert pending_query is not None
         try:
             if len(pending_query.peers_to_query) == 0:
                 status = 'failure_ultimate'
