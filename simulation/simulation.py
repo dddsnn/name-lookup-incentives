@@ -174,7 +174,7 @@ class Peer:
         finally:
             self.logger.log(an.Request(self.env.now, self.peer_id, queried_id,
                                        status))
-        self.recv_query(self, queried_id)
+        self.recv_query(self, queried_id, skip_log=True)
 
     def send_query(self, queried_id, pending_query):
         """
@@ -204,7 +204,10 @@ class Peer:
         do_delayed(self.env, delay, self.network.send_response, self,
                    recipient, queried_ids, queried_peer)
 
-    def recv_query(self, querying_peer, queried_id):
+    def recv_query(self, querying_peer, queried_id, skip_log=False):
+        """
+        :param skip_log: Whether to skip receiving this query in logging.
+        """
         try:
             # TODO In case of a query for a partial ID, randomize which peer is
             # returned.
@@ -229,8 +232,10 @@ class Peer:
                     return
             status = 'querying'
         finally:
-            logger.log(an.QueryReceived(self.env.now, querying_peer.peer_id,
-                                        self.peer_id, queried_id, status))
+            if not skip_log:
+                logger.log(an.QueryReceived(self.env.now,
+                                            querying_peer.peer_id,
+                                            self.peer_id, queried_id, status))
         self.act_query(querying_peer, queried_id)
 
     def recv_response(self, responding_peer, queried_ids, queried_peer):
