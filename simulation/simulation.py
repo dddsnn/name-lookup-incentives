@@ -187,8 +187,8 @@ class Peer:
         """
         peer_to_query = pending_query.peers_to_query.pop(0)
         in_event_id = self.logger.log(an.QuerySent(self.env.now, self.peer_id,
-                                                   peer_to_query, queried_id,
-                                                   in_event_id))
+                                                   peer_to_query.peer_id,
+                                                   queried_id, in_event_id))
         timeout_proc = self.env.process(self.query_timeout(peer_to_query,
                                                            queried_id,
                                                            in_event_id))
