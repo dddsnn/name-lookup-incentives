@@ -224,36 +224,31 @@ class Peer:
             return an.QueryReceived(self.env.now,
                                     querying_peer.peer_id, self.peer_id,
                                     queried_id, status, in_event_id)
-        try:
-            # TODO In case of a query for a partial ID, randomize which peer is
-            # returned.
-            if self.peer_id.startswith(queried_id):
-                if not skip_log:
-                    in_event_id = self.logger.log(event('own_id'))
-                self.act_query_self(querying_peer, queried_id, in_event_id)
-                return
-            for sync_peer_id, sync_peer in self.sync_peers.items():
-                if sync_peer_id.startswith(queried_id):
-                    if not skip_log:
-                        in_event_id = self.logger.log(event('known'))
-                    self.act_query_sync(querying_peer, queried_id, sync_peer,
-                                        in_event_id)
-                    return
-            for pending_query_id, pending_query in (self.pending_queries
-                                                    .items()):
-                if pending_query_id.startswith(queried_id):
-                    if not skip_log:
-                        in_event_id = self.logger.log(event('pending'))
-                    # There already is a query for a fitting ID in progress,
-                    # just note to also send a response to this querying peer.
-                    pending_query.querying_peers.setdefault(
-                        querying_peer,
-                        set()).add(queried_id)
-                    return
+        # TODO In case of a query for a partial ID, randomize which peer is
+        # returned.
+        if self.peer_id.startswith(queried_id):
             if not skip_log:
-                in_event_id = self.logger.log(event('querying'))
-        finally:
-            pass
+                in_event_id = self.logger.log(event('own_id'))
+            self.act_query_self(querying_peer, queried_id, in_event_id)
+            return
+        for sync_peer_id, sync_peer in self.sync_peers.items():
+            if sync_peer_id.startswith(queried_id):
+                if not skip_log:
+                    in_event_id = self.logger.log(event('known'))
+                self.act_query_sync(querying_peer, queried_id, sync_peer,
+                                    in_event_id)
+                return
+        for pending_query_id, pending_query in self.pending_queries.items():
+            if pending_query_id.startswith(queried_id):
+                if not skip_log:
+                    in_event_id = self.logger.log(event('pending'))
+                # There already is a query for a fitting ID in progress, just
+                # note to also send a response to this querying peer.
+                pending_query.querying_peers.setdefault(querying_peer,
+                                                        set()).add(queried_id)
+                return
+        if not skip_log:
+            in_event_id = self.logger.log(event('querying'))
         self.act_query(querying_peer, queried_id, in_event_id)
 
     def recv_response(self, responding_peer, queried_ids, queried_peer,
@@ -277,43 +272,40 @@ class Peer:
             # The other IDs should be part of that record, but not the key for
             # it.
             assert qid == queried_id or qid not in self.pending_queries
-        try:
-            if pending_query is None:
-                status = self.check_completed_queries(responding_peer,
-                                                      queried_id, queried_peer)
-                if status is None:
-                    status = 'unmatched'
-                in_event_id = self.logger.log(event(status))
-                return
-            if responding_peer not in pending_query.queries_sent:
-                status = self.check_completed_queries(responding_peer,
-                                                      queried_id, queried_peer)
-                if status is None:
-                    status = 'wrong_responder'
-                in_event_id = self.logger.log(event(status))
-                return
-            pending_query.timeout_proc.interrupt()
-            time_sent = pending_query.queries_sent.pop(responding_peer)
-            time_taken = self.env.now - time_sent
-            if queried_peer is not None:
-                in_event_id = self.logger.log(event('success'))
-                self.act_response_success(pending_query, responding_peer,
-                                          queried_id, queried_peer, time_taken,
-                                          in_event_id)
-                self.pending_queries.pop(queried_id, None)
-                self.archive_completed_query(pending_query, queried_id)
-                self.introduce(queried_peer)
-                return
-            if len(pending_query.peers_to_query) == 0:
-                in_event_id = self.logger.log(event('failure_ultimate'))
-                self.act_response_failure(pending_query, responding_peer,
-                                          queried_id, time_taken, in_event_id)
-                self.pending_queries.pop(queried_id, None)
-                self.archive_completed_query(pending_query, queried_id)
-                return
+        if pending_query is None:
+            status = self.check_completed_queries(responding_peer, queried_id,
+                                                  queried_peer)
+            if status is None:
+                status = 'unmatched'
+            in_event_id = self.logger.log(event(status))
+            return
+        if responding_peer not in pending_query.queries_sent:
+            status = self.check_completed_queries(responding_peer, queried_id,
+                                                  queried_peer)
+            if status is None:
+                status = 'wrong_responder'
+            in_event_id = self.logger.log(event(status))
+            return
+        pending_query.timeout_proc.interrupt()
+        time_sent = pending_query.queries_sent.pop(responding_peer)
+        time_taken = self.env.now - time_sent
+        if queried_peer is not None:
+            in_event_id = self.logger.log(event('success'))
+            self.act_response_success(pending_query, responding_peer,
+                                      queried_id, queried_peer, time_taken,
+                                      in_event_id)
+            self.pending_queries.pop(queried_id, None)
+            self.archive_completed_query(pending_query, queried_id)
+            self.introduce(queried_peer)
+            return
+        if len(pending_query.peers_to_query) == 0:
             in_event_id = self.logger.log(event('failure_ultimate'))
-        finally:
-            pass
+            self.act_response_failure(pending_query, responding_peer,
+                                      queried_id, time_taken, in_event_id)
+            self.pending_queries.pop(queried_id, None)
+            self.archive_completed_query(pending_query, queried_id)
+            return
+        in_event_id = self.logger.log(event('failure_ultimate'))
         self.act_response_retry(pending_query, responding_peer, queried_id,
                                 in_event_id)
 
@@ -391,17 +383,14 @@ class Peer:
         # must be added to the pending queries, and is only removed once a
         # response has been received and the timeout is interrupted.
         assert pending_query is not None
-        try:
-            if len(pending_query.peers_to_query) == 0:
-                in_event_id = self.logger.log(event('failure_ultimate'))
-                self.act_timeout_failure(pending_query, recipient, queried_id,
-                                         in_event_id)
-                self.pending_queries.pop(queried_id, None)
-                self.archive_completed_query(pending_query, queried_id)
-                return
-            in_event_id = self.logger.log(event('failure_retry'))
-        finally:
-            pass
+        if len(pending_query.peers_to_query) == 0:
+            in_event_id = self.logger.log(event('failure_ultimate'))
+            self.act_timeout_failure(pending_query, recipient, queried_id,
+                                     in_event_id)
+            self.pending_queries.pop(queried_id, None)
+            self.archive_completed_query(pending_query, queried_id)
+            return
+        in_event_id = self.logger.log(event('failure_retry'))
         self.act_timeout_retry(pending_query, recipient, queried_id,
                                in_event_id)
 
