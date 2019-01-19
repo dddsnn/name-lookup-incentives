@@ -6,12 +6,24 @@ class Logger:
         self.events = []
 
     def log(self, event):
+        """
+        Log an event.
+
+        Return the ID of the event in the event list.
+        """
         self.events.append(event)
+        return len(self.events) - 1
 
 
 class Event:
-    def __init__(self, time):
+    """Superclass for all log events."""
+    def __init__(self, time, in_event_id):
+        """
+        :param time: The time at which the event occurred,
+        :param in_event_id: The ID of the event that caused this event.
+        """
         self.time = time
+        self.in_event_id = in_event_id
 
 
 class Request(Event):
@@ -35,7 +47,7 @@ class Request(Event):
                   peer is responsible for a prefix of the queried ID).
             * 'querying': A query will be sent to resolve the request.
         """
-        super().__init__(time)
+        super().__init__(time, None)
         self.requester_id = requester_id
         self.queried_id = queried_id
         if status not in ('pending', 'own_id', 'known', 'querying'):
@@ -47,8 +59,8 @@ class Request(Event):
 
 class QuerySent(Event):
     """Event representing a query being sent."""
-    def __init__(self, time, sender_id, recipient_id, queried_id):
-        super().__init__(time)
+    def __init__(self, time, sender_id, recipient_id, queried_id, in_event_id):
+        super().__init__(time, in_event_id)
         self.sender_id = sender_id
         self.recipient_id = recipient_id
         self.queried_id = queried_id
@@ -56,7 +68,8 @@ class QuerySent(Event):
 
 class QueryReceived(Event):
     """Event representing a query being received."""
-    def __init__(self, time, sender_id, recipient_id, queried_id, status):
+    def __init__(self, time, sender_id, recipient_id, queried_id, status,
+                 in_event_id):
         """
         :param status: The status of the query. Must be one of
             * 'own_id': Query for the ID of the recipient. Trivial to answer.
@@ -66,7 +79,7 @@ class QueryReceived(Event):
             * 'querying': A further query must be sent in order to answer this
                   query.
         """
-        super().__init__(time)
+        super().__init__(time, in_event_id)
         self.sender_id = sender_id
         self.recipient_id = recipient_id
         self.queried_id = queried_id
@@ -79,7 +92,7 @@ class QueryReceived(Event):
 class ResponseSent(Event):
     """Event representing a response being sent."""
     def __init__(self, time, sender_id, recipient_id, queried_peer_id,
-                 queried_ids):
+                 queried_ids, in_event_id):
         """
         :param queried_peer_id: The ID of the peer that is the result of the
             query. May be None if the query was unsuccessful.
@@ -87,7 +100,7 @@ class ResponseSent(Event):
             queried_id is a response. I.e., all elements of this set are a
             prefix of queried_id.
         """
-        super().__init__(time)
+        super().__init__(time, in_event_id)
         self.sender_id = sender_id
         self.recipient_id = recipient_id
         self.queried_peer_id = queried_peer_id
@@ -97,7 +110,7 @@ class ResponseSent(Event):
 class ResponseReceived(Event):
     """Event representing a response being received."""
     def __init__(self, time, sender_id, recipient_id, queried_peer_id,
-                 queried_ids, status):
+                 queried_ids, status, in_event_id):
         """
         :param queried_peer_id: See :meth:`analyze.ResponseSent.__init__`.
         :param queried_ids: See :meth:`analyze.ResponseSent.__init__`.
@@ -117,7 +130,7 @@ class ResponseReceived(Event):
             * 'late_failure': The query failed, but was already previously
                   successfully resolved (by another peer).
         """
-        super().__init__(time)
+        super().__init__(time, in_event_id)
         self.sender_id = sender_id
         self.recipient_id = recipient_id
         self.queried_peer_id = queried_peer_id
@@ -132,7 +145,8 @@ class ResponseReceived(Event):
 
 
 class Timeout(Event):
-    def __init__(self, time, sender_id, recipient_id, queried_id, status):
+    def __init__(self, time, sender_id, recipient_id, queried_id, status,
+                 in_event_id):
         """
         :param sender_id: ID of the peer that sent the request that timed out.
         :param recipient_id: ID of the peer to which the request, which timed
@@ -143,7 +157,7 @@ class Timeout(Event):
             * 'failure_retry': The sender knows other peers to whom he can send
                   the query.
         """
-        super().__init__(time)
+        super().__init__(time, in_event_id)
         self.sender_id = sender_id
         self.recipient_id = recipient_id
         self.queried_id = queried_id
