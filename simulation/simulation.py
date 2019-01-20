@@ -816,4 +816,5 @@ if __name__ == '__main__':
     print()
     print('starting simulation')
     env.process(decay_reputation(env, all_query_groups))
-    env.run(until=float('inf'))
+    env.run(until=10)
+    logger.dump('log')

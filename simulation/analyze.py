@@ -1,4 +1,5 @@
 import networkx as nx
+import pickle
 
 
 class Logger:
@@ -13,6 +14,10 @@ class Logger:
         """
         self.events.append(event)
         return len(self.events) - 1
+
+    def dump(self, file_name):
+        with open(file_name, 'w+b') as file:
+            pickle.dump(self.events, file)
 
 
 class Event:
