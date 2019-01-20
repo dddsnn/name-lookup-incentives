@@ -8,6 +8,6 @@
 *.out
 *.snm
 *.toc
-*/__pycache__
+__pycache__
 .project
 .pydevproject
