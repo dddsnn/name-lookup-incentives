@@ -12,12 +12,33 @@ class Logger:
 
         Return the ID of the event in the event list.
         """
+        if not isinstance(event, Event):
+            raise Exception('Attempt to log a non-Event.')
         self.events.append(event)
         return len(self.events) - 1
 
     def dump(self, file_name):
+        """
+        Store the event list to disk.
+
+        First connects outgoing event IDs.
+        """
+        self.make_out_events()
         with open(file_name, 'w+b') as file:
             pickle.dump(self.events, file)
+
+    def make_out_events(self):
+        """
+        Connect events in a forward direction.
+
+        Goes through the event list and sets each event's out_event_ids
+        according to its existing in_event_id.
+        """
+        for event in self.events:
+            event.out_even_ids = set()
+        for i, event in enumerate(self.events):
+            if event.in_event_id is not None:
+                self.events[event.in_event_id].out_event_ids.add(i)
 
 
 class Event:
@@ -29,6 +50,7 @@ class Event:
         """
         self.time = time
         self.in_event_id = in_event_id
+        self.out_event_ids = set()
 
 
 class Request(Event):
