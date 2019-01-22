@@ -305,7 +305,7 @@ class Peer:
             self.pending_queries.pop(queried_id, None)
             self.archive_completed_query(pending_query, queried_id)
             return
-        in_event_id = self.logger.log(event('failure_ultimate'))
+        in_event_id = self.logger.log(event('failure_retry'))
         self.act_response_retry(pending_query, responding_peer, queried_id,
                                 in_event_id)
 
