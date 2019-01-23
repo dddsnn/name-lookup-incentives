@@ -116,6 +116,7 @@ class QueryReceived(Event):
         self.status = status
 
 
+# TODO Include the queried peer's address.
 class ResponseSent(Event):
     """Event representing a response being sent."""
     def __init__(self, time, sender_id, recipient_id, queried_peer_id,
@@ -134,6 +135,7 @@ class ResponseSent(Event):
         self.queried_ids = queried_ids
 
 
+# TODO Include the queried peer's address.
 class ResponseReceived(Event):
     """Event representing a response being received."""
     def __init__(self, time, sender_id, recipient_id, queried_peer_id,
@@ -210,9 +212,10 @@ def print_info(peers, sync_groups, all_query_groups, peer_graph):
     print('query_groups (peer: reputation):')
     for query_group in all_query_groups:
         print('{{{}}}'.format(', '.join(
-            str(p.peer_id) + ': ' + '{:.1f}'.format(r)
-            for p, r in sorted(query_group.items(), key=lambda t: t[1],
-                               reverse=True))))
+            str(peer_id) + ': ' + '{:.1f}'.format(info.reputation)
+            for peer_id, info in sorted(query_group.items(),
+                                        key=lambda t: t[1].reputation,
+                                        reverse=True))))
     print()
     print('missing subprefix coverage per peer:')
     any_missing = False
