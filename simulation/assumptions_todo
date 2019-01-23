@@ -1,30 +1,129 @@
+- Test and refactor.
+    - Factor out peer behavior.
+    2d
+    - Test peer behavior.
+    3d
+    - Test the peer skeleton (the non-behavior part).
+    2d
+    - Test the network/utilities.
+    1d
+
+- Implement the logger.
+    - Log an event whenever a message is sent.
+    3d
+    - Connect the events by causality.
+    2d
+    - Keep track of big-picture information (sync/query groups, missing prefixes
+      etc.) and allow to check this information for any point in simulated time.
+    3d
+    - Implement useful statistical queries to the log.
+    2-10d
+
+- Peers don't have addresses, a reference to the object is used instead.
+    - Implement an intermediary network that translates between addresses and
+      references. Peers have to use addresses.
+    4d
+
 - Reputation tracking in query groups is not done in-network, all peers simply
   have access to a shared dictionary.
-- Peers never go offline, so sync groups don't need to maintain any information.
 - Peers are honest about applying rewards and penalties.
-- Each peer generates exactly one request every time unit, the ID is randomized.
-- Peers don't have addresses, a reference to the object is used instead.
-- There's no mechanism for inviting to or requesting to join a query group.
-  Peers simply add themselves or another peer to a query group.
-- Reputation decay is handled by a central authority.
-- Peers are responsible for a prefix of their own ID, and nothing more. The
-  prefix length is fixed.
-- Every peer knows every other peer in its sync group.
-- Peers only send one request and wait until it times out before trying another
-  peer.
-- The penalty delay is proportional to the reputation and capped at 10 time
-  units.
+    - Implement a system where the receiver of good/bad behavior faithfully
+      broadcasts the correct reputation update to the entire query group.
+    3d
+    - Modify the above system so that the broadcaster also receives some
+      reputation for spreading the information.
+    2d
+    - Implement a system where the receiver of good behavior gives the actor a
+      signed statement for the actor to broadcast. Bad behavior is distributed
+      by the receiver and gives him some reputation as well.
+    3d
+    - Implement a complaint/trust system to use when peers are lying. Peers have
+      the option to tell the others that a reputation update made by another
+      peer was wrong. If they are believed, they may gain some reputation, the
+      lying peer lose some (probably a lot). Peers should believe the accusation
+      if they have experienced the other peer lying as well.
+    5d
+    - Use rumor-spreading instead of broadcasting.
+    7d
+
 - There are not yet any penalties for responses that arrive too late or too
   early (other than timeout penalties).
+    - Penalize late/early responses. For early responses, the reporting peer
+      must also be given some reputation for reporting it. This pretty much
+      requires the complaint system from above.
+    1d
+
+- There's no mechanism for inviting to or requesting to join a query group.
+  Peers simply add themselves or another peer to a query group.
+    - Implement that mechanism.
+    3d
+    - Let peers announce to others they know what prefixes they need query peers
+      for. Maybe a bounty in reputation for an introduction.
+    2d
+
+- Peers always update records in sync groups, even without incentive.
+    - Incentivize keeping current records by penalizing returning old records.
+      (Incentives in sync group may become a major problem.)
+    2d
+    - Implement a reputation system for sync groups similar to that for query
+      groups.
+    8d
+
+- Peers assume their queries will be answered with not more delay than there
+  should be according to their reputation, even if the peers they're querying
+  needs to make a further lookup in a query group where he has bad reputation.
+    - Implement an alternative system for recursive queries.
+    3d
+    - Implement an alternative system where, in addition to announcing what
+      prefix they serve, peers say how long delays for each prefix are expected
+      to be. Peers are only allowed to complain if queries took longer than
+      announced. (Likely to lead to imbalances: low-latency peers preferred.
+      Possibly balanced out by popular peers not responding due to high
+      reputation.)
+    7d
+
+- Peers never go offline, so sync groups don't need to maintain any information
+  and peers don't need to deal with others not being available.
+    - Add/remove peers after the simulation has started. Peers need to deal with
+      some not being available anymore (find new query groups), new peers have
+      to deal with initial 0 reputation.
+    3d
+    - Find a way to save (some) reputation when going offline for a longer
+      period.
+    ?
+
+- Each peer generates exactly one request every time unit, the ID is randomized.
+    - Generate more realistic requests (bursts, clustered by time etc.)
+    1d
+
+- Reputation decay is handled by a central authority.
+    - Handle it by initializing reputation to the timestamp at creation of the
+      group and subtracting the current time to get the current reputation.
+      1d
+
+- Peers are responsible for a prefix of their own ID, and nothing more. The
+  prefix length is fixed.
+    - Allow peers to serve more prefixes.
+    4d
+
+- Every peer knows every other peer in its sync group.
+    - Use rumor-spreading for sparsely-connected groups.
+    4d
+
+- Peers only send one request and wait until it times out before trying another
+  peer.
+    - Send out multiple requests. (Probably has effects on the availability of
+      reputation.)
+    2d
+
+- The penalty delay is proportional to the reputation and capped at 10 time
+  units.
 - Peers don't collude.
 - Peers return the correct peers in responses (i.e. the one matching the ID).
 - All peers have the same policy regarding maximum desired query group size.
 - Penalties and rewards are fixed (e.g. successful response is always rewarded
   by the same amount).
 - The default (rule-conformant) implementation answers all queries eventually.
-- Peers assume their queries will be answered with not more delay than there
-  should be according to their reputation, even if the peers they're querying
-  needs to make a further lookup in a query group where he has bad reputation.
 - Clocks are perfectly synchronized.
 - All peers start with 0 reputation.
 - In case of a timeout, a query is considered failed and another one issued,
@@ -32,5 +131,3 @@
 - Peers are interested in receiving the best possible service and will pay
   whatever price it takes.
 - Peers try to maintain a fixed number of query peers per subprefix.
-
-- Test and refactor.
