@@ -1,5 +1,6 @@
 import unittest.mock
 import simulation as s
+import peer
 import bitstring as bs
 import simpy
 
@@ -39,8 +40,8 @@ class TestNetwork(unittest.TestCase):
         self.network = s.Network(self.env)
         self.peer_a_id = bs.Bits(uint=0, length=16)
         self.peer_b_id = bs.Bits(uint=1, length=16)
-        self.peer_a = unittest.mock.Mock(spec=s.Peer)
-        self.peer_b = unittest.mock.Mock(spec=s.Peer)
+        self.peer_a = unittest.mock.Mock(spec=peer.Peer)
+        self.peer_b = unittest.mock.Mock(spec=peer.Peer)
         self.peer_a_address = self.network.register(self.peer_a)
         self.peer_b_address = self.network.register(self.peer_b)
 
