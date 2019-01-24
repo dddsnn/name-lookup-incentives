@@ -1,5 +1,7 @@
 import analyze as an
-import simulation as s
+import util
+from simulation import (SUCCESSFUL_QUERY_REWARD, FAILED_QUERY_PENALTY,
+                        TIMEOUT_QUERY_PENALTY)
 import simpy
 
 
@@ -239,9 +241,9 @@ class Peer:
         if recipient_address is None:
             # TODO
             raise NotImplementedError('Recipient address not locally known.')
-        s.do_delayed(self.env, delay, self.network.send_response, self.peer_id,
-                     self.address, recipient_address, queried_ids,
-                     queried_peer_info, in_event_id)
+        util.do_delayed(self.env, delay, self.network.send_response,
+                        self.peer_id, self.address, recipient_address,
+                        queried_ids, queried_peer_info, in_event_id)
 
     def recv_query(self, querying_peer_id, queried_id, in_event_id,
                    skip_log=False):
@@ -397,8 +399,8 @@ class Peer:
             completed_queries.append(pending_query)
         else:
             self.completed_queries[queried_id] = [pending_query]
-        s.do_delayed(self.env, Peer.COMPLETED_QUERY_RETENTION_TIME,
-                     self.remove_completed_query, pending_query, queried_id)
+        util.do_delayed(self.env, Peer.COMPLETED_QUERY_RETENTION_TIME,
+                        self.remove_completed_query, pending_query, queried_id)
 
     def remove_completed_query(self, pending_query, queried_id):
         completed_queries = self.completed_queries.get(queried_id)
@@ -464,18 +466,19 @@ class Peer:
         The list is sorted by the overlap, with the largest, i.e. the closest
         to the ID (and thus most useful) first.
         """
-        own_overlap = s.bit_overlap(self.prefix, queried_id)
+        own_overlap = util.bit_overlap(self.prefix, queried_id)
         peers_to_query_info = []
         for query_peer_info in set(self.known_query_peers()):
             # TODO Range queries for performance.
-            if s.bit_overlap(query_peer_info.prefix, queried_id) > own_overlap:
+            if (util.bit_overlap(query_peer_info.prefix, queried_id)
+                    > own_overlap):
                 peers_to_query_info.append(query_peer_info)
         # TODO Instead of sorting for the longest prefix match, use a heap to
         # begin with.
         # TODO Also consider reputation in the query group when selecting a
         # peer to query.
-        peers_to_query_info.sort(key=lambda pi: s.bit_overlap(pi.prefix,
-                                                              queried_id),
+        peers_to_query_info.sort(key=lambda pi: util.bit_overlap(pi.prefix,
+                                                                 queried_id),
                                  reverse=True)
         return [pi.peer_id for pi in peers_to_query_info]
 
@@ -581,9 +584,9 @@ class Peer:
         if query_all:
             peers_to_query_info = (list(self.known_query_peers())
                                    + list(self.sync_peers.values()))
-            peers_to_query_info.sort(key=lambda pi: s.bit_overlap(pi.prefix,
-                                                                  queried_id),
-                                     reverse=True)
+            peers_to_query_info.sort(
+                key=lambda pi: util.bit_overlap(pi.prefix, queried_id),
+                reverse=True)
             peers_to_query = [pi.peer_id for pi in peers_to_query_info]
         else:
             peers_to_query = self.select_peers_to_query(queried_id)
@@ -609,7 +612,7 @@ class Peer:
             print(('{:.2f}: {}: successful response for query for {} from'
                    ' {} after {:.2f}, total time {:.2f}')
                   .format(self.env.now, self.peer_id,
-                          s.format_ids(queried_id, queried_ids),
+                          util.format_ids(queried_id, queried_ids),
                           responding_peer_id, time_taken, total_time))
         for querying_peer_id, queried_ids in (pending_query.querying_peers
                                               .items()):
@@ -628,7 +631,7 @@ class Peer:
                    ' unsuccessful response from last known peer after {:.2f},'
                    ' total time {:.2f}')
                   .format(self.env.now, self.peer_id,
-                          s.format_ids(queried_id, queried_ids),
+                          util.format_ids(queried_id, queried_ids),
                           responding_peer_id, time_taken, total_time))
         for querying_peer_id, queried_ids in (pending_query.querying_peers
                                               .items()):
@@ -645,7 +648,7 @@ class Peer:
             print(('{:.2f}: {}: unsuccessful response for query for {} from'
                    ' {}, trying next peer')
                   .format(self.env.now, self.peer_id,
-                          s.format_ids(queried_id, queried_ids),
+                          util.format_ids(queried_id, queried_ids),
                           responding_peer_id))
         self.send_query(queried_id, pending_query, in_event_id)
         self.act_rep_failure(responding_peer_id)
@@ -659,8 +662,8 @@ class Peer:
             print(('{:.2f}: {}: unsuccessful query for {} last sent to {}:'
                    ' last known peer timed out, total time {:.2f}')
                   .format(self.env.now, self.peer_id,
-                          s.format_ids(queried_id, queried_ids), recipient_id,
-                          total_time))
+                          util.format_ids(queried_id, queried_ids),
+                          recipient_id, total_time))
         for querying_peer_id, queried_ids in (pending_query.querying_peers
                                               .items()):
             delay = max(self.act_decide_delay(querying_peer_id)
@@ -677,26 +680,27 @@ class Peer:
             print('{:.2f}: {}: timed out response for query for {} sent to {},'
                   ' trying next peer'
                   .format(self.env.now, self.peer_id,
-                          s.format_ids(queried_id, queried_ids), recipient_id))
+                          util.format_ids(queried_id, queried_ids),
+                          recipient_id))
         self.send_query(queried_id, pending_query, in_event_id)
         self.act_rep_timeout(recipient_id)
 
     def act_rep_success_default(self, peer_id):
         for query_group in self.peer_query_groups(peer_id):
             rep = max(query_group[peer_id].reputation
-                      + s.SUCCESSFUL_QUERY_REWARD, 0)
+                      + SUCCESSFUL_QUERY_REWARD, 0)
             query_group[peer_id].reputation = rep
 
     def act_rep_failure_default(self, peer_id):
         for query_group in self.peer_query_groups(peer_id):
             rep = max(query_group[peer_id].reputation
-                      + s.FAILED_QUERY_PENALTY, 0)
+                      + FAILED_QUERY_PENALTY, 0)
             query_group[peer_id].reputation = rep
 
     def act_rep_timeout_default(self, peer_id):
         for query_group in self.peer_query_groups(peer_id):
             rep = max(query_group[peer_id].reputation
-                      + s.TIMEOUT_QUERY_PENALTY, 0)
+                      + TIMEOUT_QUERY_PENALTY, 0)
             query_group[peer_id].reputation = rep
 
     def act_decide_delay_default(self, querying_peer_id):
