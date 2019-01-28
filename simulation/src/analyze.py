@@ -3,6 +3,8 @@ import pickle
 
 
 class Logger:
+    # TODO Make snapshots of the data occasionally so the entire event list
+    # doesn't have to be processed when querying global information.
     def __init__(self):
         self.events = []
 
@@ -39,6 +41,104 @@ class Logger:
         for i, event in enumerate(self.events):
             if event.in_event_id is not None:
                 self.events[event.in_event_id].out_event_ids.add(i)
+
+    def sync_groups(self, time):
+        """Print information about sync groups at a point in time."""
+        sync_groups = {}
+        for event in self.events:
+            if event.time > time:
+                break
+            if isinstance(event, PeerAdd):
+                sync_groups.setdefault(event.prefix, set()).add(event.peer_id)
+            elif isinstance(event, PeerRemove):
+                if event.prefix in sync_groups:
+                    sync_groups[event.prefix].discard(event.peer_id)
+                    if len(sync_groups[event.prefix]) == 0:
+                        sync_groups.pop(event.prefix)
+            else:
+                continue
+
+        print('sync groups (prefix: {peers}):')
+        for pr, sg in sorted(sync_groups.items(), key=lambda t: t[0].uint):
+            print('{}: {{{}}}'.format(pr.bin, ', '.join(str(p) for p in sg)))
+
+    def query_groups(self, time):
+        """Print information about query groups at a point in time."""
+        groups = {}
+        for event in self.events:
+            if event.time > time:
+                break
+            if isinstance(event, QueryGroupAdd):
+                query_group = groups.setdefault(event.query_group_id, {})
+                if event.peer_id not in query_group:
+                    query_group[event.peer_id] = 0
+            elif isinstance(event, QueryGroupRemove):
+                query_group = groups.get(event.query_group_id)
+                if query_group is not None:
+                    query_group.pop(event.peer_id, None)
+                    if len(query_group) == 0:
+                        groups.pop(event.query_group_id, None)
+            elif isinstance(event, ReputationUpdate):
+                query_group = groups.get(event.query_group_id)
+                if query_group and event.peer_id in query_group:
+                    query_group[event.peer_id] = event.new_reputation
+            else:
+                continue
+
+        print('query_groups (peer: reputation):')
+        for query_group in groups.values():
+            print('{{{}}}'.format(', '.join(
+                str(peer_id) + ': ' + '{:.1f}'.format(rep)
+                for peer_id, rep in sorted(query_group.items(),
+                                           key=lambda t: t[1],
+                                           reverse=True))))
+
+    def uncovered_subprefixes(self, time):
+        """Print info about missing subprefix coverage at a point in time."""
+        uncovered_subprefixes = {}
+        for event in self.events:
+            if event.time > time:
+                break
+            if isinstance(event, UncoveredSubprefixes):
+                uncovered_subprefixes[event.peer_id] = event.subprefixes
+            else:
+                continue
+
+        print('missing subprefix coverage per peer:')
+        any_missing = False
+        for peer_id, subprefixes in sorted(uncovered_subprefixes.items(),
+                                           key=lambda t: t[0].uint):
+            if subprefixes:
+                any_missing = True
+                print('{}: missing prefixes {{{}}}'
+                      .format(peer_id,
+                              ', '.join((i.bin for i in subprefixes))))
+        if not any_missing:
+            print('none')
+
+    def strongly_connected_components(self, time):
+        """Print info about the reachability graph at a point in time."""
+        peer_graph = nx.DiGraph()
+        for event in self.events:
+            if event.time > time:
+                break
+            if isinstance(event, ConnectionAdd):
+                peer_graph.add_edge(event.peer_a_id, event.peer_b_id)
+            elif isinstance(event, ConnectionRemove):
+                try:
+                    peer_graph.remove_edge(event.peer_a_id, event.peer_b_id)
+                except nx.NetworkXError:
+                    pass
+            else:
+                continue
+
+        print('strongly connected components:')
+        from networkx import strongly_connected_components as scc
+        for i, comp in enumerate((peer_graph.subgraph(c)
+                                  for c in scc(peer_graph))):
+            print('component {}: {} nodes, diameter {}, degree histogram: {}'
+                  .format(i, nx.number_of_nodes(comp), nx.diameter(comp),
+                          nx.degree_histogram(comp)))
 
 
 class Event:
@@ -196,43 +296,84 @@ class Timeout(Event):
         self.status = status
 
 
-def print_info_process(env, peers, sync_groups, all_query_groups, peer_graph):
+class PeerAdd(Event):
+    """Event representing a peer being."""
+    def __init__(self, time, peer_id, prefix, in_event_id):
+        super().__init__(time, in_event_id)
+        self.peer_id = peer_id
+        self.prefix = prefix
+
+
+class PeerRemove(Event):
+    """Event representing a peer being."""
+    def __init__(self, time, peer_id, in_event_id):
+        super().__init__(time, in_event_id)
+        self.peer_id = peer_id
+
+
+class QueryGroupAdd(Event):
+    """Event representing a peer being added to a query group."""
+    def __init__(self, time, peer_id, query_group_id, in_event_id):
+        super().__init__(time, in_event_id)
+        self.peer_id = peer_id
+        self.query_group_id = query_group_id
+
+
+class QueryGroupRemove(Event):
+    """Event representing a peer being removed from a query group."""
+    def __init__(self, time, peer_id, query_group_id, in_event_id):
+        super().__init__(time, in_event_id)
+        self.peer_id = peer_id
+        self.query_group_id = query_group_id
+
+
+class UncoveredSubprefixes(Event):
+    """Event representing set of subprefixes not being covered for a peer."""
+    def __init__(self, time, peer_id, subprefixes, in_event_id):
+        super().__init__(time, in_event_id)
+        self.peer_id = peer_id
+        self.subprefixes = subprefixes
+
+
+class ConnectionAdd(Event):
+    """Event representing a peer learning about another."""
+    def __init__(self, time, peer_a_id, peer_b_id, in_event_id):
+        super().__init__(time, in_event_id)
+        self.peer_a_id = peer_a_id
+        self.peer_b_id = peer_b_id
+
+
+class ConnectionRemove(Event):
+    """Event representing a peer not being able to reach another anymore."""
+    def __init__(self, time, peer_a_id, peer_b_id, in_event_id):
+        super().__init__(time, in_event_id)
+        self.peer_a_id = peer_a_id
+        self.peer_b_id = peer_b_id
+
+
+class ReputationUpdate(Event):
+    """Event representing an update to a peer's reputation in a query group."""
+    def __init__(self, time, peer_id, query_group_id, new_reputation,
+                 in_event_id):
+        super().__init__(time, in_event_id)
+        self.peer_id = peer_id
+        self.query_group_id = query_group_id
+        self.new_reputation = new_reputation
+
+
+def print_info_process(env, logger):
     while True:
         yield env.timeout(10)
-        print_info(peers, sync_groups, all_query_groups, peer_graph)
+        print_info(logger, env.now)
 
 
-def print_info(peers, sync_groups, all_query_groups, peer_graph):
+def print_info(logger, time):
     print()
-    print('sync groups (prefix: {peers}):')
-    for pr, sg in sorted(sync_groups.items(), key=lambda t: t[0].uint):
-        print('{}: {{{}}}'.format(pr.bin,
-                                  ', '.join(str(p.peer_id) for p in sg)))
+    logger.sync_groups(time)
     print()
-    print('query_groups (peer: reputation):')
-    for query_group in all_query_groups:
-        print('{{{}}}'.format(', '.join(
-            str(peer_id) + ': ' + '{:.1f}'.format(info.reputation)
-            for peer_id, info in sorted(query_group.items(),
-                                        key=lambda t: t[1].reputation,
-                                        reverse=True))))
+    logger.query_groups(time)
     print()
-    print('missing subprefix coverage per peer:')
-    any_missing = False
-    for peer in sorted(peers.values(), key=lambda p: p.peer_id.uint):
-        if any(n == 0 for n in peer.subprefixes().values()):
-            any_missing = True
-            missing = set(sp for sp, c in peer.subprefixes().items() if c == 0)
-            print('{}: missing prefixes {{{}}}'
-                  .format(peer.peer_id, ', '.join((i.bin for i in missing))))
-    if not any_missing:
-        print('none')
+    logger.uncovered_subprefixes(time)
     print()
-    print('strongly connected components:')
-    from networkx import strongly_connected_components as scc
-    for i, comp in enumerate((peer_graph.subgraph(c)
-                              for c in scc(peer_graph))):
-        print('component {}: {} nodes, diameter {}, degree histogram: {}'
-              .format(i, nx.number_of_nodes(comp), nx.diameter(comp),
-                      nx.degree_histogram(comp)))
+    logger.strongly_connected_components(time)
     print()

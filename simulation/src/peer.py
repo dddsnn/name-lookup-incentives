@@ -96,7 +96,7 @@ class PeerBehavior:
             self.peer.send_response(querying_peer_id, queried_ids,
                                     queried_peer_info, in_event_id,
                                     delay=delay)
-        self.do_rep_success(responding_peer_id)
+        self.do_rep_success(responding_peer_id, in_event_id)
 
     def on_response_failure(self, pending_query, responding_peer_id,
                             queried_id, time_taken, in_event_id):
@@ -120,7 +120,7 @@ class PeerBehavior:
             delay = max(self.decide_delay(querying_peer_id) - total_time, 0)
             self.peer.send_response(querying_peer_id, queried_ids, None,
                                     in_event_id, delay=delay)
-        self.do_rep_failure(responding_peer_id)
+        self.do_rep_failure(responding_peer_id, in_event_id)
 
     def on_response_retry(self, pending_query, responding_peer_id, queried_id,
                           in_event_id):
@@ -133,7 +133,7 @@ class PeerBehavior:
                           util.format_ids(queried_id, queried_ids),
                           responding_peer_id))
         self.peer.send_query(queried_id, pending_query, in_event_id)
-        self.do_rep_failure(responding_peer_id)
+        self.do_rep_failure(responding_peer_id, in_event_id)
 
     def on_timeout_failure(self, pending_query, recipient_id, queried_id,
                            in_event_id):
@@ -157,7 +157,7 @@ class PeerBehavior:
             delay = max(self.decide_delay(querying_peer_id) - total_time, 0)
             self.peer.send_response(querying_peer_id, queried_ids, None,
                                     in_event_id, delay=delay)
-        self.do_rep_timeout(recipient_id)
+        self.do_rep_timeout(recipient_id, in_event_id)
 
     def on_timeout_retry(self, pending_query, recipient_id, queried_id,
                          in_event_id):
@@ -171,28 +171,28 @@ class PeerBehavior:
                           util.format_ids(queried_id, queried_ids),
                           recipient_id))
         self.peer.send_query(queried_id, pending_query, in_event_id)
-        self.do_rep_timeout(recipient_id)
+        self.do_rep_timeout(recipient_id, in_event_id)
 
-    def do_rep_success(self, peer_id):
+    def do_rep_success(self, peer_id, in_event_id):
         """Do the reputation update after a successful query."""
         for query_group in self.peer.peer_query_groups(peer_id):
             rep = max(query_group[peer_id].reputation
                       + SUCCESSFUL_QUERY_REWARD, 0)
-            query_group[peer_id].reputation = rep
+            self.peer.update_reputation(peer_id, query_group, rep, in_event_id)
 
-    def do_rep_failure(self, peer_id):
+    def do_rep_failure(self, peer_id, in_event_id):
         """Do the reputation update after a failed query."""
         for query_group in self.peer.peer_query_groups(peer_id):
             rep = max(query_group[peer_id].reputation
                       + FAILED_QUERY_PENALTY, 0)
-            query_group[peer_id].reputation = rep
+            self.peer.update_reputation(peer_id, query_group, rep, in_event_id)
 
-    def do_rep_timeout(self, peer_id):
+    def do_rep_timeout(self, peer_id, in_event_id):
         """Do the reputation update after a timed out query."""
         for query_group in self.peer.peer_query_groups(peer_id):
             rep = max(query_group[peer_id].reputation
                       + TIMEOUT_QUERY_PENALTY, 0)
-            query_group[peer_id].reputation = rep
+            self.peer.update_reputation(peer_id, query_group, rep, in_event_id)
 
     def decide_delay(self, querying_peer_id):
         """Decide what penalty delay to impose."""
@@ -229,14 +229,12 @@ class Peer:
     QUERY_TIMEOUT = 2
     COMPLETED_QUERY_RETENTION_TIME = 100
 
-    def __init__(self, env, logger, network, peer_id, all_query_groups,
-                 peer_graph):
+    def __init__(self, env, logger, network, peer_id, all_query_groups):
         self.env = env
         self.logger = logger
         self.network = network
         self.peer_id = peer_id
         self.all_query_groups = all_query_groups
-        self.peer_graph = peer_graph
         self.prefix = self.peer_id[:Peer.PREFIX_LENGTH]
         self.query_groups = set()
         self.sync_peers = {}
@@ -247,7 +245,8 @@ class Peer:
 
         # Add self-loop to the peer graph so that networkx considers the node
         # for this peer a component.
-        self.peer_graph.add_edge(self.peer_id, self.peer_id)
+        self.logger.log(an.ConnectionAdd(self.env.now, self.peer_id,
+                                         self.peer_id, None))
 
     def lookup_address_local(self, peer_id):
         """
@@ -279,51 +278,71 @@ class Peer:
         If this peer already shares a group with the other, join or creates
         another.
         """
-        # TODO Instead of just adding self or others to groups, send join
-        # requests or invites.
-        # Attempt to join one of the peer's groups.
-        # TODO Don't use the global information all_query_groups.
-        for query_group in self.all_query_groups:
-            # TODO Pick the most useful out of these groups, not just any.
-            if (peer_info.peer_id in query_group
-                    and len(query_group) < Peer.MAX_DESIRED_GROUP_SIZE
-                    and self.peer_id not in query_group):
-                query_group[self.peer_id] = QueryPeerInfo(self.peer_id,
-                                                          self.prefix,
-                                                          self.address)
-                self.query_groups.add(query_group)
-                return
-        # Attempt to add the peer to one of my groups.
-        for query_group in self.query_groups:
-            # TODO Pick the most useful out of these groups, not just any.
-            if (len(query_group) < Peer.MAX_DESIRED_GROUP_SIZE
-                    and peer_info.peer_id not in query_group):
-                query_group[peer_info.peer_id] = (
-                    QueryPeerInfo(peer_info.peer_id, peer_info.prefix,
-                                  peer_info.address))
-                # TODO Remove this hack. We need to add the new query group to
-                # the other peer's set of query groups. But the only place
-                # storing the peer references is the network, so we have to
-                # abuse its private peer map. Remove this once query group
-                # invites are implemented.
-                peer = self.network.peers[peer_info.address]
-                assert peer.peer_id == peer_info.peer_id
-                peer.query_groups.add(query_group)
-                return
-        # Create a new query group.
-        query_group = QueryGroup({
-            self.peer_id: (self.prefix, self.address),
-            peer_info.peer_id: (peer_info.prefix, peer_info.address)
-        })
-        self.all_query_groups.add(query_group)
-        self.query_groups.add(query_group)
         # TODO Remove this hack. We need to add the new query group to the
         # other peer's set of query groups. But the only place storing the peer
         # references is the network, so we have to abuse its private peer map.
         # Remove this once query group invites are implemented.
         peer = self.network.peers[peer_info.address]
         assert peer.peer_id == peer_info.peer_id
-        peer.query_groups.add(query_group)
+        try:
+            # TODO Instead of just adding self or others to groups, send join
+            # requests or invites.
+            # Attempt to join one of the peer's groups.
+            # TODO Don't use the global information all_query_groups.
+            for query_group in self.all_query_groups:
+                # TODO Pick the most useful out of these groups, not just any.
+                if (peer_info.peer_id in query_group
+                        and len(query_group) < Peer.MAX_DESIRED_GROUP_SIZE
+                        and self.peer_id not in query_group):
+                    query_group[self.peer_id] = QueryPeerInfo(self.peer_id,
+                                                              self.prefix,
+                                                              self.address)
+                    self.query_groups.add(query_group)
+                    self.logger.log(an.QueryGroupAdd(self.env.now,
+                                                     self.peer_id,
+                                                     id(query_group), None))
+                    return
+            # Attempt to add the peer to one of my groups.
+            for query_group in self.query_groups:
+                # TODO Pick the most useful out of these groups, not just any.
+                if (len(query_group) < Peer.MAX_DESIRED_GROUP_SIZE
+                        and peer_info.peer_id not in query_group):
+                    query_group[peer_info.peer_id] = (
+                        QueryPeerInfo(peer_info.peer_id, peer_info.prefix,
+                                      peer_info.address))
+                    peer.query_groups.add(query_group)
+                    self.logger.log(an.QueryGroupAdd(self.env.now,
+                                                     peer_info.peer_id,
+                                                     id(query_group), None))
+                    return
+            # Create a new query group.
+            query_group = QueryGroup({
+                self.peer_id: (self.prefix, self.address),
+                peer_info.peer_id: (peer_info.prefix, peer_info.address)
+            })
+            self.all_query_groups.add(query_group)
+            self.query_groups.add(query_group)
+            peer.query_groups.add(query_group)
+            self.logger.log(an.QueryGroupAdd(self.env.now, self.peer_id,
+                                             id(query_group), None))
+            self.logger.log(an.QueryGroupAdd(self.env.now, peer_info.peer_id,
+                                             id(query_group), None))
+        finally:
+            # Update the set of uncovered subprefixes for every member of the
+            # query group. This may not actually change anything, but it's the
+            # easiest way of maintaining the current data.
+            for query_peer_info in query_group.infos():
+                # TODO Remove this hack. See comment at the beginning.
+                query_peer = self.network.peers[query_peer_info.address]
+                assert query_peer.peer_id == query_peer_info.peer_id
+                self.logger.log(
+                    an.UncoveredSubprefixes(
+                        self.env.now, query_peer.peer_id,
+                        set(query_peer.uncovered_subprefixes()), None))
+
+    def uncovered_subprefixes(self):
+        """Return subprefixes for which no peer is known."""
+        return (sp for sp, c in self.subprefixes().items() if c == 0)
 
     def find_missing_query_peers(self):
         """
@@ -334,8 +353,7 @@ class Peer:
         queried by calling on_query() directly with query_all set to True.
         This way, sync peers will be queried as well.
         """
-        for subprefix in (sp for sp, c in self.subprefixes().items()
-                          if c == 0):
+        for subprefix in self.uncovered_subprefixes():
             self.behavior.on_query(self.peer_id, subprefix, True)
 
     def introduce(self, peer_info):
@@ -349,7 +367,8 @@ class Peer:
         """
         if peer_info.peer_id.startswith(self.prefix):
             self.sync_peers[peer_info.peer_id] = peer_info
-            self.peer_graph.add_edge(self.peer_id, peer_info.peer_id)
+            self.logger.log(an.ConnectionAdd(self.env.now, self.peer_id,
+                                             peer_info.peer_id, None))
             return
         is_known = False
         for query_group in self.peer_query_groups(peer_info.peer_id):
@@ -360,7 +379,9 @@ class Peer:
                 if (peer_info.prefix.startswith(sp)
                         and count < Peer.MIN_DESIRED_QUERY_PEERS):
                     self.join_group_with(peer_info)
-                    self.peer_graph.add_edge(self.peer_id, peer_info.peer_id)
+                    self.logger.log(an.ConnectionAdd(self.env.now,
+                                                     self.peer_id,
+                                                     peer_info.peer_id, None))
 
     def subprefixes(self):
         """
@@ -412,8 +433,8 @@ class Peer:
             status = 'querying'
         finally:
             in_event_id = self.logger.log(an.Request(self.env.now,
-                                                     self.peer_id,
-                                                     queried_id, status))
+                                                     self.peer_id, queried_id,
+                                                     status))
         self.recv_query(self.peer_id, queried_id, in_event_id, skip_log=True)
 
     def send_query(self, queried_id, pending_query, in_event_id):
@@ -598,10 +619,14 @@ class Peer:
                 continue
             if queried_peer_info is not None:
                 status = 'late_success'
-                self.behavior.do_rep_success(responding_peer_id)
+                # TODO Using None as in_event_id because we're not storing the
+                # ID of the event leading to this.
+                self.behavior.do_rep_success(responding_peer_id, None)
             else:
                 status = 'late_failure'
-                self.behavior.do_rep_failure(responding_peer_id)
+                # TODO Using None as in_event_id because we're not storing the
+                # ID of the event leading to this.
+                self.behavior.do_rep_failure(responding_peer_id, None)
             break
         else:
             return None
@@ -703,6 +728,13 @@ class Peer:
                                                                  queried_id),
                                  reverse=True)
         return [pi.peer_id for pi in peers_to_query_info]
+
+    def update_reputation(self, peer_id, query_group, new_reputation,
+                          in_event_id):
+        query_group[peer_id].reputation = new_reputation
+        self.logger.log(an.ReputationUpdate(self.env.now, peer_id,
+                                            id(query_group), new_reputation,
+                                            in_event_id))
 
 
 class QueryGroup:
