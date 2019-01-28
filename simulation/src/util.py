@@ -1,4 +1,5 @@
 import simpy
+from itertools import count
 
 
 class Network:
@@ -7,12 +8,11 @@ class Network:
     def __init__(self, env):
         self.env = env
         self.peers = {}
-        self.next_address = 0
+        self.address_iter = count()
 
     def register(self, peer):
         # TODO Reuse addresses.
-        address = self.next_address
-        self.next_address += 1
+        address = next(self.address_iter)
         self.peers[address] = peer
         return address
 
