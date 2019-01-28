@@ -16,6 +16,8 @@ class Logger:
         """
         if not isinstance(event, Event):
             raise Exception('Attempt to log a non-Event.')
+        if self.events and event.time < self.events[-1].time:
+            raise Exception('Attempt to log an event from the past.')
         self.events.append(event)
         return len(self.events) - 1
 
