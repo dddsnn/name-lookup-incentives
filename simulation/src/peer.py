@@ -3,6 +3,10 @@ import util
 from simulation import (SUCCESSFUL_QUERY_REWARD, FAILED_QUERY_PENALTY,
                         TIMEOUT_QUERY_PENALTY)
 import simpy
+from itertools import count
+
+
+query_group_id_iter = count()
 
 
 class PeerBehavior:
@@ -230,7 +234,7 @@ class Peer:
         self.peer_id = peer_id
         self.all_query_groups = all_query_groups
         self.prefix = self.peer_id[:Peer.PREFIX_LENGTH]
-        self.query_groups = set()
+        self.query_groups = {}
         self.sync_peers = {}
         self.pending_queries = {}
         self.completed_queries = {}
@@ -253,7 +257,7 @@ class Peer:
         info = self.sync_peers.get(peer_id)
         if info is not None:
             return info.address
-        for query_group in self.query_groups:
+        for query_group in self.query_groups.values():
             peer_info = query_group.get(peer_id)
             if peer_info is None:
                 continue
@@ -291,36 +295,36 @@ class Peer:
                     query_group[self.peer_id] = QueryPeerInfo(self.peer_id,
                                                               self.prefix,
                                                               self.address)
-                    self.query_groups.add(query_group)
-                    self.logger.log(an.QueryGroupAdd(self.env.now,
-                                                     self.peer_id,
-                                                     id(query_group), None))
+                    self.query_groups[query_group.query_group_id] = query_group
+                    self.logger.log(
+                        an.QueryGroupAdd(self.env.now, self.peer_id,
+                                         query_group.query_group_id, None))
                     return
             # Attempt to add the peer to one of my groups.
-            for query_group in self.query_groups:
+            for query_group in self.query_groups.values():
                 # TODO Pick the most useful out of these groups, not just any.
                 if (len(query_group) < Peer.MAX_DESIRED_GROUP_SIZE
                         and peer_info.peer_id not in query_group):
                     query_group[peer_info.peer_id] = (
                         QueryPeerInfo(peer_info.peer_id, peer_info.prefix,
                                       peer_info.address))
-                    peer.query_groups.add(query_group)
-                    self.logger.log(an.QueryGroupAdd(self.env.now,
-                                                     peer_info.peer_id,
-                                                     id(query_group), None))
+                    peer.query_groups[query_group.query_group_id] = query_group
+                    self.logger.log(
+                        an.QueryGroupAdd(self.env.now, peer_info.peer_id,
+                                         query_group.query_group_id, None))
                     return
             # Create a new query group.
-            query_group = QueryGroup({
+            query_group = QueryGroup(next(query_group_id_iter), {
                 self.peer_id: (self.prefix, self.address),
                 peer_info.peer_id: (peer_info.prefix, peer_info.address)
             })
             self.all_query_groups.add(query_group)
-            self.query_groups.add(query_group)
-            peer.query_groups.add(query_group)
+            self.query_groups[query_group.query_group_id] = query_group
+            peer.query_groups[query_group.query_group_id] = query_group
             self.logger.log(an.QueryGroupAdd(self.env.now, self.peer_id,
-                                             id(query_group), None))
+                                             query_group.query_group_id, None))
             self.logger.log(an.QueryGroupAdd(self.env.now, peer_info.peer_id,
-                                             id(query_group), None))
+                                             query_group.query_group_id, None))
         finally:
             # Update the set of uncovered subprefixes for every member of the
             # query group. This may not actually change anything, but it's the
@@ -597,7 +601,7 @@ class Peer:
         # subtracts and one adds. Receivers need to maintain a recent history
         # in order to roll back and reapply in the correct order.
         query_groups = list(self.peer_query_groups(peer_id))
-        query_group_ids = set(id(qg) for qg in query_groups)
+        query_group_ids = set(qg.query_group_id for qg in query_groups)
         query_peer_ids = set(pi for qg in query_groups for pi in qg)
         self.logger.log(an.ReputationUpdate(self.env.now, peer_id,
                                             reputation_diff, query_group_ids,
@@ -723,7 +727,8 @@ class Peer:
         """Iterate query groups that contain a peer."""
         # TODO Maintain a map of all peers so we don't have to iterate over all
         # groups.
-        return (g for g in self.query_groups if peer_id in g.members())
+        return (g for g in self.query_groups.values()
+                if peer_id in g.members())
 
     def known_query_peers(self):
         """
@@ -734,7 +739,7 @@ class Peer:
         Not guaranteed to be unique, will contain peers multiple times if they
         share multiple query groups.
         """
-        return (pi for g in self.query_groups for pi in g.infos())
+        return (pi for g in self.query_groups.values() for pi in g.infos())
 
     # TODO Should this be part of the behavior?
     def select_peers_to_query(self, queried_id):
@@ -766,12 +771,13 @@ class Peer:
 
 
 class QueryGroup:
-    def __init__(self, members):
+    def __init__(self, query_group_id, members):
         """
         Create a query group with some initial members.
         :param members: A dictionary mapping peer IDs to a tuple of prefix and
             address.
         """
+        self.query_group_id = query_group_id
         self._members = {peer_id: QueryPeerInfo(peer_id, prefix, address)
                          for peer_id, (prefix, address) in members.items()}
 
