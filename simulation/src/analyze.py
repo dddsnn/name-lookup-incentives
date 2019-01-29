@@ -81,9 +81,19 @@ class Logger:
                     if len(query_group) == 0:
                         groups.pop(event.query_group_id, None)
             elif isinstance(event, ReputationUpdate):
-                query_group = groups.get(event.query_group_id)
-                if query_group and event.peer_id in query_group:
-                    query_group[event.peer_id] = event.new_reputation
+                for query_group_id in event.query_group_ids:
+                    query_group = groups.get(query_group_id)
+                    if query_group is None:
+                        query_group = groups.setdefault(event.query_group_id,
+                                                        {})
+                    new_rep = (query_group.setdefault(event.peer_id, 0)
+                               + event.reputation_diff)
+                    query_group[event.peer_id] = new_rep
+            elif isinstance(event, ReputationDecay):
+                for query_group in groups.values():
+                    for query_peer_id, reputation in query_group.items():
+                        new_rep = max(0, reputation - event.decay)
+                        query_group[query_peer_id] = new_rep
             else:
                 continue
 
@@ -275,6 +285,29 @@ class ResponseReceived(Event):
         self.status = status
 
 
+class ReputationUpdateSent(Event):
+    """Event representing sending a reputation update."""
+    def __init__(self, time, sender_id, recipient_id, peer_id, reputation_diff,
+                 query_group_ids, in_event_id):
+        super().__init__(time, in_event_id)
+        self.sender_id = sender_id
+        self.recipient_id = recipient_id
+        self.peer_id = peer_id
+        self.reputation_diff = reputation_diff
+        self.query_group_ids = query_group_ids
+
+
+class ReputationUpdateReceived(Event):
+    """Event representing a reputation update being received."""
+    def __init__(self, time, sender_id, recipient_id, peer_id, reputation_diff,
+                 in_event_id):
+        super().__init__(time, in_event_id)
+        self.sender_id = sender_id
+        self.recipient_id = recipient_id
+        self.peer_id = peer_id
+        self.reputation_diff = reputation_diff
+
+
 class Timeout(Event):
     def __init__(self, time, sender_id, recipient_id, queried_id, status,
                  in_event_id):
@@ -354,13 +387,20 @@ class ConnectionRemove(Event):
 
 
 class ReputationUpdate(Event):
-    """Event representing an update to a peer's reputation in a query group."""
-    def __init__(self, time, peer_id, query_group_id, new_reputation,
+    """Event representing sending a reputation update."""
+    def __init__(self, time, peer_id, reputation_diff, query_group_ids,
                  in_event_id):
         super().__init__(time, in_event_id)
         self.peer_id = peer_id
-        self.query_group_id = query_group_id
-        self.new_reputation = new_reputation
+        self.reputation_diff = reputation_diff
+        self.query_group_ids = query_group_ids
+
+
+class ReputationDecay(Event):
+    """Event representing global reputation decay."""
+    def __init__(self, time, decay):
+        super().__init__(time, None)
+        self.decay = decay
 
 
 def print_info_process(env, logger):

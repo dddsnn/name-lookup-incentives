@@ -175,24 +175,18 @@ class PeerBehavior:
 
     def do_rep_success(self, peer_id, in_event_id):
         """Do the reputation update after a successful query."""
-        for query_group in self.peer.peer_query_groups(peer_id):
-            rep = max(query_group[peer_id].reputation
-                      + SUCCESSFUL_QUERY_REWARD, 0)
-            self.peer.update_reputation(peer_id, query_group, rep, in_event_id)
+        self.peer.send_reputation_update(peer_id, SUCCESSFUL_QUERY_REWARD,
+                                         in_event_id)
 
     def do_rep_failure(self, peer_id, in_event_id):
         """Do the reputation update after a failed query."""
-        for query_group in self.peer.peer_query_groups(peer_id):
-            rep = max(query_group[peer_id].reputation
-                      + FAILED_QUERY_PENALTY, 0)
-            self.peer.update_reputation(peer_id, query_group, rep, in_event_id)
+        self.peer.send_reputation_update(peer_id, FAILED_QUERY_PENALTY,
+                                         in_event_id)
 
     def do_rep_timeout(self, peer_id, in_event_id):
         """Do the reputation update after a timed out query."""
-        for query_group in self.peer.peer_query_groups(peer_id):
-            rep = max(query_group[peer_id].reputation
-                      + TIMEOUT_QUERY_PENALTY, 0)
-            self.peer.update_reputation(peer_id, query_group, rep, in_event_id)
+        self.peer.send_reputation_update(peer_id, TIMEOUT_QUERY_PENALTY,
+                                         in_event_id)
 
     def decide_delay(self, querying_peer_id):
         """Decide what penalty delay to impose."""
@@ -593,6 +587,47 @@ class Peer:
         self.behavior.on_response_retry(pending_query, responding_peer_id,
                                         queried_id, in_event_id)
 
+    def send_reputation_update(self, peer_id, reputation_diff, in_event_id):
+        """
+        :param reputation_diff: The reputation increase that should be applied.
+            Negative values mean a penalty.
+        """
+        # TODO Also send when the update is meant to be applied (the current
+        # time). If there are multiple updates, order may matter if one
+        # subtracts and one adds. Receivers need to maintain a recent history
+        # in order to roll back and reapply in the correct order.
+        query_groups = list(self.peer_query_groups(peer_id))
+        query_group_ids = set(id(qg) for qg in query_groups)
+        query_peer_ids = set(pi for qg in query_groups for pi in qg)
+        self.logger.log(an.ReputationUpdate(self.env.now, peer_id,
+                                            reputation_diff, query_group_ids,
+                                            in_event_id))
+
+        # TODO This is just a temporary solution since query group objects are
+        # shared between peers (so there must be only one change to the
+        # reputation variable). Do this on receipt of an update once every
+        # peer maintains its own query group objects.
+        for query_group in query_groups:
+            new_rep = max(0, query_group[peer_id].reputation + reputation_diff)
+            query_group[peer_id].reputation = new_rep
+
+        for query_peer_id in query_peer_ids:
+            in_event_id = self.logger.log(
+                an.ReputationUpdateSent(self.env.now, self.peer_id,
+                                        query_peer_id, peer_id,
+                                        reputation_diff, query_group_ids,
+                                        in_event_id))
+            address = self.lookup_address_local(query_peer_id)
+            self.network.send_reputation_update(self.peer_id, self.address,
+                                                address, peer_id,
+                                                reputation_diff, in_event_id)
+
+    def recv_reputation_update(self, sender_id, peer_id, reputation_diff,
+                               in_event_id):
+        self.logger.log(an.ReputationUpdateReceived(
+            self.env.now, sender_id, self.peer_id, peer_id, reputation_diff,
+            in_event_id))
+
     def check_completed_queries(self, responding_peer_id, queried_id,
                                 queried_peer_info):
         """
@@ -728,13 +763,6 @@ class Peer:
                                                                  queried_id),
                                  reverse=True)
         return [pi.peer_id for pi in peers_to_query_info]
-
-    def update_reputation(self, peer_id, query_group, new_reputation,
-                          in_event_id):
-        query_group[peer_id].reputation = new_reputation
-        self.logger.log(an.ReputationUpdate(self.env.now, peer_id,
-                                            id(query_group), new_reputation,
-                                            in_event_id))
 
 
 class QueryGroup:
