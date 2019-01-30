@@ -5,6 +5,7 @@ from simulation import (SUCCESSFUL_QUERY_REWARD, FAILED_QUERY_PENALTY,
 import simpy
 from itertools import count
 from copy import deepcopy
+from collections import namedtuple
 
 
 query_group_id_iter = count()
@@ -227,6 +228,7 @@ class Peer:
     MAX_DESIRED_GROUP_SIZE = 16
     QUERY_TIMEOUT = 2
     COMPLETED_QUERY_RETENTION_TIME = 100
+    UPDATE_RETENTION_TIME = 100
 
     def __init__(self, env, logger, network, peer_id, all_query_groups):
         self.env = env
@@ -653,10 +655,15 @@ class Peer:
             address = self.lookup_address_local(query_peer_id)
             self.network.send_reputation_update(self.peer_id, self.address,
                                                 address, peer_id,
-                                                reputation_diff, in_event_id)
+                                                reputation_diff, self.env.now,
+                                                in_event_id)
 
-    def recv_reputation_update(self, sender_id, peer_id, reputation_diff,
+    def recv_reputation_update(self, sender_id, peer_id, reputation_diff, time,
                                in_event_id):
+        """
+        :param time: The time at which the update is meant to be applied.
+        """
+        # TODO Ignore updates from peers about themselves.
         self.logger.log(an.ReputationUpdateReceived(
             self.env.now, sender_id, self.peer_id, peer_id, reputation_diff,
             in_event_id))
@@ -667,8 +674,32 @@ class Peer:
         query_groups = set(g for g in self.peer_query_groups(peer_id)
                            if sender_id in g)
         for query_group in query_groups:
-            new_rep = max(0, query_group[peer_id].reputation + reputation_diff)
-            query_group[peer_id].reputation = new_rep
+            query_peer_info = query_group[peer_id]
+            # Roll back younger updates.
+            younger_updates = []
+            while (query_peer_info.reputation_updates
+                   and query_peer_info.reputation_updates[-1][0] > time):
+                younger_updates.insert(
+                    0, query_peer_info.reputation_updates.pop())
+                query_peer_info.reputation = younger_updates[0].old_reputation
+            # Do the update.
+            query_peer_info.reputation_updates.append(
+                ReputationUpdate(time, query_peer_info.reputation,
+                                 reputation_diff))
+            new_rep = max(0, query_peer_info.reputation + reputation_diff)
+            # Reapply rolled back updates.
+            for update in younger_updates:
+                new_rep = max(0, new_rep + update.reputation_diff)
+                query_peer_info.reputation_updates.append(update)
+            query_peer_info.reputation = new_rep
+            # Prune old updates. This must not be done too eagerly, as it could
+            # otherwise result in desynchronization of the reputation record
+            # between peers.
+            del_idx = next((i + 1 for (i, update)
+                            in enumerate(query_peer_info.reputation_updates)
+                            if update.time < self.env.now
+                            - Peer.UPDATE_RETENTION_TIME), 0)
+            del query_peer_info.reputation_updates[:del_idx]
 
     def check_completed_queries(self, responding_peer_id, queried_id,
                                 queried_peer_info):
@@ -860,10 +891,15 @@ class PeerInfo:
         self.address = address
 
 
+ReputationUpdate = namedtuple('ReputationUpdate', ['time', 'old_reputation',
+                                                   'reputation_diff'])
+
+
 class QueryPeerInfo(PeerInfo):
     def __init__(self, peer_id, prefix, address):
         super().__init__(peer_id, prefix, address)
         self.reputation = 0
+        self.reputation_updates = []
 
 
 class PendingQuery:
