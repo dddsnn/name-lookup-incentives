@@ -4,6 +4,7 @@ from simulation import (SUCCESSFUL_QUERY_REWARD, FAILED_QUERY_PENALTY,
                         TIMEOUT_QUERY_PENALTY)
 import simpy
 from itertools import count
+from copy import deepcopy
 
 
 query_group_id_iter = count()
@@ -264,6 +265,23 @@ class Peer:
             return peer_info.address
         return None
 
+    def add_to_query_group(self, query_group, peer):
+        """
+        Add a peer to the query groups at all members.
+
+        TODO Workaround while the group invite system isn't implemented. Makes
+        use of the network to get a hold of actual peer references via their
+        address.
+        """
+        for query_peer_info in query_group.infos():
+            query_peer = self.network.peers[query_peer_info.address]
+            assert query_peer.peer_id == query_peer_info.peer_id
+            if query_peer == self:
+                continue
+            qg = query_peer.query_groups[query_group.query_group_id]
+            qg[peer.peer_id] = QueryPeerInfo(peer.peer_id, peer.prefix,
+                                             peer.address)
+
     def join_group_with(self, peer_info):
         """
         Share a query group with another peer.
@@ -287,15 +305,19 @@ class Peer:
             # requests or invites.
             # Attempt to join one of the peer's groups.
             # TODO Don't use the global information all_query_groups.
-            for query_group in self.all_query_groups:
+            for query_group in self.all_query_groups.values():
                 # TODO Pick the most useful out of these groups, not just any.
                 if (peer_info.peer_id in query_group
                         and len(query_group) < Peer.MAX_DESIRED_GROUP_SIZE
                         and self.peer_id not in query_group):
-                    query_group[self.peer_id] = QueryPeerInfo(self.peer_id,
-                                                              self.prefix,
-                                                              self.address)
-                    self.query_groups[query_group.query_group_id] = query_group
+                    self.add_to_query_group(query_group, self)
+                    query_group_copy = deepcopy(query_group)
+                    query_group_copy[self.peer_id] = QueryPeerInfo(
+                        self.peer_id, self.prefix, self.address)
+                    self.query_groups[query_group.query_group_id]\
+                        = query_group_copy
+                    self.all_query_groups[query_group.query_group_id]\
+                        = deepcopy(query_group_copy)
                     self.logger.log(
                         an.QueryGroupAdd(self.env.now, self.peer_id,
                                          query_group.query_group_id, None))
@@ -305,10 +327,15 @@ class Peer:
                 # TODO Pick the most useful out of these groups, not just any.
                 if (len(query_group) < Peer.MAX_DESIRED_GROUP_SIZE
                         and peer_info.peer_id not in query_group):
+                    self.add_to_query_group(query_group, peer)
                     query_group[peer_info.peer_id] = (
                         QueryPeerInfo(peer_info.peer_id, peer_info.prefix,
                                       peer_info.address))
-                    peer.query_groups[query_group.query_group_id] = query_group
+                    query_group_copy = deepcopy(query_group)
+                    peer.query_groups[query_group.query_group_id]\
+                        = query_group_copy
+                    self.all_query_groups[query_group.query_group_id]\
+                        = deepcopy(query_group_copy)
                     self.logger.log(
                         an.QueryGroupAdd(self.env.now, peer_info.peer_id,
                                          query_group.query_group_id, None))
@@ -318,9 +345,11 @@ class Peer:
                 self.peer_id: (self.prefix, self.address),
                 peer_info.peer_id: (peer_info.prefix, peer_info.address)
             })
-            self.all_query_groups.add(query_group)
-            self.query_groups[query_group.query_group_id] = query_group
-            peer.query_groups[query_group.query_group_id] = query_group
+            self.all_query_groups[query_group.query_group_id] = query_group
+            self.query_groups[query_group.query_group_id]\
+                = deepcopy(query_group)
+            peer.query_groups[query_group.query_group_id]\
+                = deepcopy(query_group)
             self.logger.log(an.QueryGroupAdd(self.env.now, self.peer_id,
                                              query_group.query_group_id, None))
             self.logger.log(an.QueryGroupAdd(self.env.now, peer_info.peer_id,
@@ -631,6 +660,15 @@ class Peer:
         self.logger.log(an.ReputationUpdateReceived(
             self.env.now, sender_id, self.peer_id, peer_id, reputation_diff,
             in_event_id))
+        # Only change the reputation in those query groups shared by the peer
+        # whose reputation is changed and the peer reporting the change.
+        # In the other groups there will be peers that don't know about the
+        # update.
+        query_groups = set(g for g in self.peer_query_groups(peer_id)
+                           if sender_id in g)
+        for query_group in query_groups:
+            new_rep = max(0, query_group[peer_id].reputation + reputation_diff)
+            query_group[peer_id].reputation = new_rep
 
     def check_completed_queries(self, responding_peer_id, queried_id,
                                 queried_peer_info):

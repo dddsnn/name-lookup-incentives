@@ -29,7 +29,7 @@ def decay_reputation(env, all_query_groups, logger):
         yield env.timeout(DECAY_TIMESTEP)
         decay = DECAY_PER_TIME_UNIT * DECAY_TIMESTEP
         logger.log(an.ReputationDecay(env.now, decay))
-        for query_group in all_query_groups:
+        for query_group in all_query_groups.values():
             for query_peer_info in query_group.infos():
                 rep = max(0, query_peer_info.reputation - decay)
                 query_peer_info.reputation = rep
@@ -41,7 +41,7 @@ if __name__ == '__main__':
     logger = an.Logger()
     peers = {}
     sync_groups = {}
-    all_query_groups = set()
+    all_query_groups = {}
     network = util.Network(env)
     for i in range(64):
         while True:
