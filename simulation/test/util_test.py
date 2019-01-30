@@ -83,7 +83,3 @@ class TestNetwork(unittest.TestCase):
         with self.assertRaises(util.UnassignedAddressError):
             self.network.send_query(self.peer_a_id, self.peer_a_address,
                                     unassigned_address, queried_id, 0)
-
-
-if __name__ == "__main__":
-    unittest.main()
