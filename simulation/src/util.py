@@ -124,3 +124,9 @@ def do_delayed(env, delay, function, *args):
         yield env.timeout(delay)
         function(*args)
     env.process(gen())
+
+
+def progress_process(env, step):
+    while True:
+        print('\rcurrent time: {}'.format(env.now), end='')
+        yield env.timeout(step)

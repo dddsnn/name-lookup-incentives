@@ -70,6 +70,7 @@ if __name__ == '__main__':
             peer.introduce(p.PeerInfo(other_peer.peer_id, other_peer.prefix,
                                       other_peer.address))
 
+    env.process(util.progress_process(env, 1))
     print('scheduling queries for missing subprefixes')
     for peer in peers.values():
         peer.find_missing_query_peers()
