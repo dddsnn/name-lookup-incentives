@@ -413,9 +413,3 @@ class ReputationDecay(Event):
     def __init__(self, time, decay):
         super().__init__(time, None)
         self.decay = decay
-
-
-def print_info_process(env, logger):
-    while True:
-        yield env.timeout(10)
-        logger.print_info(env.now)
