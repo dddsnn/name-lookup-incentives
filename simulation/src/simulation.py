@@ -4,6 +4,8 @@ import util
 import simpy
 import bitstring as bs
 import random
+import signal
+import sys
 
 SUCCESSFUL_QUERY_REWARD = 1
 FAILED_QUERY_PENALTY = -2
@@ -33,6 +35,16 @@ def decay_reputation(env, all_query_groups, logger):
             for query_peer_info in query_group.infos():
                 rep = max(0, query_peer_info.reputation - decay)
                 query_peer_info.reputation = rep
+
+
+def terminate(progress_proc, logger, file_name):
+    def handler(_, _2):
+        progress_proc.interrupt()
+        print()
+        print('writing log to "{}"'.format(file_name))
+        logger.dump(file_name)
+        sys.exit(0)
+    return handler
 
 
 if __name__ == '__main__':
@@ -70,12 +82,12 @@ if __name__ == '__main__':
             peer.introduce(p.PeerInfo(other_peer.peer_id, other_peer.prefix,
                                       other_peer.address))
 
-    env.process(util.progress_process(env, 1))
+    progress_proc = env.process(util.progress_process(env, 1))
+    signal.signal(signal.SIGINT, terminate(progress_proc, logger, 'log'))
     print('scheduling queries for missing subprefixes')
     for peer in peers.values():
         peer.find_missing_query_peers()
     print()
     print('starting simulation')
     env.process(decay_reputation(env, all_query_groups, logger))
-    env.run(until=10)
-    logger.dump('log')
+    env.run()
