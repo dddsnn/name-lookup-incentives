@@ -124,11 +124,3 @@ def do_delayed(env, delay, function, *args):
         yield env.timeout(delay)
         function(*args)
     env.process(gen())
-
-
-def format_ids(queried_id, queried_ids):
-    """Pretty-print an ID and set of prefixes."""
-    s = str(queried_id)
-    if len(queried_ids) > 1:
-        s += ' ({' + ', '.join((str(qid) for qid in queried_ids)) + '})'
-    return s

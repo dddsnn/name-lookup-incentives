@@ -72,9 +72,6 @@ class PeerBehavior:
         else:
             peers_to_query = self.peer.select_peers_to_query(queried_id)
         if len(peers_to_query) == 0:
-            print(('{:.2f}: {}: query for {} impossible, no known peer closer'
-                   ' to it')
-                  .format(self.peer.env.now, self.peer.peer_id, queried_id))
             return
         pending_query = PendingQuery(self.peer.env.now, querying_peer_id,
                                      queried_id, peers_to_query)
@@ -83,19 +80,12 @@ class PeerBehavior:
         # TODO Send queries to multiple peers at once.
 
     def on_response_success(self, pending_query, responding_peer_id,
-                            queried_id, queried_peer_info, time_taken,
-                            in_event_id):
+                            queried_peer_info, in_event_id):
         """React to a successful response arriving."""
         queried_ids = pending_query.querying_peers.pop(self.peer.peer_id, None)
         total_time = self.peer.env.now - pending_query.start_time
-        if queried_ids is not None:
-            # TODO Update the ID/address mapping, even if we're just passing
-            # the query result through to another peer.
-            print(('{:.2f}: {}: successful response for query for {} from'
-                   ' {} after {:.2f}, total time {:.2f}')
-                  .format(self.peer.env.now, self.peer.peer_id,
-                          util.format_ids(queried_id, queried_ids),
-                          responding_peer_id, time_taken, total_time))
+        # TODO Update the ID/address mapping, even if we're just passing the
+        # query result through to another peer.
         for querying_peer_id, queried_ids in (pending_query.querying_peers
                                               .items()):
             delay = max(self.decide_delay(querying_peer_id) - total_time, 0)
@@ -105,7 +95,7 @@ class PeerBehavior:
         self.do_rep_success(responding_peer_id, in_event_id)
 
     def on_response_failure(self, pending_query, responding_peer_id,
-                            queried_id, time_taken, in_event_id):
+                            in_event_id):
         """
         React to an ultimately failed response arriving.
 
@@ -114,13 +104,6 @@ class PeerBehavior:
         """
         queried_ids = pending_query.querying_peers.get(self.peer.peer_id)
         total_time = self.peer.env.now - pending_query.start_time
-        if queried_ids is not None:
-            print(('{:.2f}: {}: unsuccessful query for {} last sent to {}:'
-                   ' unsuccessful response from last known peer after {:.2f},'
-                   ' total time {:.2f}')
-                  .format(self.peer.env.now, self.peer.peer_id,
-                          util.format_ids(queried_id, queried_ids),
-                          responding_peer_id, time_taken, total_time))
         for querying_peer_id, queried_ids in (pending_query.querying_peers
                                               .items()):
             delay = max(self.decide_delay(querying_peer_id) - total_time, 0)
@@ -131,18 +114,10 @@ class PeerBehavior:
     def on_response_retry(self, pending_query, responding_peer_id, queried_id,
                           in_event_id):
         """React to a failed response that can be retried."""
-        queried_ids = pending_query.querying_peers.get(self.peer.peer_id)
-        if queried_ids is not None:
-            print(('{:.2f}: {}: unsuccessful response for query for {} from'
-                   ' {}, trying next peer')
-                  .format(self.peer.env.now, self.peer.peer_id,
-                          util.format_ids(queried_id, queried_ids),
-                          responding_peer_id))
         self.peer.send_query(queried_id, pending_query, in_event_id)
         self.do_rep_failure(responding_peer_id, in_event_id)
 
-    def on_timeout_failure(self, pending_query, recipient_id, queried_id,
-                           in_event_id):
+    def on_timeout_failure(self, pending_query, recipient_id, in_event_id):
         """
         React to a query timing out and failing ultimately.
 
@@ -151,13 +126,6 @@ class PeerBehavior:
         """
         queried_ids = pending_query.querying_peers.get(self.peer.peer_id)
         total_time = self.peer.env.now - pending_query.start_time
-        if queried_ids is not None:
-            queried_ids = pending_query.querying_peers[self.peer.peer_id]
-            print(('{:.2f}: {}: unsuccessful query for {} last sent to {}:'
-                   ' last known peer timed out, total time {:.2f}')
-                  .format(self.peer.env.now, self.peer.peer_id,
-                          util.format_ids(queried_id, queried_ids),
-                          recipient_id, total_time))
         for querying_peer_id, queried_ids in (pending_query.querying_peers
                                               .items()):
             delay = max(self.decide_delay(querying_peer_id) - total_time, 0)
@@ -168,14 +136,6 @@ class PeerBehavior:
     def on_timeout_retry(self, pending_query, recipient_id, queried_id,
                          in_event_id):
         """React to a query timing out that can be retried."""
-        queried_ids = pending_query.querying_peers.get(self.peer.peer_id)
-        if queried_ids is not None:
-            queried_ids = pending_query.querying_peers[self.peer.peer_id]
-            print('{:.2f}: {}: timed out response for query for {} sent to {},'
-                  ' trying next peer'
-                  .format(self.peer.env.now, self.peer.peer_id,
-                          util.format_ids(queried_id, queried_ids),
-                          recipient_id))
         self.peer.send_query(queried_id, pending_query, in_event_id)
         self.do_rep_timeout(recipient_id, in_event_id)
 
@@ -435,19 +395,13 @@ class Peer:
         return {sp: len(qps) for (sp, qps) in subprefixes.items()}
 
     def handle_request(self, queried_id):
-        print('{:.2f}: {}: request for {} - '.format(self.env.now,
-                                                     self.peer_id,
-                                                     queried_id), end='')
         try:
             for pending_queried_id in self.pending_queries:
                 if pending_queried_id.startswith(queried_id):
                     status = 'pending'
-                    print('request for matching ID {} is already pending'
-                          .format(pending_queried_id))
                     return
             if queried_id == self.peer_id:
                 status = 'own_id'
-                print('request for own ID')
                 return
             for sync_peer_id in self.sync_peers:
                 if sync_peer_id.startswith(queried_id):
@@ -455,10 +409,7 @@ class Peer:
                     # This behavior is useless for the purpose of finding more
                     # sync peers.
                     status = 'known'
-                    print('found matching ID {} in sync peers'
-                          .format(sync_peer_id))
                     return
-            print('sending query')
             status = 'querying'
         finally:
             in_event_id = self.logger.log(an.Request(self.env.now,
@@ -598,14 +549,11 @@ class Peer:
             in_event_id = self.logger.log(event(status))
             return
         pending_query.timeout_proc.interrupt()
-        time_sent = pending_query.queries_sent.pop(responding_peer_id)
-        time_taken = self.env.now - time_sent
         if queried_peer_info is not None:
             in_event_id = self.logger.log(event('success'))
             self.behavior.on_response_success(pending_query,
-                                              responding_peer_id, queried_id,
-                                              queried_peer_info, time_taken,
-                                              in_event_id)
+                                              responding_peer_id,
+                                              queried_peer_info, in_event_id)
             self.pending_queries.pop(queried_id, None)
             self.archive_completed_query(pending_query, queried_id)
             self.introduce(queried_peer_info)
@@ -613,8 +561,7 @@ class Peer:
         if len(pending_query.peers_to_query) == 0:
             in_event_id = self.logger.log(event('failure_ultimate'))
             self.behavior.on_response_failure(pending_query,
-                                              responding_peer_id, queried_id,
-                                              time_taken, in_event_id)
+                                              responding_peer_id, in_event_id)
             self.pending_queries.pop(queried_id, None)
             self.archive_completed_query(pending_query, queried_id)
             return
@@ -784,7 +731,7 @@ class Peer:
         if len(pending_query.peers_to_query) == 0:
             in_event_id = self.logger.log(event('failure_ultimate'))
             self.behavior.on_timeout_failure(pending_query, recipient_id,
-                                             queried_id, in_event_id)
+                                             in_event_id)
             self.pending_queries.pop(queried_id, None)
             self.archive_completed_query(pending_query, queried_id)
             return
@@ -909,4 +856,5 @@ class PendingQuery:
         self.querying_peers = {querying_peer_id: set((queried_id,))}
         self.timeout_proc = timeout_proc
         self.peers_to_query = peers_to_query
+        # Maps ID of recipient of a query to the time the query was sent.
         self.queries_sent = {}

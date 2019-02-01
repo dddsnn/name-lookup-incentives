@@ -152,6 +152,18 @@ class Logger:
                   .format(i, nx.number_of_nodes(comp), nx.diameter(comp),
                           nx.degree_histogram(comp)))
 
+    def print_info(self, time):
+        """Print all global information at a point in time."""
+        print()
+        self.sync_groups(time)
+        print()
+        self.query_groups(time)
+        print()
+        self.uncovered_subprefixes(time)
+        print()
+        self.strongly_connected_components(time)
+        print()
+
 
 class Event:
     """Superclass for all log events."""
@@ -406,16 +418,4 @@ class ReputationDecay(Event):
 def print_info_process(env, logger):
     while True:
         yield env.timeout(10)
-        print_info(logger, env.now)
-
-
-def print_info(logger, time):
-    print()
-    logger.sync_groups(time)
-    print()
-    logger.query_groups(time)
-    print()
-    logger.uncovered_subprefixes(time)
-    print()
-    logger.strongly_connected_components(time)
-    print()
+        logger.print_info(env.now)
