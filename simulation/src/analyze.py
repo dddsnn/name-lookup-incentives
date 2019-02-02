@@ -31,6 +31,14 @@ class Logger:
         with open(file_name, 'w+b') as file:
             pickle.dump(self.events, file)
 
+    @staticmethod
+    def load(file_name):
+        with open(file_name, 'rb') as file:
+            events = pickle.load(file)
+            logger = Logger()
+            logger.events = events
+            return logger
+
     def make_out_events(self):
         """
         Connect events in a forward direction.
