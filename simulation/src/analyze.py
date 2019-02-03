@@ -114,6 +114,50 @@ class Logger:
         print()
         self.print_strongly_connected_components_at(time)
 
+    def print_average_reputation_until(self, until_time):
+        """
+        Print average reputation per query group over time until some point.
+
+        Per query group, prints tuples of time and average reputation per peer.
+        """
+        total_reputations = {}
+        replay = Replay(self.events, {}, query_groups_event_processor)
+        current_time = 0
+
+        def append_step():
+            has_changed = False
+            for query_group_id, query_group in replay.data.items():
+                total_reputation = sum(query_group.values())
+                num_peers = len(query_group)
+                reputation_per_peer = total_reputation / num_peers
+                record_list = total_reputations.setdefault(query_group_id, [])
+                record_list.append((current_time, reputation_per_peer))
+                if (len(record_list) < 2
+                        or record_list[-2][1] != record_list[-1][1]):
+                    has_changed = True
+            if not has_changed:
+                # There has been no change in total reputation or reputation
+                # per peer for any group, so we can throw away the last record.
+                # (This can happen if the event that was processed didn't have
+                # to do with reputation.)
+                for record_list in total_reputations.values():
+                    record_list.pop()
+
+        append_step()
+        while True:
+            current_time = replay.step_next()
+            if current_time is None or current_time > until_time:
+                break
+            append_step()
+
+        for query_group_id, record_list in sorted(total_reputations.items(),
+                                                  key=lambda t: t[0]):
+            print('{}: ['.format(query_group_id)
+                  + ', '.join('({:.1f}, {:.1f})'
+                              .format(record[0], record[1])
+                              for record in record_list)
+                  + ']')
+
 
 def sync_groups_event_processor(data, event):
     """
@@ -207,8 +251,15 @@ class Replay:
         self.next_idx = 0
         self.current_time = 0
 
+        self.step_until(0)
+
     def at(self, time):
         """Access the data at a point in time."""
+        self.step_until(time)
+        return self.data
+
+    def step_until(self, time):
+        """Process events up to a point in time."""
         if time < self.current_time:
             raise Exception('Attempt to move backwards.')
         while (self.next_idx < len(self.events)
@@ -217,7 +268,22 @@ class Replay:
             self.event_processor(self.data, event)
             self.next_idx += 1
             self.current_time = event.time
-        return self.data
+
+    def step_next(self):
+        """
+        Process next event(s).
+
+        This may be more than one, if multiple events happened at the same
+        time.
+
+        Return the new current time, or None if no further events have been
+        processed.
+        """
+        if self.next_idx >= len(self.events):
+            return None
+        time = self.events[self.next_idx].time
+        self.step_until(time)
+        return time
 
 
 class Event:
