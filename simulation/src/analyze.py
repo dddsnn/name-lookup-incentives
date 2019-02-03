@@ -52,7 +52,7 @@ class Logger:
             if event.in_event_id is not None:
                 self.events[event.in_event_id].out_event_ids.add(i)
 
-    def sync_groups(self, time):
+    def print_sync_groups_at(self, time):
         """Print information about sync groups at a point in time."""
         sync_groups = {}
         for event in self.events:
@@ -72,7 +72,7 @@ class Logger:
         for pr, sg in sorted(sync_groups.items(), key=lambda t: t[0].uint):
             print('{}: {{{}}}'.format(pr.bin, ', '.join(str(p) for p in sg)))
 
-    def query_groups(self, time):
+    def print_query_groups_at(self, time):
         """Print information about query groups at a point in time."""
         groups = {}
         for event in self.events:
@@ -114,7 +114,7 @@ class Logger:
                                            key=lambda t: t[1],
                                            reverse=True))))
 
-    def uncovered_subprefixes(self, time):
+    def print_uncovered_subprefixes_at(self, time):
         """Print info about missing subprefix coverage at a point in time."""
         uncovered_subprefixes = {}
         for event in self.events:
@@ -137,7 +137,7 @@ class Logger:
         if not any_missing:
             print('none')
 
-    def strongly_connected_components(self, time):
+    def print_strongly_connected_components_at(self, time):
         """Print info about the reachability graph at a point in time."""
         peer_graph = nx.DiGraph()
         for event in self.events:
@@ -161,16 +161,16 @@ class Logger:
                   .format(i, nx.number_of_nodes(comp), nx.diameter(comp),
                           nx.degree_histogram(comp)))
 
-    def print_info(self, time):
+    def print_global_info_at(self, time):
         """Print all global information at a point in time."""
         print()
-        self.sync_groups(time)
+        self.print_sync_groups_at(time)
         print()
-        self.query_groups(time)
+        self.print_query_groups_at(time)
         print()
-        self.uncovered_subprefixes(time)
+        self.print_uncovered_subprefixes_at(time)
         print()
-        self.strongly_connected_components(time)
+        self.print_strongly_connected_components_at(time)
         print()
 
 
