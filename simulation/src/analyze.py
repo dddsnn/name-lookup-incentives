@@ -106,8 +106,9 @@ class Logger:
                 continue
 
         print('query_groups (peer: reputation):')
-        for query_group in groups.values():
-            print('{{{}}}'.format(', '.join(
+        for query_group_id, query_group in sorted(groups.items(),
+                                                  key=lambda t: t[0]):
+            print('{}: {{{}}}'.format(query_group_id, ', '.join(
                 str(peer_id) + ': ' + '{:.1f}'.format(rep)
                 for peer_id, rep in sorted(query_group.items(),
                                            key=lambda t: t[1],
