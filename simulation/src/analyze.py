@@ -54,19 +54,8 @@ class Logger:
 
     def print_sync_groups_at(self, time):
         """Print information about sync groups at a point in time."""
-        sync_groups = {}
-        for event in self.events:
-            if event.time > time:
-                break
-            if isinstance(event, PeerAdd):
-                sync_groups.setdefault(event.prefix, set()).add(event.peer_id)
-            elif isinstance(event, PeerRemove):
-                if event.prefix in sync_groups:
-                    sync_groups[event.prefix].discard(event.peer_id)
-                    if len(sync_groups[event.prefix]) == 0:
-                        sync_groups.pop(event.prefix)
-            else:
-                continue
+        sync_groups = Replay(self.events, {},
+                             sync_groups_event_processor).at(time)
 
         print('sync groups (prefix: {peers}):')
         for pr, sg in sorted(sync_groups.items(), key=lambda t: t[0].uint):
@@ -74,36 +63,7 @@ class Logger:
 
     def print_query_groups_at(self, time):
         """Print information about query groups at a point in time."""
-        groups = {}
-        for event in self.events:
-            if event.time > time:
-                break
-            if isinstance(event, QueryGroupAdd):
-                query_group = groups.setdefault(event.query_group_id, {})
-                if event.peer_id not in query_group:
-                    query_group[event.peer_id] = 0
-            elif isinstance(event, QueryGroupRemove):
-                query_group = groups.get(event.query_group_id)
-                if query_group is not None:
-                    query_group.pop(event.peer_id, None)
-                    if len(query_group) == 0:
-                        groups.pop(event.query_group_id, None)
-            elif isinstance(event, ReputationUpdate):
-                for query_group_id in event.query_group_ids:
-                    query_group = groups.get(query_group_id)
-                    if query_group is None:
-                        query_group = groups.setdefault(event.query_group_id,
-                                                        {})
-                    new_rep = (query_group.setdefault(event.peer_id, 0)
-                               + event.reputation_diff)
-                    query_group[event.peer_id] = new_rep
-            elif isinstance(event, ReputationDecay):
-                for query_group in groups.values():
-                    for query_peer_id, reputation in query_group.items():
-                        new_rep = max(0, reputation - event.decay)
-                        query_group[query_peer_id] = new_rep
-            else:
-                continue
+        groups = Replay(self.events, {}, query_groups_event_processor).at(time)
 
         print('query_groups (peer: reputation):')
         for query_group_id, query_group in sorted(groups.items(),
@@ -116,14 +76,8 @@ class Logger:
 
     def print_uncovered_subprefixes_at(self, time):
         """Print info about missing subprefix coverage at a point in time."""
-        uncovered_subprefixes = {}
-        for event in self.events:
-            if event.time > time:
-                break
-            if isinstance(event, UncoveredSubprefixes):
-                uncovered_subprefixes[event.peer_id] = event.subprefixes
-            else:
-                continue
+        uncovered_subprefixes = Replay(
+            self.events, {}, uncovered_subprefixes_event_processor).at(time)
 
         print('missing subprefix coverage per peer:')
         any_missing = False
@@ -139,19 +93,8 @@ class Logger:
 
     def print_strongly_connected_components_at(self, time):
         """Print info about the reachability graph at a point in time."""
-        peer_graph = nx.DiGraph()
-        for event in self.events:
-            if event.time > time:
-                break
-            if isinstance(event, ConnectionAdd):
-                peer_graph.add_edge(event.peer_a_id, event.peer_b_id)
-            elif isinstance(event, ConnectionRemove):
-                try:
-                    peer_graph.remove_edge(event.peer_a_id, event.peer_b_id)
-                except nx.NetworkXError:
-                    pass
-            else:
-                continue
+        peer_graph = Replay(self.events, nx.DiGraph(),
+                            reachability_graph_event_processor).at(time)
 
         print('strongly connected components:')
         from networkx import strongly_connected_components as scc
@@ -163,7 +106,6 @@ class Logger:
 
     def print_global_info_at(self, time):
         """Print all global information at a point in time."""
-        print()
         self.print_sync_groups_at(time)
         print()
         self.print_query_groups_at(time)
@@ -171,7 +113,111 @@ class Logger:
         self.print_uncovered_subprefixes_at(time)
         print()
         self.print_strongly_connected_components_at(time)
-        print()
+
+
+def sync_groups_event_processor(data, event):
+    """
+    Process an event to build sync groups.
+
+    The data that is built is a dictionary mapping the prefix of the group to a
+    set of peer IDs. The initial value must be an empty dictionary.
+    """
+    if isinstance(event, PeerAdd):
+        data.setdefault(event.prefix, set()).add(event.peer_id)
+    elif isinstance(event, PeerRemove):
+        if event.prefix in data:
+            data[event.prefix].discard(event.peer_id)
+            if len(data[event.prefix]) == 0:
+                data.pop(event.prefix)
+
+
+def query_groups_event_processor(data, event):
+    """
+    Process an event to build query groups.
+
+    The data that is built is a dictionary mapping query group ID to
+    dictionaries representing query groups. These map peer ID to the peer's
+    reputation. The initial value must be an empty dictionary.
+    """
+    if isinstance(event, QueryGroupAdd):
+        query_group = data.setdefault(event.query_group_id, {})
+        if event.peer_id not in query_group:
+            query_group[event.peer_id] = 0
+    elif isinstance(event, QueryGroupRemove):
+        query_group = data.get(event.query_group_id)
+        if query_group is not None:
+            query_group.pop(event.peer_id, None)
+            if len(query_group) == 0:
+                data.pop(event.query_group_id, None)
+    elif isinstance(event, ReputationUpdate):
+        for query_group_id in event.query_group_ids:
+            query_group = data.get(query_group_id)
+            if query_group is None:
+                query_group = data.setdefault(event.query_group_id, {})
+            new_rep = (query_group.setdefault(event.peer_id, 0)
+                       + event.reputation_diff)
+            query_group[event.peer_id] = new_rep
+    elif isinstance(event, ReputationDecay):
+        for query_group in data.values():
+            for query_peer_id, reputation in query_group.items():
+                new_rep = max(0, reputation - event.decay)
+                query_group[query_peer_id] = new_rep
+
+
+def uncovered_subprefixes_event_processor(data, event):
+    """
+    Process an event to build uncovered subprefixes.
+
+    The data that is built is a dictionary mapping peer IDs to the set of
+    subprefixes that aren't covered for the peer. The initial value must be an
+    empty dictionary.
+    """
+    if isinstance(event, UncoveredSubprefixes):
+        data[event.peer_id] = event.subprefixes
+
+
+def reachability_graph_event_processor(data, event):
+    """
+    Process an event to build the peer reachability graph.
+
+    The initial value must be an empty DiGraph.
+    """
+    if isinstance(event, ConnectionAdd):
+        data.add_edge(event.peer_a_id, event.peer_b_id)
+    elif isinstance(event, ConnectionRemove):
+        try:
+            data.remove_edge(event.peer_a_id, event.peer_b_id)
+        except nx.NetworkXError:
+            pass
+
+
+class Replay:
+    """Class that allows to replay logged events."""
+    def __init__(self, events, data_init, event_processor):
+        """
+        :param events: The event list to be replayed. Must be ordered by time.
+        :param data_init: Initial value for the structure containing the data
+            that can be examined.
+        :param event_processor: A function accepting the data and an event that
+            updates the data by that event.
+        """
+        self.events = events
+        self.data = data_init
+        self.event_processor = event_processor
+        self.next_idx = 0
+        self.current_time = 0
+
+    def at(self, time):
+        """Access the data at a point in time."""
+        if time < self.current_time:
+            raise Exception('Attempt to move backwards.')
+        while (self.next_idx < len(self.events)
+               and self.events[self.next_idx].time <= time):
+            event = self.events[self.next_idx]
+            self.event_processor(self.data, event)
+            self.next_idx += 1
+            self.current_time = event.time
+        return self.data
 
 
 class Event:
