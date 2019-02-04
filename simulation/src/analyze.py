@@ -1,5 +1,7 @@
 import networkx as nx
 import pickle
+import matplotlib.pyplot as plt
+import numpy as np
 
 
 class Logger:
@@ -114,12 +116,8 @@ class Logger:
         print()
         self.print_strongly_connected_components_at(time)
 
-    def print_average_reputation_until(self, until_time):
-        """
-        Print average reputation per query group over time until some point.
-
-        Per query group, prints tuples of time and average reputation per peer.
-        """
+    def plot_average_reputation_until(self, until_time):
+        """Plot average reputation over time until some point."""
         total_reputations = {}
         replay = Replay(self.events, {}, query_groups_event_processor)
         current_time = 0
@@ -130,18 +128,21 @@ class Logger:
                 total_reputation = sum(query_group.values())
                 num_peers = len(query_group)
                 reputation_per_peer = total_reputation / num_peers
-                record_list = total_reputations.setdefault(query_group_id, [])
-                record_list.append((current_time, reputation_per_peer))
-                if (len(record_list) < 2
-                        or record_list[-2][1] != record_list[-1][1]):
+                record = total_reputations.setdefault(query_group_id, ([], []))
+                time_list = record[0]
+                rep_list = record[1]
+                time_list.append(current_time)
+                rep_list.append(reputation_per_peer)
+                if (len(rep_list) < 2 or rep_list[-2] != rep_list[-1]):
                     has_changed = True
             if not has_changed:
-                # There has been no change in total reputation or reputation
-                # per peer for any group, so we can throw away the last record.
-                # (This can happen if the event that was processed didn't have
-                # to do with reputation.)
-                for record_list in total_reputations.values():
-                    record_list.pop()
+                # There has been no change in reputation per peer for any
+                # group, so we can throw away the last record. (This can happen
+                # if the event that was processed didn't have to do with
+                # reputation.)
+                for record in total_reputations.values():
+                    record[0].pop()
+                    record[1].pop()
 
         append_step()
         while True:
@@ -150,13 +151,14 @@ class Logger:
                 break
             append_step()
 
-        for query_group_id, record_list in sorted(total_reputations.items(),
-                                                  key=lambda t: t[0]):
-            print('{}: ['.format(query_group_id)
-                  + ', '.join('({:.1f}, {:.1f})'
-                              .format(record[0], record[1])
-                              for record in record_list)
-                  + ']')
+        plt.xlabel('Time')
+        plt.ylabel('Average Reputation')
+        plt.title('Average reputation in query groups')
+        for query_group_id, record in total_reputations.items():
+            plt.plot(np.array(record[0]), np.array(record[1]),
+                     label=query_group_id)
+        plt.legend()
+        plt.show()
 
 
 def sync_groups_event_processor(data, event):
