@@ -192,8 +192,8 @@ def query_groups_event_processor(data, event):
             query_group = data.get(query_group_id)
             if query_group is None:
                 query_group = data.setdefault(event.query_group_id, {})
-            new_rep = (query_group.setdefault(event.peer_id, 0)
-                       + event.reputation_diff)
+            new_rep = max(0, query_group.setdefault(event.peer_id, 0)
+                          + event.reputation_diff)
             query_group[event.peer_id] = new_rep
     elif isinstance(event, ReputationDecay):
         for query_group in data.values():
