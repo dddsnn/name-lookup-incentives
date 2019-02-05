@@ -123,7 +123,6 @@ class Logger:
         current_time = 0
 
         def append_step():
-            has_changed = False
             for query_group_id, query_group in replay.data.items():
                 total_reputation = sum(query_group.values())
                 num_peers = len(query_group)
@@ -131,18 +130,11 @@ class Logger:
                 record = total_reputations.setdefault(query_group_id, ([], []))
                 time_list = record[0]
                 rep_list = record[1]
+                if rep_list and rep_list[-1] == reputation_per_peer:
+                    # Value hasn't changed, no need to record it.
+                    continue
                 time_list.append(current_time)
                 rep_list.append(reputation_per_peer)
-                if (len(rep_list) < 2 or rep_list[-2] != rep_list[-1]):
-                    has_changed = True
-            if not has_changed:
-                # There has been no change in reputation per peer for any
-                # group, so we can throw away the last record. (This can happen
-                # if the event that was processed didn't have to do with
-                # reputation.)
-                for record in total_reputations.values():
-                    record[0].pop()
-                    record[1].pop()
 
         append_step()
         while True:
