@@ -147,8 +147,8 @@ class Logger:
         plt.ylabel('Average Reputation')
         plt.title('Average reputation in query groups')
         for query_group_id, record in total_reputations.items():
-            plt.plot(np.array(record[0]), np.array(record[1]),
-                     label=query_group_id)
+            plt.step(np.array(record[0]), np.array(record[1]),
+                     label=query_group_id, where='post')
         plt.legend()
         plt.show()
 
