@@ -2,6 +2,7 @@ import networkx as nx
 import pickle
 import matplotlib.pyplot as plt
 import numpy as np
+from math import sqrt, ceil
 
 
 class Logger:
@@ -150,6 +151,68 @@ class Logger:
             plt.step(np.array(record[0]), np.array(record[1]),
                      label=query_group_id, where='post')
         plt.legend()
+        plt.show()
+
+    def plot_reputation_percentiles_until(self, until_time, max_edge_length=3):
+        """Plot reputation percentiles over time until some point."""
+        reputations = {}
+        replay = Replay(self.events, {}, query_groups_event_processor)
+        current_time = 0
+        percentile_tuple = (5, 25, 50, 75, 95)
+
+        def append_step():
+            for query_group_id, query_group in replay.data.items():
+                percentiles = np.percentile(list(query_group.values()),
+                                            percentile_tuple)
+                record = reputations.setdefault(query_group_id, ([], []))
+                time_list = record[0]
+                rep_list = record[1]
+                if len(rep_list) > 0 and np.array_equal(rep_list[-1],
+                                                        percentiles):
+                    # Value hasn't changed, no need to record it.
+                    continue
+                time_list.append(current_time)
+                rep_list.append(percentiles)
+
+        append_step()
+        while True:
+            current_time = replay.step_next()
+            if current_time is None or current_time > until_time:
+                break
+            append_step()
+
+        edge_length = ceil(sqrt(len(replay.data)))
+        if edge_length > max_edge_length:
+            edge_length = max_edge_length
+        num_figures = ceil(len(replay.data) / edge_length ** 2)
+        for figure_no in range(num_figures):
+            figure, axess = plt.subplots(edge_length, edge_length, sharex=True,
+                                         sharey=True, squeeze=False)
+            figure.suptitle('Reputation percentiles in query groups ({}/{})'
+                            .format(figure_no + 1, num_figures))
+            for axes_idx in range(edge_length ** 2):
+                group_idx = axes_idx + figure_no * edge_length ** 2
+                if group_idx >= len(reputations):
+                    break
+                query_group_id, percentiles = sorted(
+                    reputations.items(), key=lambda t: t[0])[group_idx]
+                axes = axess.flatten()[axes_idx]
+                axes.set_title('Query group {} ({} peers)'
+                               .format(query_group_id,
+                                       len(replay.data[query_group_id])))
+                # TODO Unhardcode reputation thresholds.
+                axes.axhline(10, linestyle='--', color='k', alpha=0.2)
+                axes.axhline(15, linestyle='--', color='k', alpha=0.2)
+                if not axes_idx % edge_length:
+                    axes.set_ylabel('Reputation')
+                for i, percentile in enumerate(percentile_tuple):
+                    axes.step(np.array(percentiles[0]),
+                              np.array([p[i] for p in percentiles[1]]),
+                              label='{}%'.format(percentile), where='post')
+                if axes_idx == 0:
+                    axes.legend()
+            for axes in axess.flatten()[edge_length * (edge_length - 1):]:
+                axes.set_xlabel('Time')
         plt.show()
 
 
