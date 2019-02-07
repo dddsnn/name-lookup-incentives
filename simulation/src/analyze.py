@@ -119,7 +119,7 @@ class Logger:
 
     def plot_average_reputation_until(self, until_time):
         """Plot average reputation over time until some point."""
-        total_reputations = {}
+        reputations = {}
         replay = Replay(self.events, {}, query_groups_event_processor)
         current_time = 0
 
@@ -128,7 +128,7 @@ class Logger:
                 total_reputation = sum(query_group.values())
                 num_peers = len(query_group)
                 reputation_per_peer = total_reputation / num_peers
-                record = total_reputations.setdefault(query_group_id, ([], []))
+                record = reputations.setdefault(query_group_id, ([], []))
                 time_list = record[0]
                 rep_list = record[1]
                 if rep_list and rep_list[-1] == reputation_per_peer:
@@ -144,14 +144,12 @@ class Logger:
                 break
             append_step()
 
-        plt.xlabel('Time')
-        plt.ylabel('Average Reputation')
-        plt.title('Average reputation in query groups')
-        for query_group_id, record in total_reputations.items():
-            plt.step(np.array(record[0]), np.array(record[1]),
-                     label=query_group_id, where='post')
-        plt.legend()
-        plt.show()
+        data_set = [(np.array(record[0]), np.array(record[1]),
+                     query_group_id)
+                    for query_group_id, record in sorted(reputations.items(),
+                                                         key=lambda t: t[0])]
+        plot_steps('Average reputation in query groups', 'Time', 'Reputation',
+                   ((('', data_set),)))
 
     def plot_reputation_percentiles_until(self, until_time, max_edge_length=3):
         """Plot reputation percentiles over time until some point."""
@@ -181,39 +179,81 @@ class Logger:
                 break
             append_step()
 
-        edge_length = ceil(sqrt(len(replay.data)))
-        if edge_length > max_edge_length:
-            edge_length = max_edge_length
-        num_figures = ceil(len(replay.data) / edge_length ** 2)
-        for figure_no in range(num_figures):
-            figure, axess = plt.subplots(edge_length, edge_length, sharex=True,
-                                         sharey=True, squeeze=False)
-            figure.suptitle('Reputation percentiles in query groups ({}/{})'
-                            .format(figure_no + 1, num_figures))
-            for axes_idx in range(edge_length ** 2):
-                group_idx = axes_idx + figure_no * edge_length ** 2
-                if group_idx >= len(reputations):
-                    break
-                query_group_id, percentiles = sorted(
-                    reputations.items(), key=lambda t: t[0])[group_idx]
-                axes = axess.flatten()[axes_idx]
-                axes.set_title('Query group {} ({} peers)'
-                               .format(query_group_id,
-                                       len(replay.data[query_group_id])))
-                # TODO Unhardcode reputation thresholds.
-                axes.axhline(10, linestyle='--', color='k', alpha=0.2)
-                axes.axhline(15, linestyle='--', color='k', alpha=0.2)
-                if not axes_idx % edge_length:
-                    axes.set_ylabel('Reputation')
-                for i, percentile in enumerate(percentile_tuple):
-                    axes.step(np.array(percentiles[0]),
-                              np.array([p[i] for p in percentiles[1]]),
-                              label='{}%'.format(percentile), where='post')
-                if axes_idx == 0:
-                    axes.legend()
-            for axes in axess.flatten()[edge_length * (edge_length - 1):]:
-                axes.set_xlabel('Time')
-        plt.show()
+        data_sets = []
+        for query_group_id, record in sorted(reputations.items(),
+                                             key=lambda t: t[0]):
+            time_axis = np.array(record[0])
+            data_set = [(time_axis, np.array([r[i] for r in record[1]]),
+                         '{}%'.format(percentile_tuple[i]))
+                        for i in range(len(percentile_tuple))]
+            data_sets.append(('Query group {} ({} peers)'
+                              .format(query_group_id,
+                                      len(replay.data[query_group_id])),
+                              data_set))
+
+        def axes_modifier(axes):
+            # TODO Unhardcode reputation thresholds.
+            axes.axhline(10, linestyle='--', color='k', alpha=0.2)
+            axes.axhline(15, linestyle='--', color='k', alpha=0.2)
+        plot_steps('Reputation percentiles in query groups', 'Time',
+                   'Reputation', data_sets, max_edge_length, axes_modifier)
+
+
+def plot_steps(title, xlabel, ylabel, data_sets, max_edge_length=3,
+               axes_modifier=None):
+    """
+    Plot step graphs of data sets.
+
+    Creates one or more figures (basically images in matplotlib) and fills them
+    with graphs (axes in matplotlib) visualizing data from data_sets. Up to
+    max_edge_length**2 graphs are in one figure (in a square grid), but no more
+    than necessary.
+
+    A legend is shown only in the first graph of each figure.
+
+    :param title: Title for the overall figure.
+    :param xlabel: Label for the x axes. Only shown in the bottom row.
+    :param ylabel: Label for the y axes. Only shown in the left column.
+    :param data_sets: A list of data sets, in order. Each data set contains
+        data for one graph (axes in matplotlib) and is a tuple of title (for
+        the individual graph) and a list of plot data. Each plot data contains
+        data for one plot within the graph. It is a list of tuples of the form
+        (x, y, label), where x is a numpy ndarray containing x values,
+        similarly for y, and label is a label for the plot.
+    :param max_edge_length: Maximum number of graphs to lay out along each
+        edge of a figure. A figure will have no more than max_edge_length**2
+        graphs.
+    :param axes_modifier: A function taking one parameter to which each axes
+        object is passed.
+    """
+    edge_length = ceil(sqrt(len(data_sets)))
+    if edge_length > max_edge_length:
+        edge_length = max_edge_length
+    num_figures = ceil(len(data_sets) / edge_length ** 2)
+    for figure_idx in range(num_figures):
+        figure, axess = plt.subplots(edge_length, edge_length, sharex=True,
+                                     sharey=True, squeeze=False)
+        figure.suptitle('{} ({}/{})'.format(title, figure_idx + 1,
+                                            num_figures))
+        for axes_idx in range(edge_length ** 2):
+            data_set_idx = axes_idx + figure_idx * edge_length ** 2
+            if data_set_idx >= len(data_sets):
+                break
+            axes_title, data_set = data_sets[data_set_idx]
+            axes = axess.flatten()[axes_idx]
+            axes.set_title(axes_title)
+            if axes_modifier:
+                axes_modifier(axes)
+            if not axes_idx % edge_length:
+                axes.set_ylabel(ylabel)
+            for plot_data in data_set:
+                axes.step(plot_data[0], plot_data[1], label=plot_data[2],
+                          where='post')
+            if axes_idx == 0:
+                axes.legend()
+        for axes in axess.flatten()[edge_length * (edge_length - 1):]:
+            axes.set_xlabel(xlabel)
+    plt.show()
 
 
 def sync_groups_event_processor(data, event):
