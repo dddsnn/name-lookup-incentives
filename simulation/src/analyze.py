@@ -198,6 +198,35 @@ class Logger:
         plot_steps('Reputation percentiles in query groups', 'Time',
                    'Reputation', data_sets, max_edge_length, axes_modifier)
 
+    def plot_response_statuses_until(self, until_time, bin_size=10):
+        """Plot response statuses over time until some point."""
+        replay = Replay(self.events, {}, response_status_event_processor)
+        replay.step_until(until_time)
+        for category in ('success', 'failure_retry', 'failure_ultimate',
+                         'timeout_failure_retry', 'timeout_failure_ultimate',
+                         'late_success', 'late_failure', 'unmatched',
+                         'wrong_responder'):
+            replay.data.setdefault(category, [])
+
+        bins = np.arange(0, replay.current_time + bin_size, bin_size)
+        plt.title('Response statuses')
+        plt.hist((np.array(replay.data['success']),
+                  np.array(replay.data['failure_retry']),
+                  np.array(replay.data['failure_ultimate']),
+                  np.array(replay.data['timeout_failure_retry']),
+                  np.array(replay.data['timeout_failure_ultimate']),
+                  np.array(replay.data['late_success']),
+                  np.array(replay.data['late_failure']),
+                  np.array(replay.data['unmatched']),
+                  np.array(replay.data['wrong_responder'])),
+                 bins, label=('success', 'retry failure', 'ultimate failure',
+                              'retry timeout', 'ultimate timeout',
+                              'late success', 'late failure', 'unmatched',
+                              'wrong responder'),
+                 histtype='barstacked')
+        plt.legend()
+        plt.show()
+
 
 def plot_steps(title, xlabel, ylabel, data_sets, max_edge_length=3,
                axes_modifier=None):
@@ -330,6 +359,25 @@ def reachability_graph_event_processor(data, event):
             data.remove_edge(event.peer_a_id, event.peer_b_id)
         except nx.NetworkXError:
             pass
+
+
+def response_status_event_processor(data, event):
+    """
+    Process an event to build response and timeout status information.
+
+    The data that is built is a dictionary whose values are lists with the
+    timestamps of different categories of responses and timeouts. The keys are
+    the allowed keys for the status parameter from
+    :meth:`analyze.ResponseReceived.__init__`, as well as
+    'timeout_failure_ultimate' and 'timeout_failure_retry' with meanings
+    analogous to the status parameter in :meth:`analyze.Timeout.__init__`.
+
+    The initial value must be an empty dictionary.
+    """
+    if isinstance(event, ResponseReceived):
+        data.setdefault(event.status, []).append(event.time)
+    elif isinstance(event, Timeout):
+        data.setdefault('timeout_' + event.status, []).append(event.time)
 
 
 class Replay:
