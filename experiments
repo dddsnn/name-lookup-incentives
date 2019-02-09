@@ -1,0 +1,12 @@
+- How much reputation is available in query groups?
+    - On average? For different percentiles?
+    - Impact of decay rate, rewards/penalties, query peer selection?
+    - How many queries are successful/failed/timed out?
+
+- How many non-contributing peers (who are content with maximally penalized
+  service) can the system tolerate?
+
+- Compare with tit-for-tat.
+
+- How long does it take a new peer to get good reputation in an exisiting,
+  stable network?
