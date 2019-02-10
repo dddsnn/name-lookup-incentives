@@ -117,6 +117,21 @@ class Logger:
         print()
         self.print_strongly_connected_components_at(time)
 
+    def peer_reputations_at(self, time, peer_id):
+        """
+        Get a peer's reputations at a point in time.
+
+        Returns a dictionary mapping the query group ID to the peer's
+        reputation in that group.
+        """
+        replay = Replay(self.events, {}, query_groups_event_processor)
+        replay.step_until(time)
+        reputations = {}
+        for query_group_id, query_group in replay.data.items():
+            if peer_id in query_group:
+                reputations[query_group_id] = query_group[peer_id]
+        return reputations
+
     def plot_average_reputation_until(self, until_time):
         """Plot average reputation over time until some point."""
         reputations = {}
