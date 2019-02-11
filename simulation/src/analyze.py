@@ -457,6 +457,21 @@ class Event:
         self.in_event_id = in_event_id
         self.out_event_ids = set()
 
+    def previous_events(self, event_list):
+        """
+        List events leading to this one.
+
+        Follows the in_event_id pointers that are indexes into the given event
+         and builds a list of all events that caused this one, beginning with
+        the earliest one. Does not include this event.
+        """
+        events = []
+        current_in_id = self.in_event_id
+        while current_in_id is not None:
+            events.insert(0, event_list[current_in_id])
+            current_in_id = events[0].in_event_id
+        return events
+
 
 class Request(Event):
     """
