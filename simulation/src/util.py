@@ -1,5 +1,6 @@
 import simpy
 from itertools import count
+from collections import OrderedDict
 
 
 class Network:
@@ -7,7 +8,7 @@ class Network:
 
     def __init__(self, env):
         self.env = env
-        self.peers = {}
+        self.peers = OrderedDict()
         self.address_iter = count()
 
     def register(self, peer):
@@ -108,6 +109,16 @@ class UnassignedAddressError(Exception):
     pass
 
 
+class SortedIterSet(set):
+    """A set whose iterator returns the elements sorted."""
+    def __init__(self, *args):
+        super().__init__(*args)
+
+    def __iter__(self):
+        li = list(super().__iter__())
+        return iter(sorted(li))
+
+
 def bit_overlap(a, b):
     """Calculate the number of bits at the start that are the same."""
     m = min(len(a), len(b))
@@ -130,3 +141,8 @@ def progress_process(env, step):
     while True:
         print('\rcurrent time: {}'.format(env.now), end='')
         yield env.timeout(step)
+
+
+def bits_lt(b1, b2):
+    """__lt__ for the bitstrings."""
+    return 2 ** len(b1) + b1.uint < 2 ** len(b2) + b2.uint

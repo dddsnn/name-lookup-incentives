@@ -6,6 +6,7 @@ import bitstring as bs
 import simpy
 from peer import QueryGroup
 from copy import deepcopy
+from collections import OrderedDict
 
 
 class TestReputationUpdate(unittest.TestCase):
@@ -13,7 +14,7 @@ class TestReputationUpdate(unittest.TestCase):
         self.env = simpy.Environment()
         self.logger = analyze.Logger()
         self.network = util.Network(self.env)
-        self.all_query_groups = {}
+        self.all_query_groups = OrderedDict()
         self.peer_a_id = bs.Bits(uint=0, length=16)
         self.peer_b_id = bs.Bits(uint=1, length=16)
         self.peer_c_id = bs.Bits(uint=2, length=16)
@@ -61,10 +62,10 @@ class TestReputationUpdate(unittest.TestCase):
         self.assertEqual(query_group[self.peer_b_id].reputation, 1)
 
     def test_updates_in_multiple_groups(self):
-        query_group_2 = QueryGroup(next(peer.query_group_id_iter), {
-            self.peer_a_id: (self.peer_a.prefix, self.peer_a.address),
-            self.peer_b_id: (self.peer_b.prefix, self.peer_b.address),
-            self.peer_c_id: (self.peer_c.prefix, self.peer_c.address)})
+        query_group_2 = QueryGroup(next(peer.query_group_id_iter), (
+            (self.peer_a_id, self.peer_a.prefix, self.peer_a.address),
+            (self.peer_b_id, self.peer_b.prefix, self.peer_b.address),
+            (self.peer_c_id, self.peer_c.prefix, self.peer_c.address)))
         self.peer_a.query_groups[query_group_2.query_group_id]\
             = deepcopy(query_group_2)
         self.peer_b.query_groups[query_group_2.query_group_id]\
@@ -77,9 +78,9 @@ class TestReputationUpdate(unittest.TestCase):
             self.assertEqual(query_group[self.peer_b_id].reputation, 3)
 
     def test_only_updates_in_groups_shared_by_sender_and_subject(self):
-        query_group_2 = QueryGroup(next(peer.query_group_id_iter), {
-            self.peer_a_id: (self.peer_a.prefix, self.peer_a.address),
-            self.peer_b_id: (self.peer_b.prefix, self.peer_b.address)})
+        query_group_2 = QueryGroup(next(peer.query_group_id_iter), (
+            (self.peer_a_id, self.peer_a.prefix, self.peer_a.address),
+            (self.peer_b_id, self.peer_b.prefix, self.peer_b.address)))
         self.peer_a.query_groups[query_group_2.query_group_id]\
             = deepcopy(query_group_2)
         self.peer_b.query_groups[query_group_2.query_group_id]\

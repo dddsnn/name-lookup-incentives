@@ -1,11 +1,19 @@
 import peer as p
 import analyze as an
 import util
+from util import SortedIterSet
 import simpy
 import bitstring as bs
 import random
 import signal
 import sys
+from collections import OrderedDict
+
+
+# Patch in a less-than for the Bits class, which is necessary for ordered dicts
+# and sets.
+bs.Bits.__lt__ = util.bits_lt
+
 
 SUCCESSFUL_QUERY_REWARD = 1
 FAILED_QUERY_PENALTY = -2
@@ -51,9 +59,9 @@ if __name__ == '__main__':
     random.seed(a=0, version=2)
     env = simpy.Environment()
     logger = an.Logger()
-    peers = {}
-    sync_groups = {}
-    all_query_groups = {}
+    peers = OrderedDict()
+    sync_groups = OrderedDict()
+    all_query_groups = OrderedDict()
     network = util.Network(env)
     for i in range(64):
         while True:
@@ -63,13 +71,13 @@ if __name__ == '__main__':
                 peer = p.Peer(env, logger, network, peer_id, all_query_groups)
                 peers[peer_id] = peer
                 sync_groups.setdefault(peer_id[:p.Peer.PREFIX_LENGTH],
-                                       set()).add(peer)
+                                       SortedIterSet()).add(peer)
                 env.process(request_generator(env, peers, peer))
                 logger.log(an.PeerAdd(env.now, peer.peer_id, peer.prefix,
                                       None))
                 logger.log(an.UncoveredSubprefixes(
-                    env.now, peer.peer_id, set(peer.uncovered_subprefixes()),
-                    None))
+                    env.now, peer.peer_id,
+                    SortedIterSet(peer.uncovered_subprefixes()), None))
                 break
     for sync_group in sync_groups.values():
         for peer in sync_group:

@@ -1,11 +1,12 @@
 import analyze as an
 import util
+from util import SortedIterSet
 from simulation import (SUCCESSFUL_QUERY_REWARD, FAILED_QUERY_PENALTY,
                         TIMEOUT_QUERY_PENALTY)
 import simpy
 from itertools import count
 from copy import deepcopy
-from collections import namedtuple
+from collections import namedtuple, OrderedDict
 
 
 query_group_id_iter = count()
@@ -25,8 +26,8 @@ class PeerBehavior:
             return
         delay = self.decide_delay(querying_peer_id)
         info = PeerInfo(self.peer.peer_id, self.peer.prefix, self.peer.address)
-        self.peer.send_response(querying_peer_id, set((queried_id,)), info,
-                                in_event_id, delay=delay)
+        self.peer.send_response(querying_peer_id, SortedIterSet((queried_id,)),
+                                info, in_event_id, delay=delay)
 
     def on_query_sync(self, querying_peer_id, queried_id, sync_peer_info,
                       in_event_id):
@@ -38,7 +39,7 @@ class PeerBehavior:
         if querying_peer_id != self.peer.peer_id and min_rep >= 15:
             return
         delay = self.decide_delay(querying_peer_id)
-        self.peer.send_response(querying_peer_id, set((queried_id,)),
+        self.peer.send_response(querying_peer_id, SortedIterSet((queried_id,)),
                                 sync_peer_info, in_event_id, delay=delay)
 
     def on_query(self, querying_peer_id, queried_id, in_event_id,
@@ -197,10 +198,10 @@ class Peer:
         self.peer_id = peer_id
         self.all_query_groups = all_query_groups
         self.prefix = self.peer_id[:Peer.PREFIX_LENGTH]
-        self.query_groups = {}
-        self.sync_peers = {}
-        self.pending_queries = {}
-        self.completed_queries = {}
+        self.query_groups = OrderedDict()
+        self.sync_peers = OrderedDict()
+        self.pending_queries = OrderedDict()
+        self.completed_queries = OrderedDict()
         self.address = self.network.register(self)
         self.behavior = PeerBehavior(self)
 
@@ -208,6 +209,9 @@ class Peer:
         # for this peer a component.
         self.logger.log(an.ConnectionAdd(self.env.now, self.peer_id,
                                          self.peer_id, None))
+
+    def __lt__(self, other):
+        return self.peer_id < other.peer_id
 
     def lookup_address_local(self, peer_id):
         """
@@ -303,10 +307,10 @@ class Peer:
                                          query_group.query_group_id, None))
                     return
             # Create a new query group.
-            query_group = QueryGroup(next(query_group_id_iter), {
-                self.peer_id: (self.prefix, self.address),
-                peer_info.peer_id: (peer_info.prefix, peer_info.address)
-            })
+            query_group = QueryGroup(next(query_group_id_iter), (
+                (self.peer_id, self.prefix, self.address),
+                (peer_info.peer_id, peer_info.prefix, peer_info.address)
+            ))
             self.all_query_groups[query_group.query_group_id] = query_group
             self.query_groups[query_group.query_group_id]\
                 = deepcopy(query_group)
@@ -327,7 +331,8 @@ class Peer:
                 self.logger.log(
                     an.UncoveredSubprefixes(
                         self.env.now, query_peer.peer_id,
-                        set(query_peer.uncovered_subprefixes()), None))
+                        SortedIterSet(query_peer.uncovered_subprefixes()),
+                        None))
 
     def uncovered_subprefixes(self):
         """Return subprefixes for which no peer is known."""
@@ -385,14 +390,15 @@ class Peer:
         knows who can serve it.
         """
         # TODO Cache.
-        subprefixes = {}
+        subprefixes = OrderedDict()
         for i in range(len(self.prefix)):
-            subprefixes[self.prefix[:i] + ~(self.prefix[i:i+1])] = set()
+            subprefixes[self.prefix[:i] + ~(self.prefix[i:i+1])]\
+                = SortedIterSet()
         for query_peer_info in self.known_query_peers():
             for sp in subprefixes.keys():
                 if query_peer_info.prefix.startswith(sp):
                     subprefixes[sp].add(query_peer_info.peer_id)
-        return {sp: len(qps) for (sp, qps) in subprefixes.items()}
+        return OrderedDict((sp, len(qps)) for (sp, qps) in subprefixes.items())
 
     def handle_request(self, queried_id):
         try:
@@ -500,8 +506,8 @@ class Peer:
                     in_event_id = self.logger.log(event('pending'))
                 # There already is a query for a fitting ID in progress, just
                 # note to also send a response to this querying peer.
-                pending_query.querying_peers.setdefault(querying_peer_id,
-                                                        set()).add(queried_id)
+                pending_query.querying_peers.setdefault(
+                    querying_peer_id, SortedIterSet()).add(queried_id)
                 return
         if not skip_log:
             in_event_id = self.logger.log(event('querying'))
@@ -579,8 +585,9 @@ class Peer:
         # subtracts and one adds. Receivers need to maintain a recent history
         # in order to roll back and reapply in the correct order.
         query_groups = list(self.peer_query_groups(peer_id))
-        query_group_ids = set(qg.query_group_id for qg in query_groups)
-        query_peer_ids = set(pi for qg in query_groups for pi in qg)
+        query_group_ids = SortedIterSet(qg.query_group_id
+                                        for qg in query_groups)
+        query_peer_ids = SortedIterSet(pi for qg in query_groups for pi in qg)
         self.logger.log(an.ReputationUpdate(self.env.now, peer_id,
                                             reputation_diff, query_group_ids,
                                             in_event_id))
@@ -618,8 +625,8 @@ class Peer:
         # whose reputation is changed and the peer reporting the change.
         # In the other groups there will be peers that don't know about the
         # update.
-        query_groups = set(g for g in self.peer_query_groups(peer_id)
-                           if sender_id in g)
+        query_groups = SortedIterSet(g for g in self.peer_query_groups(peer_id)
+                                     if sender_id in g)
         for query_group in query_groups:
             query_peer_info = query_group[peer_id]
             # Roll back younger updates.
@@ -771,7 +778,7 @@ class Peer:
         """
         own_overlap = util.bit_overlap(self.prefix, queried_id)
         peers_to_query_info = []
-        for query_peer_info in set(self.known_query_peers()):
+        for query_peer_info in SortedIterSet(self.known_query_peers()):
             # TODO Range queries for performance.
             if (util.bit_overlap(query_peer_info.prefix, queried_id)
                     > own_overlap):
@@ -790,12 +797,13 @@ class QueryGroup:
     def __init__(self, query_group_id, members):
         """
         Create a query group with some initial members.
-        :param members: A dictionary mapping peer IDs to a tuple of prefix and
+        :param members: An iterable of 3-tuples containing peer ID, prefix and
             address.
         """
         self.query_group_id = query_group_id
-        self._members = {peer_id: QueryPeerInfo(peer_id, prefix, address)
-                         for peer_id, (prefix, address) in members.items()}
+        self._members = OrderedDict((peer_id,
+                                     QueryPeerInfo(peer_id, prefix, address))
+                                    for (peer_id, prefix, address) in members)
 
     def __len__(self):
         return self._members.__len__()
@@ -814,6 +822,9 @@ class QueryGroup:
 
     def __contains__(self, key):
         return self._members.__contains__(key)
+
+    def __lt__(self, other):
+        return self.query_group_id < other.query_group_id
 
     def members(self):
         return self._members.keys()
@@ -837,6 +848,9 @@ class PeerInfo:
         self.prefix = prefix
         self.address = address
 
+    def __lt__(self, other):
+        return self.peer_id < other.peer_id
+
 
 ReputationUpdate = namedtuple('ReputationUpdate', ['time', 'old_reputation',
                                                    'reputation_diff'])
@@ -853,8 +867,9 @@ class PendingQuery:
     def __init__(self, start_time, querying_peer_id, queried_id,
                  peers_to_query, timeout_proc=None):
         self.start_time = start_time
-        self.querying_peers = {querying_peer_id: set((queried_id,))}
+        self.querying_peers = OrderedDict(((querying_peer_id,
+                                           SortedIterSet((queried_id,))),))
         self.timeout_proc = timeout_proc
         self.peers_to_query = peers_to_query
         # Maps ID of recipient of a query to the time the query was sent.
-        self.queries_sent = {}
+        self.queries_sent = OrderedDict()

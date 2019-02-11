@@ -58,9 +58,11 @@ class TestNetwork(unittest.TestCase):
 
     def test_sends_responses(self):
         self.network.send_response(self.peer_a_id, self.peer_a_address,
-                                   self.peer_b_address, set(), None, 0)
+                                   self.peer_b_address, util.SortedIterSet(),
+                                   None, 0)
         self.env.run()
-        self.peer_b.recv_response.assert_called_with(self.peer_a_id, set(),
+        self.peer_b.recv_response.assert_called_with(self.peer_a_id,
+                                                     util.SortedIterSet(),
                                                      None, 0)
 
     def test_adds_transmission_delay(self):
