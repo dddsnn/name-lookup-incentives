@@ -73,6 +73,10 @@ class PeerBehavior:
         else:
             peers_to_query = self.peer.select_peers_to_query(queried_id)
         if len(peers_to_query) == 0:
+            self.peer.send_response(querying_peer_id,
+                                    SortedIterSet((queried_id,)), None,
+                                    in_event_id,
+                                    delay=self.decide_delay(querying_peer_id))
             return
         pending_query = PendingQuery(self.peer.env.now, querying_peer_id,
                                      queried_id, peers_to_query)
