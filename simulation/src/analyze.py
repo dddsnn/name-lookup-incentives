@@ -446,6 +446,10 @@ class Replay:
         return time
 
 
+class EmptyClass:
+    pass
+
+
 class Event:
     """Superclass for all log events."""
     def __init__(self, time, in_event_id):
@@ -456,6 +460,13 @@ class Event:
         self.time = time
         self.in_event_id = in_event_id
         self.out_event_ids = set()
+
+    def __repr__(self):
+        excluded = set(EmptyClass.__dict__.keys())
+        attrs = ((attr, value) for (attr, value)
+                 in sorted(self.__dict__.items()) if attr not in excluded)
+        return '{}: {{{}}}'.format(type(self).__name__, ', '.join(
+            '{}: {}'.format(attr, value) for (attr, value) in attrs))
 
     def previous_events(self, event_list):
         """
