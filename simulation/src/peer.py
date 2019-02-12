@@ -588,9 +588,6 @@ class Peer:
         query_group_ids = SortedIterSet(qg.query_group_id
                                         for qg in query_groups)
         query_peer_ids = SortedIterSet(pi for qg in query_groups for pi in qg)
-        self.logger.log(an.ReputationUpdate(self.env.now, peer_id,
-                                            reputation_diff, query_group_ids,
-                                            in_event_id))
 
         # Update the reputation in the shared all_query_groups. This needs to
         # be kept current since it's taken as the initial value whenever
@@ -600,12 +597,11 @@ class Peer:
             new_rep = max(0, query_peer_info.reputation + reputation_diff)
             query_peer_info.reputation = new_rep
 
+        in_event_id = self.logger.log(
+            an.ReputationUpdateSent(self.env.now, self.peer_id, query_peer_ids,
+                                    peer_id, reputation_diff, query_group_ids,
+                                    in_event_id))
         for query_peer_id in query_peer_ids:
-            in_event_id = self.logger.log(
-                an.ReputationUpdateSent(self.env.now, self.peer_id,
-                                        query_peer_id, peer_id,
-                                        reputation_diff, query_group_ids,
-                                        in_event_id))
             address = self.lookup_address_local(query_peer_id)
             self.network.send_reputation_update(self.peer_id, self.address,
                                                 address, peer_id,

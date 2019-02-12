@@ -334,7 +334,7 @@ def query_groups_event_processor(data, event):
             query_group.pop(event.peer_id, None)
             if len(query_group) == 0:
                 data.pop(event.query_group_id, None)
-    elif isinstance(event, ReputationUpdate):
+    elif isinstance(event, ReputationUpdateSent):
         for query_group_id in event.query_group_ids:
             query_group = data.get(query_group_id)
             if query_group is None:
@@ -617,11 +617,11 @@ class ResponseReceived(Event):
 
 class ReputationUpdateSent(Event):
     """Event representing sending a reputation update."""
-    def __init__(self, time, sender_id, recipient_id, peer_id, reputation_diff,
-                 query_group_ids, in_event_id):
+    def __init__(self, time, sender_id, recipient_ids, peer_id,
+                 reputation_diff, query_group_ids, in_event_id):
         super().__init__(time, in_event_id)
         self.sender_id = sender_id
-        self.recipient_id = recipient_id
+        self.recipient_ids = recipient_ids
         self.peer_id = peer_id
         self.reputation_diff = reputation_diff
         self.query_group_ids = query_group_ids
@@ -714,16 +714,6 @@ class ConnectionRemove(Event):
         super().__init__(time, in_event_id)
         self.peer_a_id = peer_a_id
         self.peer_b_id = peer_b_id
-
-
-class ReputationUpdate(Event):
-    """Event representing sending a reputation update."""
-    def __init__(self, time, peer_id, reputation_diff, query_group_ids,
-                 in_event_id):
-        super().__init__(time, in_event_id)
-        self.peer_id = peer_id
-        self.reputation_diff = reputation_diff
-        self.query_group_ids = query_group_ids
 
 
 class ReputationDecay(Event):
