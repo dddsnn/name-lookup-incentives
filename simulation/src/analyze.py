@@ -483,6 +483,17 @@ class Event:
             current_in_id = events[0].in_event_id
         return events
 
+    def following_events(self, event_list):
+        """
+        List events immediately following this one.
+
+        Uses the out_event_ids pointers that are indexes into the given event
+        list and builds a list of the events that immediately follow this one.
+        Does now follow them recursively, so there may be more events
+        following.
+        """
+        return [event_list[i] for i in self.out_event_ids]
+
 
 class Request(Event):
     """
