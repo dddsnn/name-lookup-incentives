@@ -592,6 +592,14 @@ class Peer:
                                             reputation_diff, query_group_ids,
                                             in_event_id))
 
+        # Update the reputation in the shared all_query_groups. This needs to
+        # be kept current since it's taken as the initial value whenever
+        # someone joins a query group.
+        for query_group_id in query_group_ids:
+            query_peer_info = self.all_query_groups[query_group_id][peer_id]
+            new_rep = max(0, query_peer_info.reputation + reputation_diff)
+            query_peer_info.reputation = new_rep
+
         for query_peer_id in query_peer_ids:
             in_event_id = self.logger.log(
                 an.ReputationUpdateSent(self.env.now, self.peer_id,
