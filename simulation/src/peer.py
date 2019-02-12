@@ -584,10 +584,6 @@ class Peer:
         :param reputation_diff: The reputation increase that should be applied.
             Negative values mean a penalty.
         """
-        # TODO Also send when the update is meant to be applied (the current
-        # time). If there are multiple updates, order may matter if one
-        # subtracts and one adds. Receivers need to maintain a recent history
-        # in order to roll back and reapply in the correct order.
         query_groups = list(self.peer_query_groups(peer_id))
         query_group_ids = SortedIterSet(qg.query_group_id
                                         for qg in query_groups)
@@ -595,14 +591,6 @@ class Peer:
         self.logger.log(an.ReputationUpdate(self.env.now, peer_id,
                                             reputation_diff, query_group_ids,
                                             in_event_id))
-
-        # TODO This is just a temporary solution since query group objects are
-        # shared between peers (so there must be only one change to the
-        # reputation variable). Do this on receipt of an update once every
-        # peer maintains its own query group objects.
-        for query_group in query_groups:
-            new_rep = max(0, query_group[peer_id].reputation + reputation_diff)
-            query_group[peer_id].reputation = new_rep
 
         for query_peer_id in query_peer_ids:
             in_event_id = self.logger.log(
