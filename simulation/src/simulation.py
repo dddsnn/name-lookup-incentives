@@ -53,12 +53,16 @@ def decay_reputation(env, all_query_groups, peers, logger):
                     update_query_peer_info(query_peer_info)
 
 
+def write_log(logger, file_name):
+    print()
+    print('writing log to "{}"'.format(file_name))
+    logger.dump(file_name)
+
+
 def terminate(progress_proc, logger, file_name):
     def handler(_, _2):
         progress_proc.interrupt()
-        print()
-        print('writing log to "{}"'.format(file_name))
-        logger.dump(file_name)
+        write_log(logger, file_name)
         sys.exit(0)
     return handler
 
@@ -98,12 +102,17 @@ if __name__ == '__main__':
             peer.introduce(p.PeerInfo(other_peer.peer_id, other_peer.prefix,
                                       other_peer.address))
 
-    progress_proc = env.process(util.progress_process(env, 1))
-    signal.signal(signal.SIGINT, terminate(progress_proc, logger, 'log'))
     print('scheduling queries for missing subprefixes')
     for peer in peers.values():
         peer.find_missing_query_peers()
+    until = float('inf')
+    if len(sys.argv) > 1:
+        until = float(sys.argv[1])
+    file_name = 'log.log'
+    progress_proc = env.process(util.progress_process(env, 1))
+    signal.signal(signal.SIGINT, terminate(progress_proc, logger, file_name))
     print()
-    print('starting simulation')
-    env.process(decay_reputation(env, all_query_groups, logger))
-    env.run()
+    print('running simulation until {}'.format(until))
+    env.process(decay_reputation(env, all_query_groups, peers, logger))
+    env.run(until)
+    write_log(logger, file_name)
