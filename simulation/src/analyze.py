@@ -242,6 +242,19 @@ class Logger:
         plt.legend()
         plt.show()
 
+    def plot_queries_at_peers_between(self, start_time, until_time,
+                                      num_bins=40):
+        """Plot number of queries arriving at peers in a time range."""
+        replay = Replay(self.events, {}, queries_received_event_processor)
+        replay.skip_before(start_time)
+        replay.step_until(until_time)
+
+        plt.title('Number of queries arriving at peers')
+        plt.hist(np.array(list(replay.data.values())), num_bins)
+        plt.xlabel('Number of queries')
+        plt.ylabel('Number of peers')
+        plt.show()
+
 
 def plot_steps(title, xlabel, ylabel, data_sets, max_edge_length=3,
                axes_modifier=None):
@@ -393,6 +406,22 @@ def response_status_event_processor(data, event):
         data.setdefault(event.status, []).append(event.time)
     elif isinstance(event, Timeout):
         data.setdefault('timeout_' + event.status, []).append(event.time)
+
+
+def queries_received_event_processor(data, event):
+    """
+    Process an event to build the number of queries received by peers.
+
+    The data that is built is a dictionary mapping peer IDs to the number of
+    queries received by that peer.
+
+    The initial value must be an empty dictionary.
+    """
+    if isinstance(event, QuerySent):
+        # Use the recipient of QuerySent rather than of QueryReceived, since
+        # the latter is also logged when a peer handles a request (locally).
+        data.setdefault(event.recipient_id, 0)
+        data[event.recipient_id] += 1
 
 
 class Replay:
