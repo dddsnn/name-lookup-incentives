@@ -34,15 +34,23 @@ def request_generator(env, peers, peer):
         yield env.timeout(1)
 
 
-def decay_reputation(env, all_query_groups, logger):
+def decay_reputation(env, all_query_groups, peers, logger):
+    decay = DECAY_PER_TIME_UNIT * DECAY_TIMESTEP
+
+    def update_query_peer_info(query_peer_info):
+        rep = max(0, query_peer_info.reputation - decay)
+        query_peer_info.reputation = rep
+
     while True:
         yield env.timeout(DECAY_TIMESTEP)
-        decay = DECAY_PER_TIME_UNIT * DECAY_TIMESTEP
         logger.log(an.ReputationDecay(env.now, decay))
         for query_group in all_query_groups.values():
             for query_peer_info in query_group.infos():
-                rep = max(0, query_peer_info.reputation - decay)
-                query_peer_info.reputation = rep
+                update_query_peer_info(query_peer_info)
+        for peer in peers.values():
+            for query_group in peer.query_groups.values():
+                for query_peer_info in query_group.infos():
+                    update_query_peer_info(query_peer_info)
 
 
 def terminate(progress_proc, logger, file_name):
