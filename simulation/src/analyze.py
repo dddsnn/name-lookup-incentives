@@ -409,14 +409,29 @@ class Replay:
         self.data = data_init
         self.event_processor = event_processor
         self.next_idx = 0
-        self.current_time = 0
-
-        self.step_until(0)
+        self.current_time = -1
 
     def at(self, time):
         """Access the data at a point in time."""
         self.step_until(time)
         return self.data
+
+    def skip_before(self, time):
+        """
+        Skip to the point just before a time without processing.
+
+        Puts the replay in a state from which step_until() will process the
+        event in the event list with the smallest time that is greater or
+        equal than the given time parameter.
+        """
+        if time <= self.current_time:
+            raise Exception('Attempt to move backwards.')
+        self.next_idx = next((i for i, e in enumerate(self.events)
+                              if e.time >= time), len(self.events))
+        if self.next_idx == 0:
+            self.current_time = -1
+        else:
+            self.current_time = self.events[self.next_idx - 1].time
 
     def step_until(self, time):
         """Process events up to a point in time."""
