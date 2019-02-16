@@ -1,8 +1,11 @@
+import peer
+import util
 import networkx as nx
 import pickle
 import matplotlib.pyplot as plt
 import numpy as np
 from math import sqrt, ceil
+from itertools import takewhile, chain, product
 
 
 class Logger:
@@ -249,17 +252,170 @@ class Logger:
         replay.skip_before(start_time)
         replay.step_until(until_time)
 
-        plt.title('Number of queries arriving at peers')
-        plt.hist(np.array(list(replay.data.values())), num_bins)
-        plt.xlabel('Number of queries')
-        plt.ylabel('Number of peers')
-        plt.show()
+        data_sets = [('', [np.array(list(replay.data.values()))])]
+        plot_hists('Number of queries arriving at peers', 'Number of queries',
+                   'Number of peers', data_sets, num_bins, 1)
+
+    def plot_selection_probabilities_at(self, time, num_bins=10,
+                                        max_edge_length=3):
+        """
+        Plot histograms of the probability a peer is selected for a query.
+
+        For each query group, plots a histogram of the probability for each
+        peer to be sent a query when a request occurs at some other member in
+        the group. The query groups taken as a base are the ones that existed
+        at the given time.
+
+        To compute these probabilities within a query group for one peer, it is
+        considered that a request occurs (i.e. from outside the system) at
+        another peer in the group (each peer has the same probability for
+        this). This peer may be able to answer the request from local
+        information, and no query is sent at all. Otherwise, for the peer where
+        the request arrived, the peer selection for the queried ID is computed,
+        i.e. the set of peers who are the first choice for sending a query to.
+        The preference is based on the overlap of prefix and the queried ID.
+        All peers in the peer selection have the same maximal overlap. If the
+        peer for whom the probability is computed is in this set, the
+        probability is increased by 1 / (s * qg * i), where s is the number of
+        peers in the selection (i.e. the peers this peer is "competing" with),
+        qg is the number of other peers in the query group (to factor in the
+        probability that it was the peer at which the request occurred we're
+        considering), and i is the number of peer IDs in all query groups
+        (since we're only looking at one specific ID in this round). This is
+        done for all possible queried IDs and all other peers in the query
+        group.
+
+        The algorithm uses its knowledge of what IDs exist in the system (it
+        doesn't consider queries for IDs that don't exist). It also considers
+        the peer whose ID is the queried ID as a potential peer to be selected,
+        even though that doesn't make sense if the purpose of the query is to
+        find out the address of the peer. It assumes all peers are equally
+        likely to have a request occur (i.e. no peer is more "active" than
+        others), and it assumes requested IDs are equally distributed (i.e.
+        none is more popular than others).
+
+        Under these assumptions, the probability is a fair estimator for how
+        useful a peer is in a query group.
+        """
+        replay = Replay(self.events, {}, query_groups_event_processor)
+        replay.step_until(time)
+        query_groups = {i: set(v.keys()) for i, v in replay.data.items()}
+
+        def peer_prefix(peer_id):
+            return peer_id[:peer.Peer.PREFIX_LENGTH]
+
+        def query_peers(peer_id):
+            query_peer_ids = set(chain(*(g for g in query_groups.values()
+                                         if peer_id in g)))
+            query_peer_ids.discard(peer_id)
+            return list(query_peer_ids)
+
+        def selected_peers(selecting_peer_id, queried_id):
+            """
+            Return the preferred set of peers used for queries for an ID.
+
+            The set of peers contains IDs of all those peers whose prefix has
+            the highest overlap with the queried ID and who share a query group
+            with the selecting peer, but not the selecting peer's ID.
+            """
+            selecting_prefix = peer_prefix(selecting_peer_id)
+            if queried_id.startswith(selecting_prefix):
+                # Selecting peer knows this ID from sync groups.
+                return set()
+            query_peer_ids = query_peers(selecting_peer_id)
+            if not query_peer_ids:
+                # Selecting peer doesn't have any query peers.
+                return set()
+            query_peer_ids.sort(
+                key=lambda p: util.bit_overlap(peer_prefix(p), queried_id),
+                reverse=True)
+            first_overlap = util.bit_overlap(peer_prefix(query_peer_ids[0]),
+                                             queried_id)
+            selecting_overlap = util.bit_overlap(selecting_prefix, queried_id)
+            if first_overlap <= selecting_overlap:
+                # Peer is  closer to the queried ID than any query peer, won't
+                # send a query at all.
+                return set()
+            return set(takewhile(lambda p:
+                                 util.bit_overlap(peer_prefix(p), queried_id)
+                                 == first_overlap,
+                       query_peer_ids))
+
+        peer_ids = set(p for g in query_groups.values() for p in g)
+        peer_selection = {p: {} for p in peer_ids}
+        for selecting_peer_id, selection in peer_selection.items():
+            for queried_id in peer_ids:
+                selection[queried_id] = selected_peers(selecting_peer_id,
+                                                       queried_id)
+        selection_probabilities = {}
+        for query_group_id, query_group in query_groups.items():
+            sp = selection_probabilities.setdefault(query_group_id, {})
+            for peer_id, querying_peer_id in product(query_group, repeat=2):
+                # Compute the probability that when a request occurs at a peer
+                # in the query group, a query is sent to the peer (with ID
+                # peer_id).
+                sp.setdefault(peer_id, 0)
+                if peer_id == querying_peer_id:
+                    continue
+                for queried_id in peer_ids:
+                    selection = peer_selection[querying_peer_id][queried_id]
+                    if peer_id not in selection:
+                        continue
+                    # Add the probability that the query was sent by the peer
+                    # with ID querying_peer_id ((1/len(query_group))-1) and the
+                    # queried ID was queried_id (1/len(peer_ids)) and the peer
+                    # with ID peer_id is the one selected (1/len(selection)).
+                    sp[peer_id] += 1 / (len(selection) * len(peer_ids)
+                                        * (len(query_group) - 1))
+
+        data_sets = [('Query group {}'.format(i), [np.array(list(p.values()))])
+                     for i, p in selection_probabilities.items()]
+        plot_hists('Peer selection probabilities by query group',
+                   'Probability', 'Number of peers', data_sets, num_bins,
+                   max_edge_length)
 
 
 def plot_steps(title, xlabel, ylabel, data_sets, max_edge_length=3,
                axes_modifier=None):
     """
-    Plot step graphs of data sets.
+    Plot a grid of step graphs.
+
+    See plot_grid().
+
+    :param data_sets: A list of data sets, in order. Each data set contains
+        data for one graph (axes in matplotlib) and is a tuple of title (for
+        the individual graph) and a list of plot data. Each plot data contains
+        data for one plot within the graph. It is a list of tuples of the form
+        (x, y, label), where x is a numpy ndarray containing x values,
+        similarly for y, and label is a label for the plot.
+    """
+    def plotter(axes, plot_data):
+        axes.step(plot_data[0], plot_data[1], label=plot_data[2], where='post')
+    plot_grid(title, xlabel, ylabel, data_sets, plotter, max_edge_length,
+              axes_modifier)
+
+
+def plot_hists(title, xlabel, ylabel, data_sets, num_bins, max_edge_length=3):
+    """
+    Plot a grid of histograms.
+
+    See plot_grid().
+
+    :param data_sets: A list of data sets, in order. Each data set contains
+        data for one graph (axes in matplotlib) and is a tuple of title (for
+        the individual graph) and a list of plot data. Each plot data contains
+        data for one plot within the graph. It is a list with one entry which
+        is a numpy ndarray containing the values for the histogram.
+    """
+    def plotter(axes, plot_data):
+        axes.hist(plot_data, num_bins)
+    plot_grid(title, xlabel, ylabel, data_sets, plotter, max_edge_length)
+
+
+def plot_grid(title, xlabel, ylabel, data_sets, plotter, max_edge_length=3,
+              axes_modifier=None):
+    """
+    Plot a grid of graphs.
 
     Creates one or more figures (basically images in matplotlib) and fills them
     with graphs (axes in matplotlib) visualizing data from data_sets. Up to
@@ -274,9 +430,10 @@ def plot_steps(title, xlabel, ylabel, data_sets, max_edge_length=3,
     :param data_sets: A list of data sets, in order. Each data set contains
         data for one graph (axes in matplotlib) and is a tuple of title (for
         the individual graph) and a list of plot data. Each plot data contains
-        data for one plot within the graph. It is a list of tuples of the form
-        (x, y, label), where x is a numpy ndarray containing x values,
-        similarly for y, and label is a label for the plot.
+        data for one plot within the graph. It is passed to the plotter
+        function.
+    :param plotter: A function taking a matplotlib axes and one entry of the
+        plot data list that creates the plot.
     :param max_edge_length: Maximum number of graphs to lay out along each
         edge of a figure. A figure will have no more than max_edge_length**2
         graphs.
@@ -304,9 +461,8 @@ def plot_steps(title, xlabel, ylabel, data_sets, max_edge_length=3,
             if not axes_idx % edge_length:
                 axes.set_ylabel(ylabel)
             for plot_data in data_set:
-                axes.step(plot_data[0], plot_data[1], label=plot_data[2],
-                          where='post')
-            if axes_idx == 0:
+                plotter(axes, plot_data)
+            if axes_idx == 0 and axes.get_label():
                 axes.legend()
         for axes in axess.flatten()[edge_length * (edge_length - 1):]:
             axes.set_xlabel(xlabel)
