@@ -84,7 +84,7 @@ class PeerBehavior:
             return
         pending_query = PendingQuery(self.peer.env.now, querying_peer_id,
                                      queried_id, peers_to_query)
-        self.peer.pending_queries[queried_id] = pending_query
+        self.peer.add_pending_query(queried_id, pending_query)
         self.peer.send_query(queried_id, pending_query, in_event_id)
         # TODO Send queries to multiple peers at once.
 
@@ -756,6 +756,13 @@ class Peer:
         in_event_id = self.logger.log(event('failure_retry'))
         self.behavior.on_timeout_retry(pending_query, recipient_id,
                                        queried_id, in_event_id)
+
+    def add_pending_query(self, queried_id, pending_query):
+        for pending_queried_id in self.pending_queries.keys():
+            # A pending query must not be added if there is already a pending
+            # query for a more specific ID.
+            assert not pending_queried_id.startswith(queried_id)
+        self.pending_queries[queried_id] = pending_query
 
     def peer_query_groups(self, peer_id):
         """Iterate query groups that contain a peer."""
