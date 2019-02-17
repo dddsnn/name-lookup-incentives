@@ -861,6 +861,30 @@ class Timeout(Event):
         self.status = status
 
 
+class QueryFinalized(Event):
+    """
+    Event representing a query being finalized.
+
+    A query is finalized if a response has arrived at or a timeout occurred at
+    the peer the originally issued it because of a request.
+    """
+    def __init__(self, time, peer_id, status, in_event_id):
+        """
+        :param peer_id: ID of the peer the query belongs to.
+        :param status: Status of the query. Must be one of
+            * 'success': Query was successful
+            * 'failure': Query did not return a result.
+            * 'timeout': Query timed out.
+            * 'impossible': The peer didn't know any peers to send a query to.
+        """
+        super().__init__(time, in_event_id)
+        self.peer_id = peer_id
+        if status not in ('success', 'failure', 'timeout', 'impossible'):
+            raise Exception('Status must be one of success, failure, timeout'
+                            ' or impossible.')
+        self.status = status
+
+
 class PeerAdd(Event):
     """Event representing a peer being."""
     def __init__(self, time, peer_id, prefix, in_event_id):

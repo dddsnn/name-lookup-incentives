@@ -18,6 +18,7 @@ class PeerBehavior:
 
     def on_query_self(self, querying_peer_id, queried_id, in_event_id):
         """React to a query for own ID."""
+        assert querying_peer_id != self.peer.peer_id
         min_rep = min((g[self.peer.peer_id].reputation for g in
                        self.peer.peer_query_groups(querying_peer_id)),
                       default=0)
@@ -32,6 +33,7 @@ class PeerBehavior:
     def on_query_sync(self, querying_peer_id, queried_id, sync_peer_info,
                       in_event_id):
         """React to a query for the ID of a sync peer."""
+        assert querying_peer_id != self.peer.peer_id
         min_rep = min((g[self.peer.peer_id].reputation for g in
                        self.peer.peer_query_groups(querying_peer_id)),
                       default=0)
@@ -73,10 +75,12 @@ class PeerBehavior:
         else:
             peers_to_query = self.peer.select_peers_to_query(queried_id)
         if len(peers_to_query) == 0:
-            self.peer.send_response(querying_peer_id,
-                                    SortedIterSet((queried_id,)), None,
-                                    in_event_id,
-                                    delay=self.decide_delay(querying_peer_id))
+            if querying_peer_id == self.peer.peer_id:
+                self.peer.finalize_query('impossible', in_event_id)
+            else:
+                self.peer.send_response(
+                    querying_peer_id, SortedIterSet((queried_id,)), None,
+                    in_event_id, delay=self.decide_delay(querying_peer_id))
             return
         pending_query = PendingQuery(self.peer.env.now, querying_peer_id,
                                      queried_id, peers_to_query)
@@ -87,7 +91,9 @@ class PeerBehavior:
     def on_response_success(self, pending_query, responding_peer_id,
                             queried_peer_info, in_event_id):
         """React to a successful response arriving."""
-        queried_ids = pending_query.querying_peers.pop(self.peer.peer_id, None)
+        if self.peer.peer_id in pending_query.querying_peers:
+            self.peer.finalize_query('success', in_event_id)
+            del pending_query.querying_peers[self.peer.peer_id]
         total_time = self.peer.env.now - pending_query.start_time
         # TODO Update the ID/address mapping, even if we're just passing the
         # query result through to another peer.
@@ -107,7 +113,9 @@ class PeerBehavior:
         A response has failed ultimately if the query cannot be retried because
         there are no further peers to query.
         """
-        queried_ids = pending_query.querying_peers.get(self.peer.peer_id)
+        if self.peer.peer_id in pending_query.querying_peers:
+            self.peer.finalize_query('failure', in_event_id)
+            del pending_query.querying_peers[self.peer.peer_id]
         total_time = self.peer.env.now - pending_query.start_time
         for querying_peer_id, queried_ids in (pending_query.querying_peers
                                               .items()):
@@ -129,7 +137,9 @@ class PeerBehavior:
         A query has failed ultimately if it can't be retried because there are
         no further peers to query.
         """
-        queried_ids = pending_query.querying_peers.get(self.peer.peer_id)
+        if self.peer.peer_id in pending_query.querying_peers:
+            self.peer.finalize_query('timeout', in_event_id)
+            del pending_query.querying_peers[self.peer.peer_id]
         total_time = self.peer.env.now - pending_query.start_time
         for querying_peer_id, queried_ids in (pending_query.querying_peers
                                               .items()):
@@ -650,6 +660,10 @@ class Peer:
                             if update.time < self.env.now
                             - Peer.UPDATE_RETENTION_TIME), 0)
             del query_peer_info.reputation_updates[:del_idx]
+
+    def finalize_query(self, status, in_event_id):
+        self.logger.log(an.QueryFinalized(self.env.now, self.peer_id, status,
+                                          in_event_id))
 
     def check_completed_queries(self, responding_peer_id, queried_id,
                                 queried_peer_info):
