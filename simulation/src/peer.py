@@ -362,7 +362,8 @@ class Peer:
         This way, sync peers will be queried as well.
         """
         for subprefix in self.uncovered_subprefixes():
-            self.behavior.on_query(self.peer_id, subprefix, True)
+            self.behavior.on_query(self.peer_id, subprefix, None,
+                                   query_all=True)
 
     def introduce(self, peer_info):
         """
