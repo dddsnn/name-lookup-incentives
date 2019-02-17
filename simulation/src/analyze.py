@@ -53,7 +53,7 @@ class Logger:
         according to its existing in_event_id.
         """
         for event in self.events:
-            event.out_even_ids = set()
+            event.out_event_ids = set()
         for i, event in enumerate(self.events):
             if event.in_event_id is not None:
                 self.events[event.in_event_id].out_event_ids.add(i)
@@ -242,6 +242,8 @@ class Logger:
                               'late success', 'late failure', 'unmatched',
                               'wrong responder'),
                  histtype='barstacked')
+        plt.xlabel('Time')
+        plt.ylabel('Number of responses')
         plt.legend()
         plt.show()
 
@@ -673,8 +675,8 @@ class Event:
         List events leading to this one.
 
         Follows the in_event_id pointers that are indexes into the given event
-         and builds a list of all events that caused this one, beginning with
-        the earliest one. Does not include this event.
+        list and builds a list of all events that caused this one, beginning
+        with the earliest one. Does not include this event.
         """
         events = []
         current_in_id = self.in_event_id
@@ -886,7 +888,7 @@ class QueryFinalized(Event):
 
 
 class PeerAdd(Event):
-    """Event representing a peer being."""
+    """Event representing a peer being added to the simulation."""
     def __init__(self, time, peer_id, prefix, in_event_id):
         super().__init__(time, in_event_id)
         self.peer_id = peer_id
@@ -894,7 +896,7 @@ class PeerAdd(Event):
 
 
 class PeerRemove(Event):
-    """Event representing a peer being."""
+    """Event representing a peer being removed from the simulation."""
     def __init__(self, time, peer_id, in_event_id):
         super().__init__(time, in_event_id)
         self.peer_id = peer_id

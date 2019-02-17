@@ -429,6 +429,8 @@ class Peer:
                     # TODO Actually send query in case queried_id is a prefix.
                     # This behavior is useless for the purpose of finding more
                     # sync peers.
+                    # TODO Also check if the peer is already known from a query
+                    # group.
                     status = 'known'
                     return
             status = 'querying'
