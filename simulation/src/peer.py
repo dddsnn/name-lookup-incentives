@@ -772,7 +772,8 @@ class Peer:
         Not guaranteed to be unique, will contain peers multiple times if they
         share multiple query groups.
         """
-        return (pi for g in self.query_groups.values() for pi in g.infos())
+        return (pi for g in self.query_groups.values() for pi in g.infos()
+                if pi.peer_id != self.peer_id)
 
     # TODO Should this be part of the behavior?
     def select_peers_to_query(self, queried_id):
