@@ -1,4 +1,5 @@
 import unittest.mock
+import test_helper
 import util
 import peer
 import bitstring as bs
@@ -36,8 +37,9 @@ class TestBitOverlap(unittest.TestCase):
 
 class TestNetwork(unittest.TestCase):
     def setUp(self):
+        self.settings = test_helper.get_settings()
         self.env = simpy.Environment()
-        self.network = util.Network(self.env)
+        self.network = util.Network(self.env, self.settings)
         self.peer_a_id = bs.Bits(uint=0, length=16)
         self.peer_b_id = bs.Bits(uint=1, length=16)
         self.peer_a = unittest.mock.Mock(spec=peer.Peer)
@@ -69,7 +71,7 @@ class TestNetwork(unittest.TestCase):
         queried_id = bs.Bits(uint=10, length=16)
         self.network.send_query(self.peer_a_id, self.peer_a_address,
                                 self.peer_b_address, queried_id, 0)
-        self.assertEqual(self.env.peek(), util.Network.TRANSMISSION_DELAY)
+        self.assertEqual(self.env.peek(), self.settings['transmission_delay'])
 
     def test_doesnt_add_transmission_delay_for_messages_to_oneself(self):
         queried_id = bs.Bits(uint=10, length=16)

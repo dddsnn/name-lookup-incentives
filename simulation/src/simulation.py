@@ -15,13 +15,6 @@ from collections import OrderedDict
 bs.Bits.__lt__ = util.bits_lt
 
 
-SUCCESSFUL_QUERY_REWARD = 1
-FAILED_QUERY_PENALTY = -2
-TIMEOUT_QUERY_PENALTY = -2
-DECAY_TIMESTEP = 1
-DECAY_PER_TIME_UNIT = 0.1
-
-
 def request_generator(env, peers, peer):
     while True:
         if len(peers) <= 1:
@@ -34,15 +27,15 @@ def request_generator(env, peers, peer):
         yield env.timeout(1)
 
 
-def decay_reputation(env, all_query_groups, peers, logger):
-    decay = DECAY_PER_TIME_UNIT * DECAY_TIMESTEP
+def decay_reputation(env, all_query_groups, peers, logger, settings):
+    decay = settings['decay_per_time_unit'] * settings['decay_timestep']
 
     def update_query_peer_info(query_peer_info):
         rep = max(0, query_peer_info.reputation - decay)
         query_peer_info.reputation = rep
 
     while True:
-        yield env.timeout(DECAY_TIMESTEP)
+        yield env.timeout(settings['decay_timestep'])
         logger.log(an.ReputationDecay(env.now, decay))
         for query_group in all_query_groups.values():
             for query_peer_info in query_group.infos():
@@ -68,21 +61,26 @@ def terminate(progress_proc, logger, file_name):
 
 
 if __name__ == '__main__':
-    random.seed(a=0, version=2)
+    if len(sys.argv) < 2:
+        print('Provide a settings file.')
+        exit(1)
+    settings = util.read_settings(sys.argv[1])
+    random.seed(a=settings['rng_seed'], version=2)
     env = simpy.Environment()
-    logger = an.Logger()
+    logger = an.Logger(settings)
     peers = OrderedDict()
     sync_groups = OrderedDict()
     all_query_groups = OrderedDict()
-    network = util.Network(env)
-    for i in range(64):
+    network = util.Network(env, settings)
+    for i in range(settings['num_peers']):
         while True:
-            peer_id_uint = random.randrange(2 ** p.Peer.ID_LENGTH)
-            peer_id = bs.Bits(uint=peer_id_uint, length=p.Peer.ID_LENGTH)
+            peer_id_uint = random.randrange(2 ** settings['id_length'])  
+            peer_id = bs.Bits(uint=peer_id_uint, length=settings['id_length'])  
             if peer_id not in peers:
-                peer = p.Peer(env, logger, network, peer_id, all_query_groups)
+                peer = p.Peer(env, logger, network, peer_id, all_query_groups,
+                              settings)
                 peers[peer_id] = peer
-                sync_groups.setdefault(peer_id[:p.Peer.PREFIX_LENGTH],
+                sync_groups.setdefault(peer_id[:settings['prefix_length']],
                                        SortedIterSet()).add(peer)
                 env.process(request_generator(env, peers, peer))
                 logger.log(an.PeerAdd(env.now, peer.peer_id, peer.prefix,
@@ -98,7 +96,8 @@ if __name__ == '__main__':
                                           other_peer.prefix,
                                           other_peer.address))
     for peer in peers.values():
-        for other_peer in random.sample(list(peers.values()), 8):
+        for other_peer in random.sample(list(peers.values()),
+                                        settings['num_random_introductions']):
             peer.introduce(p.PeerInfo(other_peer.peer_id, other_peer.prefix,
                                       other_peer.address))
 
@@ -106,13 +105,14 @@ if __name__ == '__main__':
     for peer in peers.values():
         peer.find_missing_query_peers()
     until = float('inf')
-    if len(sys.argv) > 1:
-        until = float(sys.argv[1])
-    file_name = 'log.log'
+    if len(sys.argv) > 2:
+        until = float(sys.argv[2])
+    file_name = settings['log_file_name']
     progress_proc = env.process(util.progress_process(env, 1))
     signal.signal(signal.SIGINT, terminate(progress_proc, logger, file_name))
     print()
     print('running simulation until {}'.format(until))
-    env.process(decay_reputation(env, all_query_groups, peers, logger))
+    env.process(decay_reputation(env, all_query_groups, peers, logger,
+                                 settings))
     env.run(until)
     write_log(logger, file_name)

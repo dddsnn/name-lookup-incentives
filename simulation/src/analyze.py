@@ -1,4 +1,3 @@
-import peer
 import util
 import networkx as nx
 import pickle
@@ -11,7 +10,8 @@ from itertools import takewhile, chain, product
 class Logger:
     # TODO Make snapshots of the data occasionally so the entire event list
     # doesn't have to be processed when querying global information.
-    def __init__(self):
+    def __init__(self, settings):
+        self.settings = settings
         self.events = []
 
     def log(self, event):
@@ -35,13 +35,13 @@ class Logger:
         """
         self.make_out_events()
         with open(file_name, 'w+b') as file:
-            pickle.dump(self.events, file)
+            pickle.dump((self.settings, self.events), file)
 
     @staticmethod
     def load(file_name):
         with open(file_name, 'rb') as file:
-            events = pickle.load(file)
-            logger = Logger()
+            settings, events = pickle.load(file)
+            logger = Logger(settings)
             logger.events = events
             return logger
 
@@ -304,7 +304,7 @@ class Logger:
         query_groups = {i: set(v.keys()) for i, v in replay.data.items()}
 
         def peer_prefix(peer_id):
-            return peer_id[:peer.Peer.PREFIX_LENGTH]
+            return peer_id[:self.settings['prefix_length']]
 
         def query_peers(peer_id):
             query_peer_ids = set(chain(*(g for g in query_groups.values()

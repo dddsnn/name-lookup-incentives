@@ -1,0 +1,50 @@
+{
+    # The seed used for the RNG.
+    'rng_seed': 0,
+    # Name of the log file that will be written.
+    'log_file_name': 'log.log',
+    # Number of peers in the simulation.
+    'num_peers': 64,
+    # The number of randomly selected peers each peer is introduced to in the
+    # beginning.
+    'num_random_introductions': 8,
+
+    # The time the reputation decay process sleeps.
+    'decay_timestep': 1,
+    # The reputation decay that is applied per time unit. This isn't affected
+    # by decay_timestep: if decay_timestep is 10 and decay_per_time_unit is
+    # 0.2, every 10 time units 2 reputation decay are imposed.
+    'decay_per_time_unit': 0.1,
+
+    # The reputation increase awarded for successfully answering a query.
+    'successful_query_reward': 1,
+    # The reputation decrease imposed for answering a query, but failing to
+    # present the proper record.
+    'failed_query_penalty': -2,
+    # The reputation decrease imposed for failing to respond to a query within
+    # the timeout chosen by the querying peer.
+    'timeout_query_penalty': -2,
+
+    # Length of peer IDs in bits.
+    'id_length': 16,
+    # Length of peer prefixes in bits.
+    'prefix_length': 4,
+    # The amount of query peers every peer strives to at least have for each
+    # subprefix.
+    'min_desired_query_peers': 2,
+    # The size of a query group at which a peer considers it full.
+    'max_desired_group_size': 16,
+    # The number of time units of round trip time a peer considers to be due
+    # to network delay. In the calculation of penalty delay, this will be
+    # added on top.
+    'query_timeout': 2,
+    # The number of time units completed queries are archived to be able to
+    # match them to incoming late responses.
+    'completed_query_retention_time': 100,
+    # The number of time units reputation updates are archived to be able to
+    # roll back and reapply them in case of updates arriving out of order.
+    'update_retention_time': 100,
+
+    # The number of time units a message passed between peers takes to arrive.
+    'transmission_delay': 0.1
+}

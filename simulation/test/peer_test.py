@@ -1,4 +1,5 @@
 import unittest
+import test_helper
 import util
 import peer
 import analyze
@@ -11,19 +12,23 @@ from collections import OrderedDict
 
 class TestReputationUpdate(unittest.TestCase):
     def setUp(self):
+        self.settings = test_helper.get_settings()
         self.env = simpy.Environment()
-        self.logger = analyze.Logger()
-        self.network = util.Network(self.env)
+        self.logger = analyze.Logger(self.settings)
+        self.network = util.Network(self.env, self.settings)
         self.all_query_groups = OrderedDict()
         self.peer_a_id = bs.Bits(uint=0, length=16)
         self.peer_b_id = bs.Bits(uint=1, length=16)
         self.peer_c_id = bs.Bits(uint=2, length=16)
         self.peer_a = peer.Peer(self.env, self.logger, self.network,
-                                self.peer_a_id, self.all_query_groups)
+                                self.peer_a_id, self.all_query_groups,
+                                self.settings)
         self.peer_b = peer.Peer(self.env, self.logger, self.network,
-                                self.peer_b_id, self.all_query_groups)
+                                self.peer_b_id, self.all_query_groups,
+                                self.settings)
         self.peer_c = peer.Peer(self.env, self.logger, self.network,
-                                self.peer_c_id, self.all_query_groups)
+                                self.peer_c_id, self.all_query_groups,
+                                self.settings)
         self.peer_a_info = peer.PeerInfo(self.peer_a.peer_id,
                                          self.peer_a.prefix,
                                          self.peer_a.address)
@@ -110,16 +115,19 @@ class TestReputationUpdate(unittest.TestCase):
 
 class TestQueryGroups(unittest.TestCase):
     def setUp(self):
+        self.settings = test_helper.get_settings()
         self.env = simpy.Environment()
-        self.logger = analyze.Logger()
-        self.network = util.Network(self.env)
+        self.logger = analyze.Logger(self.settings)
+        self.network = util.Network(self.env, self.settings)
         self.all_query_groups = OrderedDict()
         self.peer_a_id = bs.Bits(uint=0, length=16)
         self.peer_b_id = bs.Bits(uint=1, length=16)
         self.peer_a = peer.Peer(self.env, self.logger, self.network,
-                                self.peer_a_id, self.all_query_groups)
+                                self.peer_a_id, self.all_query_groups,
+                                self.settings)
         self.peer_b = peer.Peer(self.env, self.logger, self.network,
-                                self.peer_b_id, self.all_query_groups)
+                                self.peer_b_id, self.all_query_groups,
+                                self.settings)
         self.peer_a_info = peer.PeerInfo(self.peer_a.peer_id,
                                          self.peer_a.prefix,
                                          self.peer_a.address)

@@ -4,10 +4,9 @@ from collections import OrderedDict
 
 
 class Network:
-    TRANSMISSION_DELAY = 0.1
-
-    def __init__(self, env):
+    def __init__(self, env, settings):
         self.env = env
+        self.settings = settings
         self.peers = OrderedDict()
         self.address_iter = count()
 
@@ -27,7 +26,7 @@ class Network:
         """
         delay = 0
         if sender_address != recipient_address:
-            delay += Network.TRANSMISSION_DELAY
+            delay += self.settings['transmission_delay']
         recipient = self.peers.get(recipient_address)
         if recipient is None:
             raise UnassignedAddressError
@@ -146,3 +145,9 @@ def progress_process(env, step):
 def bits_lt(b1, b2):
     """__lt__ for the bitstrings."""
     return 2 ** len(b1) + b1.uint < 2 ** len(b2) + b2.uint
+
+
+def read_settings(file_name):
+    with open(file_name, 'r') as file:
+        settings_str = file.read()
+    return eval(settings_str)

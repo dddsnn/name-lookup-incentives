@@ -1,8 +1,6 @@
 import analyze as an
 import util
 from util import SortedIterSet
-from simulation import (SUCCESSFUL_QUERY_REWARD, FAILED_QUERY_PENALTY,
-                        TIMEOUT_QUERY_PENALTY)
 import simpy
 from itertools import count
 from copy import deepcopy
@@ -156,18 +154,19 @@ class PeerBehavior:
 
     def do_rep_success(self, peer_id, in_event_id):
         """Do the reputation update after a successful query."""
-        self.peer.send_reputation_update(peer_id, SUCCESSFUL_QUERY_REWARD,
-                                         in_event_id)
+        self.peer.send_reputation_update(
+            peer_id, self.peer.settings['successful_query_reward'],
+            in_event_id)
 
     def do_rep_failure(self, peer_id, in_event_id):
         """Do the reputation update after a failed query."""
-        self.peer.send_reputation_update(peer_id, FAILED_QUERY_PENALTY,
-                                         in_event_id)
+        self.peer.send_reputation_update(
+            peer_id, self.peer.settings['failed_query_penalty'], in_event_id)
 
     def do_rep_timeout(self, peer_id, in_event_id):
         """Do the reputation update after a timed out query."""
-        self.peer.send_reputation_update(peer_id, TIMEOUT_QUERY_PENALTY,
-                                         in_event_id)
+        self.peer.send_reputation_update(
+            peer_id, self.peer.settings['timeout_query_penalty'], in_event_id)
 
     def decide_delay(self, querying_peer_id):
         """Decide what penalty delay to impose."""
@@ -197,21 +196,15 @@ class PeerBehavior:
 
 
 class Peer:
-    ID_LENGTH = 16
-    PREFIX_LENGTH = 4
-    MIN_DESIRED_QUERY_PEERS = 2
-    MAX_DESIRED_GROUP_SIZE = 16
-    QUERY_TIMEOUT = 2
-    COMPLETED_QUERY_RETENTION_TIME = 100
-    UPDATE_RETENTION_TIME = 100
-
-    def __init__(self, env, logger, network, peer_id, all_query_groups):
+    def __init__(self, env, logger, network, peer_id, all_query_groups,
+                 settings):
         self.env = env
         self.logger = logger
         self.network = network
         self.peer_id = peer_id
         self.all_query_groups = all_query_groups
-        self.prefix = self.peer_id[:Peer.PREFIX_LENGTH]
+        self.settings = settings
+        self.prefix = self.peer_id[:self.settings['prefix_length']]
         self.query_groups = OrderedDict()
         self.sync_peers = OrderedDict()
         self.pending_queries = OrderedDict()
@@ -288,7 +281,8 @@ class Peer:
             for query_group in self.all_query_groups.values():
                 # TODO Pick the most useful out of these groups, not just any.
                 if (peer_info.peer_id in query_group
-                        and len(query_group) < Peer.MAX_DESIRED_GROUP_SIZE
+                        and len(query_group)
+                        < self.settings['max_desired_group_size']
                         and self.peer_id not in query_group):
                     self.add_to_query_group(query_group, self)
                     query_group_copy = deepcopy(query_group)
@@ -305,7 +299,7 @@ class Peer:
             # Attempt to add the peer to one of my groups.
             for query_group in self.query_groups.values():
                 # TODO Pick the most useful out of these groups, not just any.
-                if (len(query_group) < Peer.MAX_DESIRED_GROUP_SIZE
+                if (len(query_group) < self.settings['max_desired_group_size']
                         and peer_info.peer_id not in query_group):
                     self.add_to_query_group(query_group, peer)
                     query_group[peer_info.peer_id] = (
@@ -386,7 +380,7 @@ class Peer:
         if not is_known:
             for sp, count in self.subprefixes().items():
                 if (peer_info.prefix.startswith(sp)
-                        and count < Peer.MIN_DESIRED_QUERY_PEERS):
+                        and count < self.settings['min_desired_query_peers']):
                     self.join_group_with(peer_info)
                     self.logger.log(an.ConnectionAdd(self.env.now,
                                                      self.peer_id,
@@ -661,7 +655,7 @@ class Peer:
             del_idx = next((i + 1 for (i, update)
                             in enumerate(query_peer_info.reputation_updates)
                             if update.time < self.env.now
-                            - Peer.UPDATE_RETENTION_TIME), 0)
+                            - self.settings['update_retention_time']), 0)
             del query_peer_info.reputation_updates[:del_idx]
 
     def finalize_query(self, status, in_event_id):
@@ -719,8 +713,9 @@ class Peer:
             completed_queries.append(pending_query)
         else:
             self.completed_queries[queried_id] = [pending_query]
-        util.do_delayed(self.env, Peer.COMPLETED_QUERY_RETENTION_TIME,
-                        self.remove_completed_query, pending_query, queried_id)
+        util.do_delayed(
+            self.env, self.settings['completed_query_retention_time'],
+            self.remove_completed_query, pending_query, queried_id)
 
     def remove_completed_query(self, pending_query, queried_id):
         completed_queries = self.completed_queries.get(queried_id)
@@ -737,7 +732,7 @@ class Peer:
         def event(status):
             return an.Timeout(self.env.now, self.peer_id, recipient_id,
                               queried_id, status, in_event_id)
-        timeout = (Peer.QUERY_TIMEOUT
+        timeout = (self.settings['query_timeout']
                    + self.behavior.expect_delay(recipient_id))
         try:
             yield self.env.timeout(timeout)
