@@ -154,6 +154,28 @@ class PeerBehavior:
         self.peer.send_query(queried_id, pending_query, in_event_id)
         self.do_rep_timeout(recipient_id, in_event_id)
 
+    def on_response_late_success(self, responding_peer_id):
+        """
+        React to a successful response arriving late.
+
+        A response is late if the query has already been successfully answered
+        by another peer.
+        """
+        # TODO Using None as in_event_id because we're not storing the ID of
+        # the event leading to this.
+        self.do_rep_success(responding_peer_id, None)
+
+    def on_response_late_failure(self, responding_peer_id):
+        """
+        React to a failed response arriving late.
+
+        A response is late if the query has already been successfully answered
+        by another peer.
+        """
+        # TODO Using None as in_event_id because we're not storing the ID of
+        # the event leading to this.
+        self.do_rep_failure(responding_peer_id, None)
+
     def do_rep_success(self, peer_id, in_event_id):
         """Do the reputation update after a successful query."""
         self.peer.send_reputation_update(
@@ -692,14 +714,10 @@ class Peer:
                 continue
             if queried_peer_info is not None:
                 status = 'late_success'
-                # TODO Using None as in_event_id because we're not storing the
-                # ID of the event leading to this.
-                self.behavior.do_rep_success(responding_peer_id, None)
+                self.behavior.on_response_late_success(responding_peer_id)
             else:
                 status = 'late_failure'
-                # TODO Using None as in_event_id because we're not storing the
-                # ID of the event leading to this.
-                self.behavior.do_rep_failure(responding_peer_id, None)
+                self.behavior.on_response_late_failure(responding_peer_id)
             break
         else:
             return None
