@@ -29,17 +29,8 @@ class TestReputationUpdate(unittest.TestCase):
         self.peer_c = peer.Peer(self.env, self.logger, self.network,
                                 self.peer_c_id, self.all_query_groups,
                                 self.settings)
-        self.peer_a_info = peer.PeerInfo(self.peer_a.peer_id,
-                                         self.peer_a.prefix,
-                                         self.peer_a.address)
-        self.peer_b_info = peer.PeerInfo(self.peer_b.peer_id,
-                                         self.peer_b.prefix,
-                                         self.peer_b.address)
-        self.peer_c_info = peer.PeerInfo(self.peer_c.peer_id,
-                                         self.peer_c.prefix,
-                                         self.peer_c.address)
-        self.peer_a.join_group_with(self.peer_b_info)
-        self.peer_a.join_group_with(self.peer_c_info)
+        self.peer_a.join_group_with(self.peer_b.info())
+        self.peer_a.join_group_with(self.peer_c.info())
 
     def test_recv_updates_reputation(self):
         query_group = next(iter(self.peer_a.query_groups.values()))
@@ -122,18 +113,16 @@ class TestQueryGroups(unittest.TestCase):
         self.all_query_groups = OrderedDict()
         self.peer_a_id = bs.Bits(uint=0, length=16)
         self.peer_b_id = bs.Bits(uint=1, length=16)
+        self.peer_c_id = bs.Bits(uint=2, length=16)
         self.peer_a = peer.Peer(self.env, self.logger, self.network,
                                 self.peer_a_id, self.all_query_groups,
                                 self.settings)
         self.peer_b = peer.Peer(self.env, self.logger, self.network,
                                 self.peer_b_id, self.all_query_groups,
                                 self.settings)
-        self.peer_a_info = peer.PeerInfo(self.peer_a.peer_id,
-                                         self.peer_a.prefix,
-                                         self.peer_a.address)
-        self.peer_b_info = peer.PeerInfo(self.peer_b.peer_id,
-                                         self.peer_b.prefix,
-                                         self.peer_b.address)
+        self.peer_c = peer.Peer(self.env, self.logger, self.network,
+                                self.peer_c_id, self.all_query_groups,
+                                self.settings)
 
     def test_first_tries_to_join_others_group(self):
         query_group = QueryGroup(next(peer.query_group_id_iter), (
@@ -142,7 +131,7 @@ class TestQueryGroups(unittest.TestCase):
             = deepcopy(query_group)
         self.peer_a.query_groups[query_group.query_group_id]\
             = deepcopy(query_group)
-        self.peer_b.join_group_with(self.peer_a_info)
+        self.peer_b.join_group_with(self.peer_a.info())
         self.assertTrue(query_group.query_group_id in self.peer_b.query_groups)
         self.assertTrue(self.peer_b_id in self.peer_a.query_groups[
             query_group.query_group_id])
@@ -154,13 +143,13 @@ class TestQueryGroups(unittest.TestCase):
             = deepcopy(query_group)
         self.peer_b.query_groups[query_group.query_group_id]\
             = deepcopy(query_group)
-        self.peer_b.join_group_with(self.peer_a_info)
+        self.peer_b.join_group_with(self.peer_a.info())
         self.assertTrue(query_group.query_group_id in self.peer_a.query_groups)
         self.assertTrue(self.peer_a_id in self.peer_b.query_groups[
             query_group.query_group_id])
 
     def test_otherwise_creates_new_group(self):
-        self.peer_b.join_group_with(self.peer_a_info)
+        self.peer_b.join_group_with(self.peer_a.info())
         self.assertEqual(len(self.all_query_groups), 1)
         query_group_id = next(iter(
             self.all_query_groups.values())).query_group_id
@@ -175,36 +164,42 @@ class TestQueryGroups(unittest.TestCase):
 
     def test_initializes_joining_others_to_current_state(self):
         query_group = QueryGroup(next(peer.query_group_id_iter), (
-            (self.peer_a_id, self.peer_a.prefix, self.peer_a.address),))
+            (self.peer_a_id, self.peer_a.prefix, self.peer_a.address),
+            (self.peer_c_id, self.peer_c.prefix, self.peer_c.address)))
         query_group_id = query_group.query_group_id
         self.peer_a.query_groups[query_group.query_group_id]\
             = deepcopy(query_group)
+        self.peer_c.query_groups[query_group.query_group_id]\
+            = deepcopy(query_group)
         self.all_query_groups[query_group.query_group_id]\
             = deepcopy(query_group)
-        self.peer_a.send_reputation_update(self.peer_a.peer_id, 3, None)
+        self.peer_c.send_reputation_update(self.peer_a.peer_id, 3, None)
         self.env.run()
         self.assertEqual(
             self.peer_a.query_groups[query_group_id][self.peer_a_id]
             .reputation, 3)
-        self.peer_b.join_group_with(self.peer_a_info)
+        self.peer_b.join_group_with(self.peer_a.info())
         self.assertEqual(
             self.peer_b.query_groups[query_group_id][self.peer_a_id]
             .reputation, 3)
 
     def test_initializes_adding_to_own_to_current_state(self):
         query_group = QueryGroup(next(peer.query_group_id_iter), (
-            (self.peer_a_id, self.peer_a.prefix, self.peer_a.address),))
+            (self.peer_a_id, self.peer_a.prefix, self.peer_a.address),
+            (self.peer_c_id, self.peer_c.prefix, self.peer_c.address)))
         query_group_id = query_group.query_group_id
         self.peer_a.query_groups[query_group.query_group_id]\
             = deepcopy(query_group)
+        self.peer_c.query_groups[query_group.query_group_id]\
+            = deepcopy(query_group)
         self.all_query_groups[query_group.query_group_id]\
             = deepcopy(query_group)
-        self.peer_a.send_reputation_update(self.peer_a.peer_id, 3, None)
+        self.peer_c.send_reputation_update(self.peer_a.peer_id, 3, None)
         self.env.run()
         self.assertEqual(
             self.peer_a.query_groups[query_group_id][self.peer_a_id]
             .reputation, 3)
-        self.peer_a.join_group_with(self.peer_b_info)
+        self.peer_a.join_group_with(self.peer_b.info())
         self.assertEqual(
             self.peer_b.query_groups[query_group_id][self.peer_a_id]
             .reputation, 3)

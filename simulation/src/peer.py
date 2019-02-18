@@ -16,7 +16,6 @@ class PeerBehavior:
 
     def on_query_self(self, querying_peer_id, queried_id, in_event_id):
         """React to a query for own ID."""
-        assert querying_peer_id != self.peer.peer_id
         min_rep = min((g[self.peer.peer_id].reputation for g in
                        self.peer.peer_query_groups(querying_peer_id)),
                       default=0)
@@ -32,7 +31,6 @@ class PeerBehavior:
     def on_query_sync(self, querying_peer_id, queried_id, sync_peer_info,
                       in_event_id):
         """React to a query for the ID of a sync peer."""
-        assert querying_peer_id != self.peer.peer_id
         min_rep = min((g[self.peer.peer_id].reputation for g in
                        self.peer.peer_query_groups(querying_peer_id)),
                       default=0)
@@ -68,7 +66,8 @@ class PeerBehavior:
             return
         if query_all:
             peers_to_query_info = (list(self.peer.known_query_peers())
-                                   + list(self.peer.sync_peers.values()))
+                                   + [i for i in self.peer.sync_peers.values()
+                                      if i.peer_id != self.peer.peer_id])
             peers_to_query_info.sort(
                 key=lambda pi: util.bit_overlap(pi.prefix, queried_id),
                 reverse=True)
@@ -467,6 +466,7 @@ class Peer:
         :param queried_peer_info: PeerInfo object describing the peer that was
             queried. May be None to indicate no information could be found.
         """
+        assert recipient_id != self.peer_id
         if queried_peer_info is None:
             queried_peer_id = None
         else:
@@ -594,6 +594,7 @@ class Peer:
         :param reputation_diff: The reputation increase that should be applied.
             Negative values mean a penalty.
         """
+        assert self.peer_id != peer_id
         query_groups = list(self.peer_query_groups(peer_id))
         query_group_ids = SortedIterSet(qg.query_group_id
                                         for qg in query_groups)
@@ -623,7 +624,7 @@ class Peer:
         """
         :param time: The time at which the update is meant to be applied.
         """
-        # TODO Ignore updates from peers about themselves.
+        assert sender_id != peer_id
         self.logger.log(an.ReputationUpdateReceived(
             self.env.now, sender_id, self.peer_id, peer_id, reputation_diff,
             in_event_id))
