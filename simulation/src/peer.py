@@ -5,6 +5,8 @@ import simpy
 from itertools import count
 from copy import deepcopy
 from collections import namedtuple, OrderedDict
+import random
+import operator as op
 
 
 query_group_id_iter = count()
@@ -807,23 +809,51 @@ class Peer:
         given ID. These are all known peers who are closer to that ID, i.e.
         whose bit_overlap() is larger than for this peer.
 
-        The list is sorted by the overlap, with the largest, i.e. the closest
-        to the ID (and thus most useful) first.
+        The order of this list depends on the query_peer_selection value in the
+        settings. Possible values are:
+            * 'overlap': Create a list of all query peers whose prefix has a
+                higher overlap with the queried ID than one's own. Sort this
+                list by the length of that overlap, greatest first. No tie
+                breaker.
+            * 'overlap_low_rep_first': As 'overlap', but all peers with enough
+                reputation (i.e. whose minimum reputation in all shared query
+                groups is greater than or equal 'no_penalty_reputation' times
+                'reputation_buffer_factor' are taken from the front and added
+                to the back.
+            * 'overlap_shuffled': Like 'overlap', except the list is shuffled
+                instead of sorted.
         """
         own_overlap = util.bit_overlap(self.prefix, queried_id)
         peers_to_query_info = []
-        for query_peer_info in SortedIterSet(self.known_query_peers()):
+        for query_peer_info in self.known_query_peers():
             # TODO Range queries for performance.
             if (util.bit_overlap(query_peer_info.prefix, queried_id)
                     > own_overlap):
                 peers_to_query_info.append(query_peer_info)
-        # TODO Instead of sorting for the longest prefix match, use a heap to
-        # begin with.
-        # TODO Also consider reputation in the query group when selecting a
-        # peer to query.
-        peers_to_query_info.sort(key=lambda pi: util.bit_overlap(pi.prefix,
-                                                                 queried_id),
-                                 reverse=True)
+        util.remove_duplicates(peers_to_query_info,
+                               key=op.attrgetter('peer_id'))
+        if self.settings['query_peer_selection'] in ('overlap',
+                                                     'overlap_low_rep_first'):
+            peers_to_query_info.sort(
+                key=lambda pi: util.bit_overlap(pi.prefix, queried_id),
+                reverse=True)
+        elif self.settings['query_peer_selection'] == 'overlap_shuffled':
+            random.shuffle(peers_to_query_info)
+        else:
+            raise Exception('Invalid query peer selection strategy {}.'
+                            .format(self.settings['query_peer_selection']))
+        if self.settings['query_peer_selection'] == 'overlap_low_rep_first':
+            enough_rep = (self.settings['reputation_buffer_factor']
+                          * self.settings['no_penalty_reputation'])
+            swap_back_idxs = []
+            for i, peer_info in enumerate(peers_to_query_info):
+                min_rep = min(g[peer_info.peer_id].reputation for g in
+                              self.peer_query_groups(peer_info.peer_id))
+                if min_rep >= enough_rep:
+                    swap_back_idxs.append(i - len(swap_back_idxs))
+            for idx in swap_back_idxs:
+                peer_info = peers_to_query_info.pop(idx)
+                peers_to_query_info.append(peer_info)
         return [pi.peer_id for pi in peers_to_query_info]
 
 
