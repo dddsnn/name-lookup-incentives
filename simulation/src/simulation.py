@@ -92,14 +92,11 @@ if __name__ == '__main__':
     for sync_group in sync_groups.values():
         for peer in sync_group:
             for other_peer in sync_group:
-                peer.introduce(p.PeerInfo(other_peer.peer_id,
-                                          other_peer.prefix,
-                                          other_peer.address))
+                peer.introduce(other_peer.info())
     for peer in peers.values():
         for other_peer in random.sample(list(peers.values()),
                                         settings['num_random_introductions']):
-            peer.introduce(p.PeerInfo(other_peer.peer_id, other_peer.prefix,
-                                      other_peer.address))
+            peer.introduce(other_peer.info())
 
     print('scheduling queries for missing subprefixes')
     for peer in peers.values():
