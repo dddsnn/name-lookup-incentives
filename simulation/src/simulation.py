@@ -8,6 +8,7 @@ import random
 import signal
 import sys
 from collections import OrderedDict
+from math import log2
 
 
 # Patch in a less-than for the Bits class, which is necessary for ordered dicts
@@ -60,6 +61,45 @@ def terminate(progress_proc, logger, file_name):
     return handler
 
 
+def even_sync_groups_peer_ids(settings):
+    if settings['num_peers'] > 2 ** settings['id_length']:
+        raise Exception('IDs are too short for the number of peers.')
+    if (log2(settings['num_peers']) % 1
+            or settings['num_peers'] < 2 ** settings['prefix_length']):
+        raise Exception('For even sync groups, the number of peers must be a'
+                        ' power of 2 and greater or equal the number of sync'
+                        ' groups.')
+    peer_ids = []
+    num_sync_groups = 2 ** settings['prefix_length']
+    num_peers_per_sync_group = settings['num_peers'] // num_sync_groups
+    suffix_length = settings['id_length'] - settings['prefix_length']
+    for i in range(num_sync_groups):
+        prefix = bs.Bits(uint=i, length=settings['prefix_length'])
+        for _ in range(num_peers_per_sync_group):
+            while True:
+                suffix_uint = random.randrange(2 ** suffix_length)
+                suffix = bs.Bits(uint=suffix_uint, length=suffix_length)
+                peer_id = prefix + suffix
+                if peer_id not in peer_ids:
+                    peer_ids.append(peer_id)
+                    break
+    return peer_ids
+
+
+def random_peer_ids(settings):
+    if settings['num_peers'] > 2 ** settings['id_length']:
+        raise Exception('IDs are too short for the number of peers.')
+    peer_ids = []
+    for _ in range(settings['num_peers']):
+        while True:
+            peer_id_uint = random.randrange(2 ** settings['id_length'])
+            peer_id = bs.Bits(uint=peer_id_uint, length=settings['id_length'])
+            if peer_id not in peer_ids:
+                peer_ids.append(peer_id)
+                break
+    return peer_ids
+
+
 if __name__ == '__main__':
     if len(sys.argv) < 2:
         print('Provide a settings file.')
@@ -72,23 +112,22 @@ if __name__ == '__main__':
     sync_groups = OrderedDict()
     all_query_groups = OrderedDict()
     network = util.Network(env, settings)
-    for i in range(settings['num_peers']):
-        while True:
-            peer_id_uint = random.randrange(2 ** settings['id_length'])  
-            peer_id = bs.Bits(uint=peer_id_uint, length=settings['id_length'])  
-            if peer_id not in peers:
-                peer = p.Peer(env, logger, network, peer_id, all_query_groups,
-                              settings)
-                peers[peer_id] = peer
-                sync_groups.setdefault(peer_id[:settings['prefix_length']],
-                                       SortedIterSet()).add(peer)
-                env.process(request_generator(env, peers, peer))
-                logger.log(an.PeerAdd(env.now, peer.peer_id, peer.prefix,
-                                      None))
-                logger.log(an.UncoveredSubprefixes(
-                    env.now, peer.peer_id,
-                    SortedIterSet(peer.uncovered_subprefixes()), None))
-                break
+    if settings['even_sync_groups']:
+        peer_ids = even_sync_groups_peer_ids(settings)
+    else:
+        peer_ids = random_peer_ids(settings)
+    assert len(peer_ids) == len(set(peer_ids))
+    for peer_id in peer_ids:
+        peer = p.Peer(env, logger, network, peer_id, all_query_groups,
+                      settings)
+        peers[peer_id] = peer
+        sync_groups.setdefault(peer_id[:settings['prefix_length']],
+                               SortedIterSet()).add(peer)
+        env.process(request_generator(env, peers, peer))
+        logger.log(an.PeerAdd(env.now, peer.peer_id, peer.prefix, None))
+        logger.log(an.UncoveredSubprefixes(
+            env.now, peer.peer_id, SortedIterSet(peer.uncovered_subprefixes()),
+            None))
     for sync_group in sync_groups.values():
         for peer in sync_group:
             for other_peer in sync_group:

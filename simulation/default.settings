@@ -8,6 +8,10 @@
     # The number of randomly selected peers each peer is introduced to in the
     # beginning.
     'num_random_introductions': 8,
+    # Whether the initialization should take care to create equally-sized
+    # sync groups, i.e. there is the same number of peers with every possible
+    # prefix.
+    'even_sync_groups': False,
 
     # The time the reputation decay process sleeps.
     'decay_timestep': 1,
