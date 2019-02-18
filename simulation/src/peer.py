@@ -20,8 +20,9 @@ class PeerBehavior:
         min_rep = min((g[self.peer.peer_id].reputation for g in
                        self.peer.peer_query_groups(querying_peer_id)),
                       default=0)
-        # TODO Unhardcode
-        if querying_peer_id != self.peer.peer_id and min_rep >= 15:
+        enough_rep = (self.peer.settings['reputation_buffer_factor']
+                      * self.peer.settings['no_penalty_reputation'])
+        if querying_peer_id != self.peer.peer_id and min_rep >= enough_rep:
             return
         delay = self.decide_delay(querying_peer_id)
         info = PeerInfo(self.peer.peer_id, self.peer.prefix, self.peer.address)
@@ -35,8 +36,9 @@ class PeerBehavior:
         min_rep = min((g[self.peer.peer_id].reputation for g in
                        self.peer.peer_query_groups(querying_peer_id)),
                       default=0)
-        # TODO Unhardcode
-        if querying_peer_id != self.peer.peer_id and min_rep >= 15:
+        enough_rep = (self.peer.settings['reputation_buffer_factor']
+                      * self.peer.settings['no_penalty_reputation'])
+        if querying_peer_id != self.peer.peer_id and min_rep >= enough_rep:
             return
         delay = self.decide_delay(querying_peer_id)
         self.peer.send_response(querying_peer_id, SortedIterSet((queried_id,)),
@@ -60,8 +62,9 @@ class PeerBehavior:
         min_rep = min((g[self.peer.peer_id].reputation for g in
                        self.peer.peer_query_groups(querying_peer_id)),
                       default=0)
-        # TODO Unhardcode
-        if querying_peer_id != self.peer.peer_id and min_rep >= 15:
+        enough_rep = (self.peer.settings['reputation_buffer_factor']
+                      * self.peer.settings['no_penalty_reputation'])
+        if querying_peer_id != self.peer.peer_id and min_rep >= enough_rep:
             return
         if query_all:
             peers_to_query_info = (list(self.peer.known_query_peers())
@@ -181,8 +184,8 @@ class PeerBehavior:
         max_rep = max((g[querying_peer_id].reputation
                       for g in self.peer.peer_query_groups(querying_peer_id)),
                       default=0)
-        # TODO Unhardcode
-        return min(max(10 - max_rep, 0), 10)
+        npr = self.peer.settings['no_penalty_reputation']
+        return min(max(npr - max_rep, 0), npr)
 
     def expect_delay(self, peer_to_query_id):
         """Predict the penalty delay that will be imposed."""
@@ -191,8 +194,8 @@ class PeerBehavior:
         max_rep = max((g[self.peer.peer_id].reputation
                        for g in self.peer.peer_query_groups(peer_to_query_id)),
                       default=0)
-        # TODO Unhardcode
-        return min(max(10 - max_rep, 0), 10)
+        npr = self.peer.settings['no_penalty_reputation']
+        return min(max(npr - max_rep, 0), npr)
 
 
 class Peer:

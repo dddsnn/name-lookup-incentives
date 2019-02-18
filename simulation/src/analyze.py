@@ -210,9 +210,11 @@ class Logger:
                               data_set))
 
         def axes_modifier(axes):
-            # TODO Unhardcode reputation thresholds.
-            axes.axhline(10, linestyle='--', color='k', alpha=0.2)
-            axes.axhline(15, linestyle='--', color='k', alpha=0.2)
+            npr = self.settings['no_penalty_reputation']
+            enough_rep = (self.settings['reputation_buffer_factor']
+                          * self.settings['no_penalty_reputation'])
+            axes.axhline(npr, linestyle='--', color='k', alpha=0.2)
+            axes.axhline(enough_rep, linestyle='--', color='k', alpha=0.2)
         plot_steps('Reputation percentiles in query groups', 'Time',
                    'Reputation', data_sets, max_edge_length, axes_modifier)
 
