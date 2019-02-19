@@ -1,39 +1,7 @@
 import unittest
 from unittest.mock import ANY
-from test_utils import TestHelper, pending_query
-import util
-from peer import Peer, PeerBehavior
-import analyze
-import bitstring as bs
-import simpy
+from test_utils import TestHelper, pending_query, PeerFactory
 from collections import OrderedDict
-import random
-
-
-class PeerFactory:
-    def __init__(self, all_query_groups, settings):
-        self.settings = settings
-        self.all_query_groups = all_query_groups
-        self.env = simpy.Environment()
-        self.logger = analyze.Logger(self.settings)
-        self.network = util.Network(self.env, self.settings)
-        self.all_peer_ids = set()
-
-    def id_with_prefix(self, prefix_str):
-        while True:
-            prefix = bs.Bits(bin=prefix_str)
-            suffix_length = self.settings['id_length'] - len(prefix)
-            suffix = bs.Bits(uint=random.randrange(2 ** suffix_length),
-                             length=suffix_length)
-            peer_id = prefix + suffix
-            if peer_id not in self.all_peer_ids:
-                self.all_peer_ids.add(peer_id)
-                return peer_id
-
-    def peer_with_prefix(self, prefix_str):
-        peer_id = self.id_with_prefix(prefix_str)
-        return Peer(self.env, self.logger, self.network, peer_id,
-                    self.all_query_groups, self.settings)
 
 
 class TestPeerSelection(unittest.TestCase):
@@ -134,21 +102,11 @@ class TestOnQuery(unittest.TestCase):
         self.helper = TestHelper()
         self.peer_factory = PeerFactory({}, self.helper.settings)
 
-    def mock_peer_and_behavior_with_prefix(self, prefix_str):
-        peer = self.peer_factory.peer_with_prefix(prefix_str)
-        mock_peer = unittest.mock.Mock(spec=Peer, wraps=peer)
-        mock_peer.env = peer.env
-        mock_peer.sync_peers = peer.sync_peers
-        mock_peer.query_groups = peer.query_groups
-        mock_peer.peer_id = peer.peer_id
-        mock_peer.prefix = peer.prefix
-        mock_peer.settings = peer.settings
-        behavior = PeerBehavior(mock_peer)
-        return mock_peer, behavior
-
     def test_adds_pending_query(self):
-        peer_a, behavior = self.mock_peer_and_behavior_with_prefix('1000')
-        peer_b, _ = self.mock_peer_and_behavior_with_prefix('1111')
+        peer_a, behavior\
+            = self.peer_factory.mock_peer_and_behavior_with_prefix('1000')
+        peer_b, _\
+            = self.peer_factory.mock_peer_and_behavior_with_prefix('1111')
         self.helper.create_query_group({}, peer_a, peer_b)
         querying_peer_id = self.peer_factory.id_with_prefix('0000')
         queried_id = self.peer_factory.id_with_prefix('1111')
@@ -159,8 +117,10 @@ class TestOnQuery(unittest.TestCase):
                                       [peer_b.peer_id]))
 
     def test_sends_query(self):
-        peer_a, behavior = self.mock_peer_and_behavior_with_prefix('1000')
-        peer_b, _ = self.mock_peer_and_behavior_with_prefix('1111')
+        peer_a, behavior\
+            = self.peer_factory.mock_peer_and_behavior_with_prefix('1000')
+        peer_b, _\
+            = self.peer_factory.mock_peer_and_behavior_with_prefix('1111')
         self.helper.create_query_group({}, peer_a, peer_b)
         querying_peer_id = self.peer_factory.id_with_prefix('0000')
         queried_id = self.peer_factory.id_with_prefix('1111')
@@ -171,7 +131,8 @@ class TestOnQuery(unittest.TestCase):
                                       [peer_b.peer_id]), ANY)
 
     def test_just_finalizes_if_query_from_self_and_no_known_peers(self):
-        peer_a, behavior = self.mock_peer_and_behavior_with_prefix('')
+        peer_a, behavior\
+            = self.peer_factory.mock_peer_and_behavior_with_prefix('')
         behavior.on_query(peer_a.peer_id,
                           self.peer_factory.id_with_prefix(''), None)
         peer_a.send_response.assert_not_called()
@@ -180,7 +141,8 @@ class TestOnQuery(unittest.TestCase):
         peer_a.finalize_query.assert_called_with('impossible', ANY)
 
     def test_informs_querying_peers_of_impossible_query(self):
-        peer_a, behavior = self.mock_peer_and_behavior_with_prefix('')
+        peer_a, behavior\
+            = self.peer_factory.mock_peer_and_behavior_with_prefix('')
         querying_peer_id = self.peer_factory.id_with_prefix('')
         queried_id = self.peer_factory.id_with_prefix('')
         peer_a.send_response.return_value = None
@@ -189,9 +151,12 @@ class TestOnQuery(unittest.TestCase):
             querying_peer_id, set((queried_id,)), None, ANY, delay=ANY)
 
     def test_does_nothing_if_enough_reputation(self):
-        peer_a, behavior = self.mock_peer_and_behavior_with_prefix('1000')
-        peer_b, _ = self.mock_peer_and_behavior_with_prefix('1111')
-        querying_peer, _ = self.mock_peer_and_behavior_with_prefix('0000')
+        peer_a, behavior\
+            = self.peer_factory.mock_peer_and_behavior_with_prefix('1000')
+        peer_b, _ =\
+            self.peer_factory.mock_peer_and_behavior_with_prefix('1111')
+        querying_peer, _ =\
+            self.peer_factory.mock_peer_and_behavior_with_prefix('0000')
         query_group_id = self.helper.create_query_group({}, peer_a, peer_b,
                                                         querying_peer)
         enough_rep = (self.helper.settings['reputation_buffer_factor']
@@ -206,9 +171,12 @@ class TestOnQuery(unittest.TestCase):
         peer_a.add_pending_query.assert_not_called()
 
     def test_considers_min_rep_in_all_shared_query_groups(self):
-        peer_a, behavior = self.mock_peer_and_behavior_with_prefix('1000')
-        peer_b, _ = self.mock_peer_and_behavior_with_prefix('1111')
-        querying_peer, _ = self.mock_peer_and_behavior_with_prefix('0000')
+        peer_a, behavior =\
+            self.peer_factory.mock_peer_and_behavior_with_prefix('1000')
+        peer_b, _ =\
+            self.peer_factory.mock_peer_and_behavior_with_prefix('1111')
+        querying_peer, _ =\
+            self.peer_factory.mock_peer_and_behavior_with_prefix('0000')
         query_group_id = self.helper.create_query_group({}, peer_a, peer_b,
                                                         querying_peer)
         self.helper.create_query_group({}, peer_a, peer_b, querying_peer)
@@ -222,8 +190,10 @@ class TestOnQuery(unittest.TestCase):
         peer_a.send_query.assert_called_once()
 
     def test_query_all_also_queries_query_peers_with_smaller_overlap(self):
-        peer_a, behavior = self.mock_peer_and_behavior_with_prefix('1111')
-        peer_b, _ = self.mock_peer_and_behavior_with_prefix('1000')
+        peer_a, behavior =\
+            self.peer_factory.mock_peer_and_behavior_with_prefix('1111')
+        peer_b, _ =\
+            self.peer_factory.mock_peer_and_behavior_with_prefix('1000')
         self.helper.create_query_group({}, peer_a, peer_b)
         querying_peer_id = self.peer_factory.id_with_prefix('0000')
         queried_id = self.peer_factory.id_with_prefix('1111')
@@ -234,8 +204,10 @@ class TestOnQuery(unittest.TestCase):
                                       [peer_b.peer_id]), ANY)
 
     def test_query_all_also_queries_sync_peers(self):
-        peer_a, behavior = self.mock_peer_and_behavior_with_prefix('1000')
-        peer_b, _ = self.mock_peer_and_behavior_with_prefix('1000')
+        peer_a, behavior =\
+            self.peer_factory.mock_peer_and_behavior_with_prefix('1000')
+        peer_b, _ =\
+            self.peer_factory.mock_peer_and_behavior_with_prefix('1000')
         peer_a.sync_peers[peer_b.peer_id] = peer_b.info()
         querying_peer_id = self.peer_factory.id_with_prefix('0000')
         queried_id = self.peer_factory.id_with_prefix('1111')
@@ -247,10 +219,14 @@ class TestOnQuery(unittest.TestCase):
 
     def test_query_all_sorts_by_overlap_length(self):
         self.helper.settings['query_peer_selection'] = 'overlap'
-        peer_a, behavior = self.mock_peer_and_behavior_with_prefix('0000')
-        peer_b, _ = self.mock_peer_and_behavior_with_prefix('1000')
-        peer_c, _ = self.mock_peer_and_behavior_with_prefix('1110')
-        peer_d, _ = self.mock_peer_and_behavior_with_prefix('1100')
+        peer_a, behavior =\
+            self.peer_factory.mock_peer_and_behavior_with_prefix('0000')
+        peer_b, _ =\
+            self.peer_factory.mock_peer_and_behavior_with_prefix('1000')
+        peer_c, _ =\
+            self.peer_factory.mock_peer_and_behavior_with_prefix('1110')
+        peer_d, _ =\
+            self.peer_factory.mock_peer_and_behavior_with_prefix('1100')
         self.helper.create_query_group({}, peer_a, peer_b, peer_c, peer_d)
         querying_peer_id = self.peer_factory.id_with_prefix('0000')
         queried_id = self.peer_factory.id_with_prefix('1111')
@@ -263,10 +239,14 @@ class TestOnQuery(unittest.TestCase):
 
     def test_query_all_puts_high_rep_peers_to_the_back(self):
         self.helper.settings['query_peer_selection'] = 'overlap_low_rep_first'
-        peer_a, behavior = self.mock_peer_and_behavior_with_prefix('0000')
-        peer_b, _ = self.mock_peer_and_behavior_with_prefix('1000')
-        peer_c, _ = self.mock_peer_and_behavior_with_prefix('1110')
-        peer_d, _ = self.mock_peer_and_behavior_with_prefix('1100')
+        peer_a, behavior =\
+            self.peer_factory.mock_peer_and_behavior_with_prefix('0000')
+        peer_b, _ =\
+            self.peer_factory.mock_peer_and_behavior_with_prefix('1000')
+        peer_c, _ =\
+            self.peer_factory.mock_peer_and_behavior_with_prefix('1110')
+        peer_d, _ =\
+            self.peer_factory.mock_peer_and_behavior_with_prefix('1100')
         query_group_id = self.helper.create_query_group({}, peer_a, peer_b,
                                                         peer_c, peer_d)
         enough_rep = (self.helper.settings['reputation_buffer_factor']
@@ -285,8 +265,10 @@ class TestOnQuery(unittest.TestCase):
     @unittest.mock.patch('random.shuffle')
     def test_query_all_shuffles(self, mocked_shuffle):
         self.helper.settings['query_peer_selection'] = 'overlap_shuffled'
-        peer_a, behavior = self.mock_peer_and_behavior_with_prefix('0000')
-        peer_b, _ = self.mock_peer_and_behavior_with_prefix('1000')
+        peer_a, behavior =\
+            self.peer_factory.mock_peer_and_behavior_with_prefix('0000')
+        peer_b, _ =\
+            self.peer_factory.mock_peer_and_behavior_with_prefix('1000')
         self.helper.create_query_group({}, peer_a, peer_b)
         querying_peer_id = self.peer_factory.id_with_prefix('0000')
         queried_id = self.peer_factory.id_with_prefix('1111')
@@ -295,8 +277,10 @@ class TestOnQuery(unittest.TestCase):
         mocked_shuffle.assert_called_once()
 
     def test_query_all_doesnt_include_peers_multiple_times(self):
-        peer_a, behavior = self.mock_peer_and_behavior_with_prefix('0000')
-        peer_b, _ = self.mock_peer_and_behavior_with_prefix('1000')
+        peer_a, behavior =\
+            self.peer_factory.mock_peer_and_behavior_with_prefix('0000')
+        peer_b, _ =\
+            self.peer_factory.mock_peer_and_behavior_with_prefix('1000')
         self.helper.create_query_group({}, peer_a, peer_b)
         self.helper.create_query_group({}, peer_a, peer_b)
         querying_peer_id = self.peer_factory.id_with_prefix('0000')
