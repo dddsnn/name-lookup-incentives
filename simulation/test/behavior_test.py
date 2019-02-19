@@ -8,15 +8,13 @@ class TestPeerSelection(unittest.TestCase):
     def setUp(self):
         self.helper = TestHelper()
         self.all_query_groups = OrderedDict()
-        self.peer_factory = PeerFactory(self.all_query_groups,
-                                        self.helper.settings)
+        self.peer_factory = PeerFactory(self.helper.settings)
 
     def test_selects_peers(self):
         peer_a = self.peer_factory.peer_with_prefix('0000')
         peer_b = self.peer_factory.peer_with_prefix('1100')
         peer_c = self.peer_factory.peer_with_prefix('1000')
-        self.helper.create_query_group(self.all_query_groups, peer_a, peer_b,
-                                       peer_c)
+        self.peer_factory.create_query_group(peer_a, peer_b, peer_c)
         selected = peer_a.behavior.select_peers_to_query(
             self.peer_factory.id_with_prefix('1111'))
         self.assertEqual(set(selected), set((peer_b.peer_id, peer_c.peer_id)))
@@ -26,8 +24,7 @@ class TestPeerSelection(unittest.TestCase):
         peer_b = self.peer_factory.peer_with_prefix('0000')
         peer_c = self.peer_factory.peer_with_prefix('0011')
         peer_d = self.peer_factory.peer_with_prefix('1000')
-        self.helper.create_query_group(self.all_query_groups, peer_a, peer_b,
-                                       peer_c, peer_d)
+        self.peer_factory.create_query_group(peer_a, peer_b, peer_c, peer_d)
         selected = peer_a.behavior.select_peers_to_query(
             self.peer_factory.id_with_prefix('0001'))
         self.assertEqual(selected, [])
@@ -35,8 +32,8 @@ class TestPeerSelection(unittest.TestCase):
     def test_only_selects_peers_once(self):
         peer_a = self.peer_factory.peer_with_prefix('0000')
         peer_b = self.peer_factory.peer_with_prefix('1111')
-        self.helper.create_query_group(self.all_query_groups, peer_a, peer_b)
-        self.helper.create_query_group(self.all_query_groups, peer_a, peer_b)
+        self.peer_factory.create_query_group(peer_a, peer_b)
+        self.peer_factory.create_query_group(peer_a, peer_b)
         selected = peer_a.behavior.select_peers_to_query(
             self.peer_factory.id_with_prefix('1111'))
         self.assertEqual(selected, [peer_b.peer_id])
@@ -47,8 +44,7 @@ class TestPeerSelection(unittest.TestCase):
         peer_b = self.peer_factory.peer_with_prefix('1000')
         peer_c = self.peer_factory.peer_with_prefix('1111')
         peer_d = self.peer_factory.peer_with_prefix('1100')
-        self.helper.create_query_group(self.all_query_groups, peer_a, peer_b,
-                                       peer_c, peer_d)
+        self.peer_factory.create_query_group(peer_a, peer_b, peer_c, peer_d)
         selected = peer_a.behavior.select_peers_to_query(
             self.peer_factory.id_with_prefix('1111'))
         self.assertEqual(selected, [peer_c.peer_id, peer_d.peer_id,
@@ -59,8 +55,8 @@ class TestPeerSelection(unittest.TestCase):
         peer_a = self.peer_factory.peer_with_prefix('0000')
         peer_b = self.peer_factory.peer_with_prefix('1111')
         peer_c = self.peer_factory.peer_with_prefix('1000')
-        query_group_id = self.helper.create_query_group(self.all_query_groups,
-                                                        peer_a, peer_b, peer_c)
+        query_group_id = self.peer_factory.create_query_group(peer_a, peer_b,
+                                                              peer_c)
         enough_rep = (self.helper.settings['reputation_buffer_factor']
                       * self.helper.settings['no_penalty_reputation'])
         peer_a.query_groups[query_group_id][peer_b.peer_id].reputation\
@@ -74,10 +70,9 @@ class TestPeerSelection(unittest.TestCase):
         peer_a = self.peer_factory.peer_with_prefix('0000')
         peer_b = self.peer_factory.peer_with_prefix('1111')
         peer_c = self.peer_factory.peer_with_prefix('1000')
-        query_group_id_1 = self.helper.create_query_group(
-            self.all_query_groups, peer_a, peer_b, peer_c)
-        self.helper.create_query_group(self.all_query_groups, peer_a, peer_b,
-                                       peer_c)
+        query_group_id_1 = self.peer_factory.create_query_group(peer_a, peer_b,
+                                                                peer_c)
+        self.peer_factory.create_query_group(peer_a, peer_b, peer_c)
         enough_rep = (self.helper.settings['reputation_buffer_factor']
                       * self.helper.settings['no_penalty_reputation'])
         peer_a.query_groups[query_group_id_1][peer_b.peer_id].reputation\
@@ -91,7 +86,7 @@ class TestPeerSelection(unittest.TestCase):
         self.helper.settings['query_peer_selection'] = 'overlap_shuffled'
         peer_a = self.peer_factory.peer_with_prefix('0000')
         peer_b = self.peer_factory.peer_with_prefix('1000')
-        self.helper.create_query_group(self.all_query_groups, peer_a, peer_b)
+        self.peer_factory.create_query_group(peer_a, peer_b)
         peer_a.behavior.select_peers_to_query(
             self.peer_factory.id_with_prefix('1111'))
         mocked_shuffle.assert_called_once()
@@ -100,14 +95,14 @@ class TestPeerSelection(unittest.TestCase):
 class TestOnQuery(unittest.TestCase):
     def setUp(self):
         self.helper = TestHelper()
-        self.peer_factory = PeerFactory({}, self.helper.settings)
+        self.peer_factory = PeerFactory(self.helper.settings)
 
     def test_adds_pending_query(self):
         peer_a, behavior\
             = self.peer_factory.mock_peer_and_behavior_with_prefix('1000')
         peer_b, _\
             = self.peer_factory.mock_peer_and_behavior_with_prefix('1111')
-        self.helper.create_query_group({}, peer_a, peer_b)
+        self.peer_factory.create_query_group(peer_a, peer_b)
         querying_peer_id = self.peer_factory.id_with_prefix('0000')
         queried_id = self.peer_factory.id_with_prefix('1111')
         peer_a.send_query.return_value = None
@@ -121,7 +116,7 @@ class TestOnQuery(unittest.TestCase):
             = self.peer_factory.mock_peer_and_behavior_with_prefix('1000')
         peer_b, _\
             = self.peer_factory.mock_peer_and_behavior_with_prefix('1111')
-        self.helper.create_query_group({}, peer_a, peer_b)
+        self.peer_factory.create_query_group(peer_a, peer_b)
         querying_peer_id = self.peer_factory.id_with_prefix('0000')
         queried_id = self.peer_factory.id_with_prefix('1111')
         peer_a.send_query.return_value = None
@@ -157,8 +152,8 @@ class TestOnQuery(unittest.TestCase):
             self.peer_factory.mock_peer_and_behavior_with_prefix('1111')
         querying_peer, _ =\
             self.peer_factory.mock_peer_and_behavior_with_prefix('0000')
-        query_group_id = self.helper.create_query_group({}, peer_a, peer_b,
-                                                        querying_peer)
+        query_group_id = self.peer_factory.create_query_group(peer_a, peer_b,
+                                                              querying_peer)
         enough_rep = (self.helper.settings['reputation_buffer_factor']
                       * self.helper.settings['no_penalty_reputation'])
         peer_a.query_groups[query_group_id][peer_a.peer_id].reputation\
@@ -177,9 +172,9 @@ class TestOnQuery(unittest.TestCase):
             self.peer_factory.mock_peer_and_behavior_with_prefix('1111')
         querying_peer, _ =\
             self.peer_factory.mock_peer_and_behavior_with_prefix('0000')
-        query_group_id = self.helper.create_query_group({}, peer_a, peer_b,
-                                                        querying_peer)
-        self.helper.create_query_group({}, peer_a, peer_b, querying_peer)
+        query_group_id = self.peer_factory.create_query_group(peer_a, peer_b,
+                                                              querying_peer)
+        self.peer_factory.create_query_group(peer_a, peer_b, querying_peer)
         enough_rep = (self.helper.settings['reputation_buffer_factor']
                       * self.helper.settings['no_penalty_reputation'])
         peer_a.query_groups[query_group_id][peer_a.peer_id].reputation\
@@ -194,7 +189,7 @@ class TestOnQuery(unittest.TestCase):
             self.peer_factory.mock_peer_and_behavior_with_prefix('1111')
         peer_b, _ =\
             self.peer_factory.mock_peer_and_behavior_with_prefix('1000')
-        self.helper.create_query_group({}, peer_a, peer_b)
+        self.peer_factory.create_query_group(peer_a, peer_b)
         querying_peer_id = self.peer_factory.id_with_prefix('0000')
         queried_id = self.peer_factory.id_with_prefix('1111')
         peer_a.send_query.return_value = None
@@ -227,7 +222,7 @@ class TestOnQuery(unittest.TestCase):
             self.peer_factory.mock_peer_and_behavior_with_prefix('1110')
         peer_d, _ =\
             self.peer_factory.mock_peer_and_behavior_with_prefix('1100')
-        self.helper.create_query_group({}, peer_a, peer_b, peer_c, peer_d)
+        self.peer_factory.create_query_group(peer_a, peer_b, peer_c, peer_d)
         querying_peer_id = self.peer_factory.id_with_prefix('0000')
         queried_id = self.peer_factory.id_with_prefix('1111')
         peer_a.send_query.return_value = None
@@ -247,8 +242,8 @@ class TestOnQuery(unittest.TestCase):
             self.peer_factory.mock_peer_and_behavior_with_prefix('1110')
         peer_d, _ =\
             self.peer_factory.mock_peer_and_behavior_with_prefix('1100')
-        query_group_id = self.helper.create_query_group({}, peer_a, peer_b,
-                                                        peer_c, peer_d)
+        query_group_id = self.peer_factory.create_query_group(peer_a, peer_b,
+                                                              peer_c, peer_d)
         enough_rep = (self.helper.settings['reputation_buffer_factor']
                       * self.helper.settings['no_penalty_reputation'])
         peer_a.query_groups[query_group_id][peer_c.peer_id].reputation\
@@ -269,7 +264,7 @@ class TestOnQuery(unittest.TestCase):
             self.peer_factory.mock_peer_and_behavior_with_prefix('0000')
         peer_b, _ =\
             self.peer_factory.mock_peer_and_behavior_with_prefix('1000')
-        self.helper.create_query_group({}, peer_a, peer_b)
+        self.peer_factory.create_query_group(peer_a, peer_b)
         querying_peer_id = self.peer_factory.id_with_prefix('0000')
         queried_id = self.peer_factory.id_with_prefix('1111')
         peer_a.send_query.return_value = None
@@ -281,8 +276,8 @@ class TestOnQuery(unittest.TestCase):
             self.peer_factory.mock_peer_and_behavior_with_prefix('0000')
         peer_b, _ =\
             self.peer_factory.mock_peer_and_behavior_with_prefix('1000')
-        self.helper.create_query_group({}, peer_a, peer_b)
-        self.helper.create_query_group({}, peer_a, peer_b)
+        self.peer_factory.create_query_group(peer_a, peer_b)
+        self.peer_factory.create_query_group(peer_a, peer_b)
         querying_peer_id = self.peer_factory.id_with_prefix('0000')
         queried_id = self.peer_factory.id_with_prefix('1111')
         peer_a.send_query.return_value = None

@@ -17,21 +17,11 @@ class TestHelper:
         file_name = os.path.join(os.getcwd(), '../default.settings')
         self.settings = util.read_settings(file_name)
 
-    def create_query_group(self, all_query_groups, *peers):
-        query_group = QueryGroup(next(query_group_id_iter),
-                                 (p.info() for p in peers),
-                                 self.settings['initial_reputation'])
-        all_query_groups[query_group.query_group_id] = query_group
-        for peer in peers:
-            peer.query_groups[query_group.query_group_id]\
-                = deepcopy(query_group)
-        return query_group.query_group_id
-
 
 class PeerFactory:
-    def __init__(self, all_query_groups, settings):
+    def __init__(self, settings):
         self.settings = settings
-        self.all_query_groups = all_query_groups
+        self.all_query_groups = {}
         self.env = simpy.Environment()
         self.logger = analyze.Logger(self.settings)
         self.network = util.Network(self.env, self.settings)
@@ -64,6 +54,16 @@ class PeerFactory:
         mock_peer.settings = peer.settings
         behavior = PeerBehavior(mock_peer)
         return mock_peer, behavior
+
+    def create_query_group(self, *peers):
+        query_group = QueryGroup(next(query_group_id_iter),
+                                 (p.info() for p in peers),
+                                 self.settings['initial_reputation'])
+        self.all_query_groups[query_group.query_group_id] = query_group
+        for peer in peers:
+            peer.query_groups[query_group.query_group_id]\
+                = deepcopy(query_group)
+        return query_group.query_group_id
 
 
 class PendingQueryMatcher:
