@@ -69,7 +69,8 @@ class Logger:
 
     def print_query_groups_at(self, time):
         """Print information about query groups at a point in time."""
-        groups = Replay(self.events, {}, query_groups_event_processor).at(time)
+        groups = Replay(self.events, {},
+                        self.query_groups_event_processor).at(time)
 
         print('query_groups (peer: reputation):')
         for query_group_id, query_group in sorted(groups.items(),
@@ -127,7 +128,7 @@ class Logger:
         Returns a dictionary mapping the query group ID to the peer's
         reputation in that group.
         """
-        replay = Replay(self.events, {}, query_groups_event_processor)
+        replay = Replay(self.events, {}, self.query_groups_event_processor)
         replay.step_until(time)
         reputations = {}
         for query_group_id, query_group in replay.data.items():
@@ -138,7 +139,7 @@ class Logger:
     def plot_average_reputation_until(self, until_time):
         """Plot average reputation over time until some point."""
         reputations = {}
-        replay = Replay(self.events, {}, query_groups_event_processor)
+        replay = Replay(self.events, {}, self.query_groups_event_processor)
         current_time = 0
 
         def append_step():
@@ -172,7 +173,7 @@ class Logger:
     def plot_reputation_percentiles_until(self, until_time, max_edge_length=3):
         """Plot reputation percentiles over time until some point."""
         reputations = {}
-        replay = Replay(self.events, {}, query_groups_event_processor)
+        replay = Replay(self.events, {}, self.query_groups_event_processor)
         current_time = 0
         percentile_tuple = (5, 25, 50, 75, 95)
 
@@ -301,7 +302,7 @@ class Logger:
         Under these assumptions, the probability is a fair estimator for how
         useful a peer is in a query group.
         """
-        replay = Replay(self.events, {}, query_groups_event_processor)
+        replay = Replay(self.events, {}, self.query_groups_event_processor)
         replay.step_until(time)
         query_groups = {i: set(v.keys()) for i, v in replay.data.items()}
 
@@ -377,6 +378,39 @@ class Logger:
         plot_hists('Peer selection probabilities by query group',
                    'Probability', 'Number of peers', data_sets, num_bins,
                    max_edge_length)
+
+    def query_groups_event_processor(self, data, event):
+        """
+        Process an event to build query groups.
+
+        The data that is built is a dictionary mapping query group ID to
+        dictionaries representing query groups. These map peer ID to the peer's
+        reputation. The initial value must be an empty dictionary.
+        """
+        if isinstance(event, QueryGroupAdd):
+            query_group = data.setdefault(event.query_group_id, {})
+            if event.peer_id not in query_group:
+                query_group[event.peer_id]\
+                    = self.settings['initial_reputation']
+        elif isinstance(event, QueryGroupRemove):
+            query_group = data.get(event.query_group_id)
+            if query_group is not None:
+                query_group.pop(event.peer_id, None)
+                if len(query_group) == 0:
+                    data.pop(event.query_group_id, None)
+        elif isinstance(event, ReputationUpdateSent):
+            for query_group_id in event.query_group_ids:
+                query_group = data.get(query_group_id)
+                if query_group is None:
+                    query_group = data.setdefault(event.query_group_id, {})
+                new_rep = max(0, query_group.setdefault(event.peer_id, 0)
+                              + event.reputation_diff)
+                query_group[event.peer_id] = new_rep
+        elif isinstance(event, ReputationDecay):
+            for query_group in data.values():
+                for query_peer_id, reputation in query_group.items():
+                    new_rep = max(0, reputation - event.decay)
+                    query_group[query_peer_id] = new_rep
 
 
 def plot_steps(title, xlabel, ylabel, data_sets, max_edge_length=3,
@@ -487,39 +521,6 @@ def sync_groups_event_processor(data, event):
             data[event.prefix].discard(event.peer_id)
             if len(data[event.prefix]) == 0:
                 data.pop(event.prefix)
-
-
-def query_groups_event_processor(data, event):
-    """
-    Process an event to build query groups.
-
-    The data that is built is a dictionary mapping query group ID to
-    dictionaries representing query groups. These map peer ID to the peer's
-    reputation. The initial value must be an empty dictionary.
-    """
-    if isinstance(event, QueryGroupAdd):
-        query_group = data.setdefault(event.query_group_id, {})
-        if event.peer_id not in query_group:
-            query_group[event.peer_id] = 0
-    elif isinstance(event, QueryGroupRemove):
-        query_group = data.get(event.query_group_id)
-        if query_group is not None:
-            query_group.pop(event.peer_id, None)
-            if len(query_group) == 0:
-                data.pop(event.query_group_id, None)
-    elif isinstance(event, ReputationUpdateSent):
-        for query_group_id in event.query_group_ids:
-            query_group = data.get(query_group_id)
-            if query_group is None:
-                query_group = data.setdefault(event.query_group_id, {})
-            new_rep = max(0, query_group.setdefault(event.peer_id, 0)
-                          + event.reputation_diff)
-            query_group[event.peer_id] = new_rep
-    elif isinstance(event, ReputationDecay):
-        for query_group in data.values():
-            for query_peer_id, reputation in query_group.items():
-                new_rep = max(0, reputation - event.decay)
-                query_group[query_peer_id] = new_rep
 
 
 def uncovered_subprefixes_event_processor(data, event):

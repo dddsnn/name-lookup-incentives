@@ -345,7 +345,8 @@ class Peer:
             if query_peer == self:
                 continue
             qg = query_peer.query_groups[query_group.query_group_id]
-            qg[peer.peer_id] = QueryPeerInfo(peer.info())
+            qg[peer.peer_id] = QueryPeerInfo(
+                peer.info(), self.settings['initial_reputation'])
 
     def join_group_with(self, peer_info):
         """
@@ -378,7 +379,8 @@ class Peer:
                         and self.peer_id not in query_group):
                     self.add_to_query_group(query_group, self)
                     query_group_copy = deepcopy(query_group)
-                    query_group_copy[self.peer_id] = QueryPeerInfo(self.info())
+                    query_group_copy[self.peer_id] = QueryPeerInfo(
+                        self.info(), self.settings['initial_reputation'])
                     self.query_groups[query_group.query_group_id]\
                         = query_group_copy
                     self.all_query_groups[query_group.query_group_id]\
@@ -393,7 +395,8 @@ class Peer:
                 if (len(query_group) < self.settings['max_desired_group_size']
                         and peer_info.peer_id not in query_group):
                     self.add_to_query_group(query_group, peer)
-                    query_group[peer_info.peer_id] = QueryPeerInfo(peer_info)
+                    query_group[peer_info.peer_id] = QueryPeerInfo(
+                        peer_info, self.settings['initial_reputation'])
                     query_group_copy = deepcopy(query_group)
                     peer.query_groups[query_group.query_group_id]\
                         = query_group_copy
@@ -405,7 +408,8 @@ class Peer:
                     return
             # Create a new query group.
             query_group = QueryGroup(next(query_group_id_iter),
-                                     (self.info(), peer_info))
+                                     (self.info(), peer_info),
+                                     self.settings['initial_reputation'])
             self.all_query_groups[query_group.query_group_id] = query_group
             self.query_groups[query_group.query_group_id]\
                 = deepcopy(query_group)
@@ -867,14 +871,15 @@ class Peer:
 
 
 class QueryGroup:
-    def __init__(self, query_group_id, members):
+    def __init__(self, query_group_id, members, initial_reputation):
         """
         Create a query group with some initial members.
 
         :param members: An iterable of PeerInfo objects.
         """
         self.query_group_id = query_group_id
-        self._members = OrderedDict((info.peer_id, QueryPeerInfo(info))
+        self._members = OrderedDict((info.peer_id,
+                                     QueryPeerInfo(info, initial_reputation))
                                     for info in members)
 
     def __len__(self):
@@ -929,9 +934,9 @@ ReputationUpdate = namedtuple('ReputationUpdate', ['time', 'old_reputation',
 
 
 class QueryPeerInfo(PeerInfo):
-    def __init__(self, info):
+    def __init__(self, info, initial_reputation):
         super().__init__(info.peer_id, info.prefix, info.address)
-        self.reputation = 0
+        self.reputation = initial_reputation
         self.reputation_updates = []
 
 
