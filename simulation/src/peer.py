@@ -433,10 +433,6 @@ class Peer:
                         SortedIterSet(query_peer.uncovered_subprefixes()),
                         None))
 
-    def uncovered_subprefixes(self):
-        """Return subprefixes for which no peer is known."""
-        return (sp for sp, c in self.subprefixes().items() if c == 0)
-
     def find_missing_query_peers(self):
         """
         Find peers to cover prefixes for which there are no known peers.
@@ -469,7 +465,7 @@ class Peer:
             is_known = True
             query_group[peer_info.peer_id].address = peer_info.address
         if not is_known:
-            for sp, count in self.subprefixes().items():
+            for sp, count in self.subprefix_coverage().items():
                 if (peer_info.prefix.startswith(sp)
                         and count < self.settings['min_desired_query_peers']):
                     self.join_group_with(peer_info)
@@ -479,26 +475,37 @@ class Peer:
 
     def subprefixes(self):
         """
-        Map each subprefix to the number of known peers serving it.
+        Return an ordered list of the subprefixes of this peer.
 
         A subprefix is a k-bit bitstring with k > 0, k <= len(self.prefix), in
         which the first k-1 bits are equal to the first k-1 bits in
         self.prefix, and the k-th bit is inverted.
 
-        The dictionary that is returned maps each of the possible
-        len(self.prefix) such subprefixes to the number of peers this peer
-        knows who can serve it.
+        The list is sorted by the length of the subprefix, in ascending order.
         """
-        # TODO Cache.
-        subprefixes = OrderedDict()
-        for i in range(len(self.prefix)):
-            subprefixes[self.prefix[:i] + ~(self.prefix[i:i+1])]\
-                = SortedIterSet()
+        return [self.prefix[:i] + ~(self.prefix[i:i+1])
+                for i in range(len(self.prefix))]
+
+    def subprefix_coverage(self):
+        """
+        Map each subprefix to the number of known peers serving it.
+
+        The dictionary that is returned maps each of the possible
+        len(self.prefix) subprefixes to the number of peers this peer knows who
+        can serve it.
+        """
+        coverage = OrderedDict((sp, SortedIterSet())
+                               for sp in self.subprefixes())
         for query_peer_info in self.known_query_peers():
-            for sp in subprefixes.keys():
+            for sp in self.subprefixes():
                 if query_peer_info.prefix.startswith(sp):
-                    subprefixes[sp].add(query_peer_info.peer_id)
-        return OrderedDict((sp, len(qps)) for (sp, qps) in subprefixes.items())
+                    coverage[sp].add(query_peer_info.peer_id)
+                    break
+        return OrderedDict((sp, len(qps)) for (sp, qps) in coverage.items())
+
+    def uncovered_subprefixes(self):
+        """Return subprefixes for which no peer is known."""
+        return (sp for sp, c in self.subprefix_coverage().items() if c == 0)
 
     def handle_request(self, queried_id):
         try:
