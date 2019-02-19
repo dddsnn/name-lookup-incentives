@@ -6,7 +6,6 @@ import analyze
 import bitstring as bs
 import simpy
 from collections import OrderedDict
-import random
 
 
 class TestReputationUpdate(unittest.TestCase):
