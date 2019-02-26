@@ -136,6 +136,14 @@ def do_delayed(env, delay, function, *args):
     env.process(gen())
 
 
+def do_repeatedly(env, interval, function, *args):
+    def gen():
+        while True:
+            yield env.timeout(interval)
+            function(*args)
+    env.process(gen())
+
+
 def progress_process(env, step):
     while True:
         print('\rcurrent time: {}'.format(env.now), end='')

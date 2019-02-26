@@ -1,13 +1,12 @@
 import unittest
-from unittest.mock import ANY
+from unittest.mock import ANY, call
 from test_utils import TestHelper, pending_query, PeerFactory
-from collections import OrderedDict
+import bitstring as bs
 
 
 class TestPeerSelection(unittest.TestCase):
     def setUp(self):
         self.helper = TestHelper()
-        self.all_query_groups = OrderedDict()
         self.peer_factory = PeerFactory(self.helper.settings)
 
     def test_selects_peers(self):
@@ -285,3 +284,202 @@ class TestOnQuery(unittest.TestCase):
         peer_a.send_query.assert_called_once_with(
             queried_id, pending_query(querying_peer_id, queried_id,
                                       [peer_b.peer_id]), ANY)
+
+
+class TestQueryGroupPerforms(unittest.TestCase):
+    def setUp(self):
+        self.helper = TestHelper()
+        self.peer_factory = PeerFactory(self.helper.settings)
+
+    def test_performs_if_history_doesnt_exist(self):
+        peer, behavior\
+            = self.peer_factory.mock_peer_and_behavior_with_prefix('')
+        query_group_id = self.peer_factory.create_query_group(peer)
+        self.assertTrue(behavior.query_group_performs(query_group_id))
+
+    def test_performs_if_history_too_short(self):
+        peer, behavior\
+            = self.peer_factory.mock_peer_and_behavior_with_prefix('')
+        query_group_id = self.peer_factory.create_query_group(peer)
+        for _ in range(self.helper.settings['query_group_min_history'] - 1):
+            peer.update_query_group_history()
+        self.assertTrue(behavior.query_group_performs(query_group_id))
+
+    def test_performs_if_enough_reputation(self):
+        peer, behavior\
+            = self.peer_factory.mock_peer_and_behavior_with_prefix('')
+        query_group_id = self.peer_factory.create_query_group(peer)
+        min_rep = (self.helper.settings['no_penalty_reputation']
+                   * self.helper.settings['performance_no_penalty_fraction'])
+        peer.query_groups[query_group_id][peer.peer_id].reputation = min_rep
+        for _ in range(self.helper.settings['query_group_min_history']):
+            peer.update_query_group_history()
+        self.assertTrue(behavior.query_group_performs(query_group_id))
+
+    def test_performs_if_rep_rises_fast_enough(self):
+        peer, behavior\
+            = self.peer_factory.mock_peer_and_behavior_with_prefix('')
+        query_group_id = self.peer_factory.create_query_group(peer)
+        slope = self.helper.settings['performance_min_slope']
+        for i in range(self.helper.settings['query_group_min_history']):
+            peer.query_groups[query_group_id][peer.peer_id].reputation\
+                = i * slope
+            peer.update_query_group_history()
+        self.assertTrue(behavior.query_group_performs(query_group_id))
+
+    def test_doesnt_perform_if_rep_rises_too_slowly(self):
+        peer, behavior\
+            = self.peer_factory.mock_peer_and_behavior_with_prefix('')
+        query_group_id = self.peer_factory.create_query_group(peer)
+        slope = self.helper.settings['performance_min_slope'] - 0.01
+        for i in range(self.helper.settings['query_group_min_history']):
+            peer.query_groups[query_group_id][peer.peer_id].reputation\
+                = i * slope
+            peer.update_query_group_history()
+        self.assertFalse(behavior.query_group_performs(query_group_id))
+
+    def test_accounts_for_history_interval(self):
+        peer, behavior\
+            = self.peer_factory.mock_peer_and_behavior_with_prefix('')
+        interval = 10
+        self.helper.settings['query_group_history_interval'] = interval
+        query_group_id = self.peer_factory.create_query_group(peer)
+        slope = self.helper.settings['performance_min_slope']
+        for i in range(self.helper.settings['query_group_min_history']):
+            peer.query_groups[query_group_id][peer.peer_id].reputation\
+                = i * slope
+            peer.update_query_group_history()
+        self.assertFalse(behavior.query_group_performs(query_group_id))
+
+
+class TestReevaluateQueryGroups(unittest.TestCase):
+    def setUp(self):
+        self.helper = TestHelper()
+        self.peer_factory = PeerFactory(self.helper.settings)
+
+    def test_doesnt_do_anything_if_group_performs(self):
+        peer, behavior\
+            = self.peer_factory.mock_peer_and_behavior_with_prefix('1111')
+        peer_a = self.peer_factory.peer_with_prefix('0000')
+        peer_b = self.peer_factory.peer_with_prefix('0000')
+        query_group_id = self.peer_factory.create_query_group(peer, peer_a)
+        self.peer_factory.create_query_group(peer_b)
+        self.assertTrue(behavior.query_group_performs(query_group_id))
+        behavior.reevaluate_query_groups(None)
+        peer.find_query_peers_for.assert_not_called()
+        peer.leave_query_group.assert_not_called()
+
+    def test_removes_non_performing_group_if_covered_by_other_group(self):
+        peer, behavior\
+            = self.peer_factory.mock_peer_and_behavior_with_prefix('1111')
+        peer_a = self.peer_factory.peer_with_prefix('0000')
+        peer_b = self.peer_factory.peer_with_prefix('0000')
+        peer_c = self.peer_factory.peer_with_prefix('0000')
+        query_group_id_1 = self.peer_factory.create_query_group(peer, peer_a)
+        query_group_id_2 = self.peer_factory.create_query_group(peer, peer_b,
+                                                                peer_c)
+        peer.query_groups[query_group_id_2][peer.peer_id].reputation = 10
+        for _ in range(self.helper.settings['query_group_min_history']):
+            peer.update_query_group_history()
+        self.assertFalse(behavior.query_group_performs(query_group_id_1))
+        self.assertTrue(behavior.query_group_performs(query_group_id_2))
+        behavior.reevaluate_query_groups(None)
+        peer.find_query_peers_for.assert_not_called()
+        peer.leave_query_group.assert_called_once_with(query_group_id_1, ANY)
+
+    def test_removes_non_performing_group_if_joined_replacement(self):
+        peer, behavior\
+            = self.peer_factory.mock_peer_and_behavior_with_prefix('1111')
+        peer_a = self.peer_factory.peer_with_prefix('0000')
+        peer_b = self.peer_factory.peer_with_prefix('0000')
+        peer_c = self.peer_factory.peer_with_prefix('0000')
+        query_group_id = self.peer_factory.create_query_group(peer, peer_a)
+        self.peer_factory.create_query_group(peer_b, peer_c)
+        for _ in range(self.helper.settings['query_group_min_history']):
+            peer.update_query_group_history()
+        self.assertFalse(behavior.query_group_performs(query_group_id))
+        behavior.reevaluate_query_groups(None)
+        peer.find_query_peers_for.assert_called_once_with(bs.Bits('0b0'), ANY,
+                                                          ANY, ANY)
+        peer.leave_query_group.assert_called_once_with(query_group_id, ANY)
+
+    def test_includes_already_covering_peers(self):
+        peer, behavior\
+            = self.peer_factory.mock_peer_and_behavior_with_prefix('1111')
+        peer_a = self.peer_factory.peer_with_prefix('0000')
+        peer_b = self.peer_factory.peer_with_prefix('0000')
+        query_group_id_1 = self.peer_factory.create_query_group(peer, peer_a)
+        query_group_id_2 = self.peer_factory.create_query_group(peer, peer_b)
+        peer.query_groups[query_group_id_2][peer.peer_id].reputation = 10
+        for _ in range(self.helper.settings['query_group_min_history']):
+            peer.update_query_group_history()
+        self.assertFalse(behavior.query_group_performs(query_group_id_1))
+        self.assertTrue(behavior.query_group_performs(query_group_id_2))
+        behavior.reevaluate_query_groups(None)
+        peer.find_query_peers_for.assert_called_once_with(
+            bs.Bits('0b0'), set((peer_b.peer_id,)), ANY, ANY)
+
+    def test_specifies_number_of_missing_peers(self):
+        peer, behavior\
+            = self.peer_factory.mock_peer_and_behavior_with_prefix('1111')
+        peer_a = self.peer_factory.peer_with_prefix('0000')
+        peer_b = self.peer_factory.peer_with_prefix('0000')
+        query_group_id_1 = self.peer_factory.create_query_group(peer, peer_a)
+        query_group_id_2 = self.peer_factory.create_query_group(peer, peer_b)
+        peer.query_groups[query_group_id_2][peer.peer_id].reputation = 10
+        for _ in range(self.helper.settings['query_group_min_history']):
+            peer.update_query_group_history()
+        self.assertFalse(behavior.query_group_performs(query_group_id_1))
+        self.assertTrue(behavior.query_group_performs(query_group_id_2))
+        behavior.reevaluate_query_groups(None)
+        peer.find_query_peers_for.assert_called_once_with(
+            bs.Bits('0b0'), ANY, 1, ANY)
+
+    def test_doesnt_remove_non_performing_group_if_no_replacement(self):
+        peer, behavior\
+            = self.peer_factory.mock_peer_and_behavior_with_prefix('1111')
+        peer_a = self.peer_factory.peer_with_prefix('0000')
+        query_group_id = self.peer_factory.create_query_group(peer, peer_a)
+        for _ in range(self.helper.settings['query_group_min_history']):
+            peer.update_query_group_history()
+        self.assertFalse(behavior.query_group_performs(query_group_id))
+        behavior.reevaluate_query_groups(None)
+        peer.leave_query_group.assert_not_called()
+
+    def test_checks_all_subprefixes(self):
+        peer, behavior\
+            = self.peer_factory.mock_peer_and_behavior_with_prefix('1111')
+        peer_a = self.peer_factory.peer_with_prefix('0000')
+        peer_b = self.peer_factory.peer_with_prefix('1110')
+        peer_c = self.peer_factory.peer_with_prefix('0000')
+        peer_d = self.peer_factory.peer_with_prefix('0000')
+        query_group_id_1 = self.peer_factory.create_query_group(peer, peer_a,
+                                                                peer_b)
+        query_group_id_2 = self.peer_factory.create_query_group(peer_c, peer_d)
+        for _ in range(self.helper.settings['query_group_min_history']):
+            peer.update_query_group_history()
+        self.assertFalse(behavior.query_group_performs(query_group_id_1))
+        behavior.reevaluate_query_groups(None)
+        self.assertTrue(query_group_id_2 in peer.query_groups)
+        peer.leave_query_group.assert_not_called()
+
+    def test_removes_multiple_groups(self):
+        peer, behavior\
+            = self.peer_factory.mock_peer_and_behavior_with_prefix('1111')
+        peer_a = self.peer_factory.peer_with_prefix('0000')
+        peer_b = self.peer_factory.peer_with_prefix('0000')
+        peer_c = self.peer_factory.peer_with_prefix('0000')
+        peer_d = self.peer_factory.peer_with_prefix('0000')
+        query_group_id_1 = self.peer_factory.create_query_group(peer, peer_a)
+        query_group_id_2 = self.peer_factory.create_query_group(peer, peer_b)
+        self.peer_factory.create_query_group(peer_c, peer_d)
+        for _ in range(self.helper.settings['query_group_min_history']):
+            peer.update_query_group_history()
+        self.assertFalse(behavior.query_group_performs(query_group_id_1))
+        self.assertFalse(behavior.query_group_performs(query_group_id_2))
+        behavior.reevaluate_query_groups(None)
+        self.assertEqual(len(peer.leave_query_group.call_args_list), 2)
+        self.assertTrue(call(query_group_id_1, ANY)
+                        in peer.leave_query_group.call_args_list)
+        self.assertTrue(call(query_group_id_2, ANY)
+                        in peer.leave_query_group.call_args_list)

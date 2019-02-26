@@ -205,9 +205,7 @@ class Logger:
             data_set = [(time_axis, np.array([r[i] for r in record[1]]),
                          '{}%'.format(percentile_tuple[i]))
                         for i in range(len(percentile_tuple))]
-            data_sets.append(('Query group {} ({} peers)'
-                              .format(query_group_id,
-                                      len(replay.data[query_group_id])),
+            data_sets.append(('Query group {}'.format(query_group_id),
                               data_set))
 
         def axes_modifier(axes):
@@ -956,6 +954,13 @@ class QueryGroupRemove(Event):
         super().__init__(time, in_event_id)
         self.peer_id = peer_id
         self.query_group_id = query_group_id
+
+
+class QueryGroupReevaluation(Event):
+    """Event representing a peer reevaluating query group memberships."""
+    def __init__(self, time, peer_id, in_event_id):
+        super().__init__(time, in_event_id)
+        self.peer_id = peer_id
 
 
 class UncoveredSubprefixes(Event):

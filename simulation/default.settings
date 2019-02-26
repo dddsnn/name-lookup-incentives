@@ -52,6 +52,13 @@
     # The number of time units reputation updates are archived to be able to
     # roll back and reapply them in case of updates arriving out of order.
     'update_retention_time': 100,
+    # The size of the ring buffer used to store past reputation in query
+    # groups.
+    'query_group_history_length': 100,
+    # The time interval in between recording query group reputations.
+    'query_group_history_interval': 1,
+    # The time interval in between reevaluating query group memberships.
+    'query_group_reevaluation_interval': 1,
 
     # The multiple of the no_penalty_reputation at or above which a peer will
     # stop responding to queries.
@@ -69,6 +76,20 @@
     # * 'overlap_shuffled': Like 'overlap', except the list is shuffled
     #     instead of sorted.
     'query_peer_selection': 'overlap',
+    # The minimum number of history entries to decide whether a query group
+    # performs well for a peer.
+    'query_group_min_history': 5,
+    # The fraction of the 'no_penalty_reputation' of reputation a peer needs
+    # to have in order to consider a query group performing well for him based
+    # solely on the current reputation.
+    'performance_no_penalty_fraction': 0.8,
+    # The number of reputation history entries to consider when calculating
+    # the recent development.
+    'performance_num_history_entries': 25,
+    # The minimum slope of the linear regression fitted through the recent
+    # reputation history for a peer to consider a query group to have good
+    # performance if it doesn't have enough raw reputation (yet).
+    'performance_min_slope': 0.2,
 
     # The number of time units a message passed between peers takes to arrive.
     'transmission_delay': 0.1

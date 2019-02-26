@@ -2,11 +2,12 @@ import analyze as an
 import util
 from util import SortedIterSet
 import simpy
-from itertools import count
+from itertools import count, chain, islice
 from copy import deepcopy
-from collections import namedtuple, OrderedDict
+from collections import namedtuple, OrderedDict, deque
 import random
 import operator as op
+import numpy as np
 
 
 query_group_id_iter = count()
@@ -66,7 +67,8 @@ class PeerBehavior:
         if querying_peer_id != self.peer.peer_id and min_rep >= enough_rep:
             return
         if query_all:
-            peers_to_query_info = (list(self.peer.known_query_peers())
+            peers_to_query_info = (list(pi for _, pi
+                                        in self.peer.known_query_peers())
                                    + [i for i in self.peer.sync_peers.values()
                                       if i.peer_id != self.peer.peer_id])
             self.sort_peers_to_query(peers_to_query_info, queried_id)
@@ -227,7 +229,7 @@ class PeerBehavior:
         """
         own_overlap = util.bit_overlap(self.peer.prefix, queried_id)
         peers_to_query_info = []
-        for query_peer_info in self.peer.known_query_peers():
+        for _, query_peer_info in self.peer.known_query_peers():
             # TODO Range queries for performance.
             if (util.bit_overlap(query_peer_info.prefix, queried_id)
                     > own_overlap):
@@ -284,10 +286,90 @@ class PeerBehavior:
                 peer_info = peer_infos.pop(idx)
                 peer_infos.append(peer_info)
 
+    def query_group_performs(self, query_group_id):
+        """
+        Return whether a query group offers good performance.
+
+        Performance is measured by how much reputation the peer can gain in the
+        group. The peer's reputation history in the group is examined. If the
+        last record is above a threshold relative to the reputation at which no
+        penalty is imposed, the group is considered to perform well. It is also
+        thus considered if there is not enough recent reputation data (to give
+        it some time). Otherwise, a linear regression is applied to the recent
+        reputation data. The group is then considered to perform well if the
+        slope is above a threshold (i.e. the peer is able to gain reputation
+        over time).
+        """
+        history = self.peer.query_group_history.get(query_group_id)
+        if history is None:
+            # No history has been recorded yet. This can happen if the history
+            # update interval is long. Assume it performs for now.
+            assert query_group_id in self.peer.query_groups
+            return True
+        if len(history) < self.peer.settings['query_group_min_history']:
+            # Membership is too young, assume it performs for the moment.
+            return True
+        min_rep = (self.peer.settings['no_penalty_reputation']
+                   * self.peer.settings['performance_no_penalty_fraction'])
+        if history[-1] >= min_rep:
+            return True
+        interval = self.peer.settings['query_group_history_interval']
+        recent_reps = []
+        for rep in islice(
+                reversed(history),
+                self.peer.settings['performance_num_history_entries']):
+            recent_reps.insert(0, rep)
+        slope, _ = np.polyfit(range(0, len(recent_reps) * interval, interval),
+                              recent_reps, 1)
+        return slope >= self.peer.settings['performance_min_slope']
+
+    def reevaluate_query_groups(self, in_event_id):
+        """
+        Evaluate performance of query groups and make adjustments.
+
+        Checks the performance of query groups and tries to leave those with
+        bad performance. Only does so if this doesn't reduce subprefix coverage
+        below the minimum configured level for any subprefix (i.e. minimum
+        number of query peers per subprefix). But tries to find a replacement
+        in order to leave groups with low performance via
+        Peer.find_query_peers_for().
+        """
+        # TODO Also check that subprefixes are still covered. Peers covering
+        # them may have left the group.
+        group_coverage = self.peer.query_group_subprefix_coverage()
+        query_group_ids = list(group_coverage.keys())
+        # TODO Start with the worst performing query group, get rid of it
+        # first.
+        for query_group_id in query_group_ids:
+            if self.query_group_performs(query_group_id):
+                continue
+            can_be_removed = True
+            coverage = group_coverage[query_group_id]
+            for subprefix in (sp for sp, ps in coverage.items() if ps):
+                covering_peer_ids = SortedIterSet(chain(*(
+                    pc[subprefix] for gid, pc in group_coverage.items()
+                    if gid != query_group_id)))
+                num_missing_peers\
+                    = (self.peer.settings['min_desired_query_peers']
+                       - len(covering_peer_ids))
+                if num_missing_peers > 0:
+                    replacements_found = self.peer.find_query_peers_for(
+                        subprefix, covering_peer_ids, num_missing_peers,
+                        in_event_id)
+                    if replacements_found:
+                        # Refresh group_coverage, since a group was added.
+                        group_coverage\
+                            = self.peer.query_group_subprefix_coverage()
+                    else:
+                        can_be_removed = False
+            if can_be_removed:
+                del group_coverage[query_group_id]
+                self.peer.leave_query_group(query_group_id, in_event_id)
+
 
 class Peer:
     def __init__(self, env, logger, network, peer_id, all_query_groups,
-                 settings):
+                 settings, start_processes=True):
         self.env = env
         self.logger = logger
         self.network = network
@@ -301,11 +383,19 @@ class Peer:
         self.completed_queries = OrderedDict()
         self.address = self.network.register(self)
         self.behavior = PeerBehavior(self)
+        self.query_group_history = OrderedDict()
 
         # Add self-loop to the peer graph so that networkx considers the node
         # for this peer a component.
         self.logger.log(an.ConnectionAdd(self.env.now, self.peer_id,
                                          self.peer_id, None))
+        if start_processes:
+            util.do_repeatedly(self.env,
+                               self.settings['query_group_history_interval'],
+                               self.update_query_group_history)
+            util.do_repeatedly(
+                self.env, self.settings['query_group_reevaluation_interval'],
+                self.reevaluate_query_groups)
 
     def __lt__(self, other):
         return self.peer_id < other.peer_id
@@ -330,6 +420,28 @@ class Peer:
                 continue
             return peer_info.address
         return None
+
+    def peer_is_known(self, peer_id):
+        """Return whether a peer is known and can be contacted."""
+        # OPTI Do the check for query peers more efficiently (one set).
+        return (peer_id in (p.peer_id for _, p in self.known_query_peers())
+                or peer_id in self.sync_peers)
+
+    def pending_query_has_known_query_peer(self, pending_query):
+        """
+        Return whether one of the possible recipients is a known query peer.
+
+        Removes all peers from the front of the peers_to_query list that are
+        not.
+        """
+        # TODO Should sync peers also be considered? Shouldn't normally send
+        # queries to them.
+        # OPTI Do the check for query peers more efficiently (one set).
+        while (pending_query.peers_to_query
+               and pending_query.peers_to_query[0]
+               not in (p.peer_id for _, p in self.known_query_peers())):
+            pending_query.peers_to_query.pop(0)
+        return len(pending_query.peers_to_query) > 0
 
     def add_to_query_group(self, query_group, peer):
         """
@@ -496,7 +608,7 @@ class Peer:
         """
         coverage = OrderedDict((sp, SortedIterSet())
                                for sp in self.subprefixes())
-        for query_peer_info in self.known_query_peers():
+        for _, query_peer_info in self.known_query_peers():
             for sp in self.subprefixes():
                 if query_peer_info.prefix.startswith(sp):
                     coverage[sp].add(query_peer_info.peer_id)
@@ -506,6 +618,100 @@ class Peer:
     def uncovered_subprefixes(self):
         """Return subprefixes for which no peer is known."""
         return (sp for sp, c in self.subprefix_coverage().items() if c == 0)
+
+    def query_group_subprefix_coverage(self):
+        """
+        Map each query group to the subprefixes covered by peers in it.
+
+        The dictionary that is returned maps each query group ID to a
+        dictionary that maps each of the possible len(self.prefix) subprefixes
+        to the set of IDs of the peers in the query group that serve that
+        subprefix.
+        """
+        coverage = OrderedDict((sp, SortedIterSet())
+                               for sp in self.subprefixes())
+        query_group_coverage = OrderedDict((gid, deepcopy(coverage))
+                                           for gid in self.query_groups.keys())
+        for query_group_id, query_peer_info in self.known_query_peers():
+            coverage = query_group_coverage[query_group_id]
+            for sp in coverage.keys():
+                if query_peer_info.prefix.startswith(sp):
+                    coverage[sp].add(query_peer_info.peer_id)
+                    break
+        return query_group_coverage
+
+    def reevaluate_query_groups(self):
+        in_event_id = self.logger.log(an.QueryGroupReevaluation(
+            self.env.now, self.peer_id, None))
+        self.behavior.reevaluate_query_groups(in_event_id)
+
+    def find_query_peers_for(self, subprefix, covering_peer_ids,
+                             num_missing_peers, in_event_id):
+        """
+        Find query groups with peers covering a subprefix.
+
+        Accesses the shared all_query_groups to find one or multiple query
+        groups this peer is not a member of that contains peers previously
+        unknown that cover a certain subprefix. If it finds such groups, joins
+        them.
+
+        Returns whether enough such peers were found.
+
+        :param subprefix: The subprefix that should be covered.
+        :param covering_peer_ids: A set of peer IDs that will be considered
+            already known by this peer. If a query group is being considered
+            and contains one of these peers, the peer will not count to the
+            number of new peers found.
+        :param num_missing_peers: The number of peers that should be found
+            covering the subprefix.
+        """
+        # TODO Don't use the shared all_query_groups.
+        for query_group_id, query_group in self.all_query_groups.items():
+            if query_group_id in self.query_groups:
+                continue
+            if len(query_group) >= self.settings['max_desired_group_size']:
+                continue
+            # TODO Choose the best group, not the first.
+            num_covering_peers = sum(1 for qpi in query_group.infos()
+                                     if qpi.prefix.startswith(subprefix)
+                                     and qpi.peer_id not in covering_peer_ids)
+            if num_covering_peers:
+                # TODO Factor out.
+                self.query_groups[query_group_id] = deepcopy(
+                    self.all_query_groups[query_group_id])
+                qpi = QueryPeerInfo(self.info(),
+                                    self.settings['initial_reputation'])
+                self.query_groups[query_group_id][self.peer_id] = qpi
+                self.all_query_groups[query_group_id][self.peer_id]\
+                    = deepcopy(qpi)
+                self.add_to_query_group(self.query_groups[query_group_id],
+                                        self)
+                self.logger.log(an.QueryGroupAdd(self.env.now, self.peer_id,
+                                                 query_group_id, in_event_id))
+            num_missing_peers -= num_covering_peers
+            if num_missing_peers <= 0:
+                return True
+        return False
+
+    def leave_query_group(self, query_group_id, in_event_id):
+        self.logger.log(an.QueryGroupRemove(self.env.now, self.peer_id,
+                                            query_group_id, in_event_id))
+        for qpi in self.query_groups[query_group_id].infos():
+            if qpi.peer_id == self.peer_id:
+                continue
+            # TODO Remove this hack once query groups are handled via messages.
+            query_peer = self.network.peers[qpi.address]
+            assert query_peer.peer_id == qpi.peer_id
+            del query_peer.query_groups[query_group_id][self.peer_id]
+        del self.query_groups[query_group_id]
+        self.query_group_history.pop(query_group_id, None)
+        del self.all_query_groups[query_group_id][self.peer_id]
+
+    def update_query_group_history(self):
+        for query_group_id, query_group in self.query_groups.items():
+            self.query_group_history.setdefault(query_group_id, deque(
+                (), self.settings['query_group_history_length'])).append(
+                    query_group[self.peer_id].reputation)
 
     def handle_request(self, queried_id):
         try:
@@ -562,6 +768,11 @@ class Peer:
         :param queried_peer_info: PeerInfo object describing the peer that was
             queried. May be None to indicate no information could be found.
         """
+        if not self.peer_is_known(recipient_id):
+            # Don't send responses to peers we don't know. These calls can
+            # happen if there was a query but before the response is sent
+            # either this or the other peer leaves the query group.
+            return
         assert recipient_id != self.peer_id
         if queried_peer_info is None:
             queried_peer_id = None
@@ -674,7 +885,7 @@ class Peer:
             self.archive_completed_query(pending_query, queried_id)
             self.introduce(queried_peer_info)
             return
-        if len(pending_query.peers_to_query) == 0:
+        if not self.pending_query_has_known_query_peer(pending_query):
             in_event_id = self.logger.log(event('failure_ultimate'))
             self.behavior.on_response_failure(pending_query,
                                               responding_peer_id, in_event_id)
@@ -839,7 +1050,7 @@ class Peer:
         # must be added to the pending queries, and is only removed once a
         # response has been received and the timeout is interrupted.
         assert pending_query is not None
-        if len(pending_query.peers_to_query) == 0:
+        if not self.pending_query_has_known_query_peer(pending_query):
             in_event_id = self.logger.log(event('failure_ultimate'))
             self.behavior.on_timeout_failure(pending_query, recipient_id,
                                              in_event_id)
@@ -868,12 +1079,15 @@ class Peer:
         """
         Iterate known query peers.
 
-        The generated elements are QueryPeerInfo objects.
+        The generated elements are tuples of query group ID and QueryPeerInfo
+        objects.
 
-        Not guaranteed to be unique, will contain peers multiple times if they
-        share multiple query groups.
+        Not guaranteed to be unique in regards to peers, will contain peers
+        multiple times if they share multiple query groups.
         """
-        return (pi for g in self.query_groups.values() for pi in g.infos()
+        return ((gid, pi)
+                for gid, g in self.query_groups.items()
+                for pi in g.infos()
                 if pi.peer_id != self.peer_id)
 
 
