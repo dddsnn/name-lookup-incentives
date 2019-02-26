@@ -379,6 +379,43 @@ class Logger:
                    'Probability', 'Number of peers', data_sets, num_bins,
                    max_edge_length)
 
+    def plot_query_group_sizes_until(self, until_time, max_edge_length=3):
+        """Plot query group sizes over time until some point."""
+        sizes = {}
+        replay = Replay(self.events, {}, self.query_groups_event_processor)
+        current_time = 0
+
+        def append_step():
+            for query_group_id, query_group in replay.data.items():
+                size = len(query_group)
+                record = sizes.setdefault(query_group_id, ([], []))
+                time_list = record[0]
+                size_list = record[1]
+                if len(size_list) > 0 and size == size_list[-1]:
+                    # Value hasn't changed, no need to record it.
+                    continue
+                time_list.append(current_time)
+                size_list.append(size)
+
+        append_step()
+        while True:
+            current_time = replay.step_next()
+            if current_time is None or current_time > until_time:
+                break
+            append_step()
+
+        data_sets = []
+        for query_group_id, record in sorted(sizes.items(),
+                                             key=lambda t: t[0]):
+            time_axis = np.array(record[0])
+            size_axis = np.array(record[1])
+            data_set = [(time_axis, size_axis, 'Number of peers')]
+            data_sets.append(('Query group {}'.format(query_group_id),
+                              data_set))
+
+        plot_steps('Query group sizes', 'Time', 'Number of peers', data_sets,
+                   max_edge_length)
+
     def query_groups_event_processor(self, data, event):
         """
         Process an event to build query groups.
