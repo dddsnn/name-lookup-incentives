@@ -353,9 +353,11 @@ class PeerBehavior:
                     = (self.peer.settings['min_desired_query_peers']
                        - len(covering_peer_ids))
                 if num_missing_peers > 0:
+                    usefulness\
+                        = self.peer.estimated_usefulness_in(query_group_id)
                     replacements_found = self.peer.find_query_peers_for(
                         subprefix, covering_peer_ids, num_missing_peers,
-                        in_event_id)
+                        usefulness, in_event_id)
                     if replacements_found:
                         # Refresh group_coverage, since a group was added.
                         group_coverage\
@@ -589,14 +591,9 @@ class Peer:
         """
         Return an ordered list of the subprefixes of this peer.
 
-        A subprefix is a k-bit bitstring with k > 0, k <= len(self.prefix), in
-        which the first k-1 bits are equal to the first k-1 bits in
-        self.prefix, and the k-th bit is inverted.
-
-        The list is sorted by the length of the subprefix, in ascending order.
+        See subprefixes().
         """
-        return [self.prefix[:i] + ~(self.prefix[i:i+1])
-                for i in range(len(self.prefix))]
+        return subprefixes(self.prefix)
 
     def subprefix_coverage(self):
         """
@@ -646,7 +643,7 @@ class Peer:
         self.behavior.reevaluate_query_groups(in_event_id)
 
     def find_query_peers_for(self, subprefix, covering_peer_ids,
-                             num_missing_peers, in_event_id):
+                             num_missing_peers, min_usefulness, in_event_id):
         """
         Find query groups with peers covering a subprefix.
 
@@ -664,6 +661,7 @@ class Peer:
             number of new peers found.
         :param num_missing_peers: The number of peers that should be found
             covering the subprefix.
+        :param min_usefulness: The usefulness a new group must at least have.
         """
         # TODO Don't use the shared all_query_groups.
         for query_group_id, query_group in self.all_query_groups.items():
@@ -671,7 +669,11 @@ class Peer:
                 continue
             if len(query_group) >= self.settings['max_desired_group_size']:
                 continue
-            # TODO Choose the best group, not the first.
+            # TODO Sort all available groups by usefulness, pick the most
+            # useful one.
+            if self.estimated_usefulness_in(query_group_id) < min_usefulness:
+                # New group would likely perform worse.
+                continue
             num_covering_peers = sum(1 for qpi in query_group.infos()
                                      if qpi.prefix.startswith(subprefix)
                                      and qpi.peer_id not in covering_peer_ids)
@@ -1089,6 +1091,41 @@ class Peer:
                 for gid, g in self.query_groups.items()
                 for pi in g.infos()
                 if pi.peer_id != self.peer_id)
+
+    def estimated_usefulness_in(self, query_group_id):
+        """Estimates the usefulness of this peer in a query group."""
+        # TODO Don't use all_query_groups.
+        if self.settings['usefulness'] == 'none':
+            return 0
+        elif self.settings['usefulness'] == 'subprefix_constant':
+            usefulness = 0
+            for qpi in self.all_query_groups[query_group_id].infos():
+                for sp in subprefixes(qpi.prefix):
+                    if self.prefix.startswith(sp):
+                        # This peer is eligible to receive queries for IDs
+                        # beginning with sp.
+                        # TODO consider competition from other peers in the
+                        # group.
+                        # TODO consider prefix length. longer more useful?
+                        usefulness += 1
+                        break
+            return usefulness
+        else:
+            raise Exception('Invalid usefulness setting {}.'
+                            .format(self.settings['usefulness']))
+
+
+def subprefixes(prefix):
+    """
+    Return an ordered list of the subprefixes for a prefix.
+
+    A subprefix is a k-bit bitstring with k > 0, k <= len(prefix), in which the
+    first k-1 bits are equal to the first k-1 bits in the prefix, and the k-th
+    bit is inverted.
+
+    The list is sorted by the length of the subprefix, in ascending order.
+    """
+    return [prefix[:i] + ~(prefix[i:i+1]) for i in range(len(prefix))]
 
 
 class QueryGroup:

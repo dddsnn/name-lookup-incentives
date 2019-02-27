@@ -141,28 +141,18 @@ class TestQueryGroups(unittest.TestCase):
 
 
 class TestSubprefixes(unittest.TestCase):
-    def setUp(self):
-        self.helper = TestHelper()
-        self.peer_factory = PeerFactory(self.helper.settings)
-
     def test_empty(self):
-        self.helper.settings['prefix_length'] = 0
-        peer = self.peer_factory.peer_with_prefix('')
-        self.assertEqual(peer.subprefixes(), [])
+        self.assertEqual(p.subprefixes(bs.Bits()), [])
 
     def test_ordered(self):
-        self.helper.settings['prefix_length'] = 16
-        peer = self.peer_factory.peer_with_prefix('')
-        sp = peer.subprefixes()
+        sp = p.subprefixes(bs.Bits('0b00001111'))
         self.assertEqual(len(sp[0]), 1)
         for a, b in zip(sp[:-1], sp[1:]):
             self.assertEqual(len(a), len(b) - 1)
 
     def test_subprefixes(self):
-        prefix = '0010100101'
-        self.helper.settings['prefix_length'] = len(prefix)
-        peer = self.peer_factory.peer_with_prefix(prefix)
-        self.assertEqual(peer.subprefixes(), [
+        prefix = bs.Bits('0b0010100101')
+        self.assertEqual(p.subprefixes(prefix), [
                          bs.Bits(bin='1'),
                          bs.Bits(bin='01'),
                          bs.Bits(bin='000'),
