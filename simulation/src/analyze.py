@@ -437,7 +437,7 @@ class Logger:
             for query_group_id in event.query_group_ids:
                 query_group = data.get(query_group_id)
                 if query_group is None:
-                    query_group = data.setdefault(event.query_group_id, {})
+                    query_group = data.setdefault(query_group_id, {})
                 new_rep = max(0, query_group.setdefault(event.peer_id, 0)
                               + event.reputation_diff)
                 query_group[event.peer_id] = new_rep
