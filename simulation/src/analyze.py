@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from math import sqrt, ceil
 from itertools import takewhile, chain, product
+import operator as op
 
 
 class Logger:
@@ -412,6 +413,47 @@ class Logger:
                               data_set))
 
         plot_steps('Query group sizes', 'Time', 'Number of peers', data_sets,
+                   max_edge_length)
+
+    def plot_peer_reputations_until(self, until_time, max_edge_length=3):
+        """Plot peer reputations over time until some point."""
+        reps = {}
+        replay = Replay(self.events, {}, self.query_groups_event_processor)
+        current_time = 0
+
+        def append_step():
+            for query_group_id, query_group in replay.data.items():
+                for peer_id, rep in query_group.items():
+                    peer_reps = reps.setdefault(peer_id, {})
+                    record = peer_reps.setdefault(query_group_id, ([], []))
+                    time_list = record[0]
+                    rep_list = record[1]
+                    if len(rep_list) > 0 and rep == rep_list[-1]:
+                        # Value hasn't changed, no need to record it.
+                        continue
+                    time_list.append(current_time)
+                    rep_list.append(rep)
+
+        append_step()
+        while True:
+            current_time = replay.step_next()
+            if current_time is None or current_time > until_time:
+                break
+            append_step()
+
+        data_sets = []
+        for peer_id, peer_reps in sorted(reps.items(),
+                                         key=lambda t: t[0].uint):
+            data_set = []
+            for query_group_id, record in sorted(peer_reps.items(),
+                                                 key=op.itemgetter(0)):
+                time_axis = np.array(record[0])
+                rep_axis = np.array(record[1])
+                data_set.append((time_axis, rep_axis,
+                                 'Group {}'.format(query_group_id)))
+            data_sets.append(('Peer {}'.format(peer_id.hex), data_set))
+
+        plot_steps('Peer reputations', 'Time', 'Reputation', data_sets,
                    max_edge_length)
 
     def query_groups_event_processor(self, data, event):
