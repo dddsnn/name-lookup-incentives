@@ -14,6 +14,8 @@
     'even_sync_groups': False,
     # The initial reputation value peers get when joining a query group.
     'initial_reputation': 0,
+    # Whether or not the setup should place all peers in one big query group.
+    'force_one_group': False,
 
     # The time the reputation decay process sleeps.
     'decay_timestep': 1,

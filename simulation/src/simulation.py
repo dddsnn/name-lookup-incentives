@@ -9,6 +9,7 @@ import signal
 import sys
 from collections import OrderedDict
 from math import log2
+from copy import deepcopy
 
 
 # Patch in a less-than for the Bits class, which is necessary for ordered dicts
@@ -128,18 +129,28 @@ if __name__ == '__main__':
         logger.log(an.UncoveredSubprefixes(
             env.now, peer.peer_id, SortedIterSet(peer.uncovered_subprefixes()),
             None))
+
     for sync_group in sync_groups.values():
         for peer in sync_group:
             for other_peer in sync_group:
                 peer.introduce(other_peer.info())
-    for peer in peers.values():
-        for other_peer in random.sample(list(peers.values()),
-                                        settings['num_random_introductions']):
-            peer.introduce(other_peer.info())
+    if settings['force_one_group']:
+        gid = next(p.query_group_id_iter)
+        group = p.QueryGroup(gid, (pr.info() for pr in peers.values()), 0)
+        all_query_groups[gid] = group
+        for pr in peers.values():
+            pr.query_groups[gid] = deepcopy(group)
+            logger.log(an.QueryGroupAdd(0, pr.peer_id, gid, None))
+    else:
+        for peer in peers.values():
+            for other_peer in random.sample(
+                    list(peers.values()),
+                    settings['num_random_introductions']):
+                peer.introduce(other_peer.info())
+        print('scheduling queries for missing subprefixes')
+        for peer in peers.values():
+            peer.find_missing_query_peers()
 
-    print('scheduling queries for missing subprefixes')
-    for peer in peers.values():
-        peer.find_missing_query_peers()
     until = float('inf')
     if len(sys.argv) > 2:
         until = float(sys.argv[2])
