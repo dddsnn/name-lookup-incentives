@@ -420,38 +420,38 @@ class TestFindQueryPeersFor(unittest.TestCase):
         self.peer_factory = PeerFactory(self.helper.settings)
 
     def test_doesnt_do_anything_when_no_query_groups(self):
-        peer = self.peer_factory.peer_with_prefix('')
+        peer = self.peer_factory.peer_with_prefix('1111')
         prefix = bs.Bits('0b0000')
-        self.assertFalse(peer.find_query_peers_for(prefix, set(), 1, None))
+        self.assertFalse(peer.find_query_peers_for(prefix, set(), 1, 0, None))
         self.assertEqual(len(peer.query_groups), 0)
 
     def test_doesnt_join_groups_without_covering_peers(self):
-        peer = self.peer_factory.peer_with_prefix('')
+        peer = self.peer_factory.peer_with_prefix('1111')
         prefix = bs.Bits('0b0000')
         peer_a = self.peer_factory.peer_with_prefix('0001')
         self.peer_factory.create_query_group(peer_a)
-        self.assertFalse(peer.find_query_peers_for(prefix, set(), 1, None))
+        self.assertFalse(peer.find_query_peers_for(prefix, set(), 1, 0, None))
         self.assertEqual(len(peer.query_groups), 0)
 
     def test_joins_group_with_covering_peer(self):
-        peer = self.peer_factory.peer_with_prefix('')
+        peer = self.peer_factory.peer_with_prefix('1111')
         prefix = bs.Bits('0b0000')
         peer_a = self.peer_factory.peer_with_prefix('0000')
         query_group_id = self.peer_factory.create_query_group(peer_a)
-        self.assertTrue(peer.find_query_peers_for(prefix, set(), 1, None))
+        self.assertTrue(peer.find_query_peers_for(prefix, set(), 1, 0, None))
         self.assertTrue(peer.peer_id in peer.query_groups[query_group_id])
         self.assertTrue(peer.peer_id
                         in self.peer_factory.all_query_groups[query_group_id])
         self.assertTrue(peer.peer_id in peer_a.query_groups[query_group_id])
 
     def test_joins_multiple_groups_if_necessary(self):
-        peer = self.peer_factory.peer_with_prefix('')
+        peer = self.peer_factory.peer_with_prefix('1111')
         prefix = bs.Bits('0b0000')
         peer_a = self.peer_factory.peer_with_prefix('0000')
         peer_b = self.peer_factory.peer_with_prefix('0000')
         query_group_id_1 = self.peer_factory.create_query_group(peer_a)
         query_group_id_2 = self.peer_factory.create_query_group(peer_b)
-        self.assertTrue(peer.find_query_peers_for(prefix, set(), 2, None))
+        self.assertTrue(peer.find_query_peers_for(prefix, set(), 2, 0, None))
         self.assertTrue(peer.peer_id in peer.query_groups[query_group_id_1])
         self.assertTrue(peer.peer_id in peer.query_groups[query_group_id_2])
         self.assertTrue(
@@ -464,13 +464,13 @@ class TestFindQueryPeersFor(unittest.TestCase):
         self.assertTrue(peer.peer_id in peer_b.query_groups[query_group_id_2])
 
     def test_doesnt_join_more_groups_than_necessary(self):
-        peer = self.peer_factory.peer_with_prefix('')
+        peer = self.peer_factory.peer_with_prefix('1111')
         prefix = bs.Bits('0b0000')
         peer_a = self.peer_factory.peer_with_prefix('0000')
         peer_b = self.peer_factory.peer_with_prefix('0000')
         query_group_id_1 = self.peer_factory.create_query_group(peer_a)
         query_group_id_2 = self.peer_factory.create_query_group(peer_b)
-        self.assertTrue(peer.find_query_peers_for(prefix, set(), 1, None))
+        self.assertTrue(peer.find_query_peers_for(prefix, set(), 1, 0, None))
         self.assertEqual(len(peer.query_groups), 1)
         self.assertTrue(
             (peer.peer_id
@@ -482,23 +482,23 @@ class TestFindQueryPeersFor(unittest.TestCase):
                         in peer_b.query_groups[query_group_id_2]))
 
     def test_ignores_groups_its_already_in(self):
-        peer = self.peer_factory.peer_with_prefix('')
+        peer = self.peer_factory.peer_with_prefix('1111')
         prefix = bs.Bits('0b0000')
         peer_a = self.peer_factory.peer_with_prefix('0000')
         self.peer_factory.create_query_group(peer, peer_a)
         self.assertFalse(peer.find_query_peers_for(prefix,
                                                    set((peer_a.peer_id,)), 1,
-                                                   None))
+                                                   0, None))
 
     def test_ignores_peers_it_already_knows_in_other_groups(self):
-        peer = self.peer_factory.peer_with_prefix('')
+        peer = self.peer_factory.peer_with_prefix('1111')
         prefix = bs.Bits('0b0000')
         peer_a = self.peer_factory.peer_with_prefix('0000')
         self.peer_factory.create_query_group(peer, peer_a)
         query_group_id = self.peer_factory.create_query_group(peer_a)
         self.assertFalse(peer.find_query_peers_for(prefix,
                                                    set((peer_a.peer_id,)), 1,
-                                                   None))
+                                                   0, None))
         self.assertEqual(len(peer.query_groups), 1)
         self.assertFalse(query_group_id in peer.query_groups)
         self.assertFalse(peer.peer_id
@@ -507,29 +507,40 @@ class TestFindQueryPeersFor(unittest.TestCase):
                          in peer_a.query_groups[query_group_id])
 
     def test_still_returns_false_if_not_enough_peers_found(self):
-        peer = self.peer_factory.peer_with_prefix('')
+        peer = self.peer_factory.peer_with_prefix('1111')
         prefix = bs.Bits('0b0000')
         peer_a = self.peer_factory.peer_with_prefix('0000')
         query_group_id = self.peer_factory.create_query_group(peer_a)
-        self.assertFalse(peer.find_query_peers_for(prefix, set(), 2, None))
+        self.assertFalse(peer.find_query_peers_for(prefix, set(), 2, 0, None))
         self.assertTrue(peer.peer_id in peer.query_groups[query_group_id])
         self.assertTrue(peer.peer_id
                         in self.peer_factory.all_query_groups[query_group_id])
         self.assertTrue(peer.peer_id in peer_a.query_groups[query_group_id])
 
     def test_doesnt_join_full_groups(self):
-        peer = self.peer_factory.peer_with_prefix('')
+        peer = self.peer_factory.peer_with_prefix('1111')
         prefix = bs.Bits('0b0000')
         peers = [self.peer_factory.peer_with_prefix('0000') for _
                  in range(self.helper.settings['max_desired_group_size'])]
         query_group_id = self.peer_factory.create_query_group(*peers)
-        self.assertFalse(peer.find_query_peers_for(prefix, set(), 1, None))
+        self.assertFalse(peer.find_query_peers_for(prefix, set(), 1, 0, None))
         self.assertEqual(len(peer.query_groups), 0)
         self.assertFalse(peer.peer_id
                          in self.peer_factory.all_query_groups[query_group_id])
         for p in peers:
             self.assertFalse(peer.peer_id
                              in p.query_groups[query_group_id])
+
+    def test_doesnt_join_groups_with_lower_usefulness(self):
+        peer = self.peer_factory.peer_with_prefix('1111')
+        prefix = bs.Bits('0b0000')
+        peer_a = self.peer_factory.peer_with_prefix('0000')
+        query_group_id = self.peer_factory.create_query_group(peer_a)
+        self.assertFalse(peer.find_query_peers_for(prefix, set(), 1, 6, None))
+        self.assertFalse(query_group_id in peer.query_groups)
+        self.assertFalse(peer.peer_id
+                         in self.peer_factory.all_query_groups[query_group_id])
+        self.assertFalse(peer.peer_id in peer_a.query_groups[query_group_id])
 
 
 class TestLeaveQueryGroup(unittest.TestCase):

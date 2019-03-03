@@ -400,7 +400,7 @@ class TestReevaluateQueryGroups(unittest.TestCase):
         self.assertFalse(behavior.query_group_performs(query_group_id))
         behavior.reevaluate_query_groups(None)
         peer.find_query_peers_for.assert_called_once_with(bs.Bits('0b0'), ANY,
-                                                          ANY, ANY)
+                                                          ANY, ANY, ANY)
         peer.leave_query_group.assert_called_once_with(query_group_id, ANY)
 
     def test_includes_already_covering_peers(self):
@@ -417,7 +417,7 @@ class TestReevaluateQueryGroups(unittest.TestCase):
         self.assertTrue(behavior.query_group_performs(query_group_id_2))
         behavior.reevaluate_query_groups(None)
         peer.find_query_peers_for.assert_called_once_with(
-            bs.Bits('0b0'), set((peer_b.peer_id,)), ANY, ANY)
+            bs.Bits('0b0'), set((peer_b.peer_id,)), ANY, ANY, ANY)
 
     def test_specifies_number_of_missing_peers(self):
         peer, behavior\
@@ -433,7 +433,7 @@ class TestReevaluateQueryGroups(unittest.TestCase):
         self.assertTrue(behavior.query_group_performs(query_group_id_2))
         behavior.reevaluate_query_groups(None)
         peer.find_query_peers_for.assert_called_once_with(
-            bs.Bits('0b0'), ANY, 1, ANY)
+            bs.Bits('0b0'), ANY, 1, ANY, ANY)
 
     def test_doesnt_remove_non_performing_group_if_no_replacement(self):
         peer, behavior\
@@ -483,3 +483,16 @@ class TestReevaluateQueryGroups(unittest.TestCase):
                         in peer.leave_query_group.call_args_list)
         self.assertTrue(call(query_group_id_2, ANY)
                         in peer.leave_query_group.call_args_list)
+
+    def test_specifies_min_usefulness(self):
+        peer, behavior\
+            = self.peer_factory.mock_peer_and_behavior_with_prefix('1111')
+        peer_a = self.peer_factory.peer_with_prefix('0000')
+        query_group_id = self.peer_factory.create_query_group(peer, peer_a)
+        for _ in range(self.helper.settings['query_group_min_history']):
+            peer.update_query_group_history()
+        peer.estimated_usefulness_in.return_value = 5
+        self.assertFalse(behavior.query_group_performs(query_group_id))
+        behavior.reevaluate_query_groups(None)
+        peer.find_query_peers_for.assert_called_once_with(
+            bs.Bits('0b0'), ANY, ANY, 5, ANY)
