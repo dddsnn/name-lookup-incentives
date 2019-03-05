@@ -19,12 +19,12 @@ class PeerBehavior:
 
     def on_query_self(self, querying_peer_id, queried_id, in_event_id):
         """React to a query for own ID."""
-        min_rep = min((g[self.peer.peer_id].reputation for g in
-                       self.peer.peer_query_groups(querying_peer_id)),
-                      default=0)
+        rep = self.peer.expected_min_reputation(querying_peer_id)
         enough_rep = (self.peer.settings['reputation_buffer_factor']
                       * self.peer.settings['no_penalty_reputation'])
-        if querying_peer_id != self.peer.peer_id and min_rep >= enough_rep:
+        if querying_peer_id != self.peer.peer_id and rep >= enough_rep:
+            self.peer.expect_penalty(
+                querying_peer_id, self.peer.settings['timeout_query_penalty'])
             return
         delay = self.decide_delay(querying_peer_id)
         self.peer.send_response(querying_peer_id, SortedIterSet((queried_id,)),
@@ -33,12 +33,12 @@ class PeerBehavior:
     def on_query_sync(self, querying_peer_id, queried_id, sync_peer_info,
                       in_event_id):
         """React to a query for the ID of a sync peer."""
-        min_rep = min((g[self.peer.peer_id].reputation for g in
-                       self.peer.peer_query_groups(querying_peer_id)),
-                      default=0)
+        rep = self.peer.expected_min_reputation(querying_peer_id)
         enough_rep = (self.peer.settings['reputation_buffer_factor']
                       * self.peer.settings['no_penalty_reputation'])
-        if querying_peer_id != self.peer.peer_id and min_rep >= enough_rep:
+        if querying_peer_id != self.peer.peer_id and rep >= enough_rep:
+            self.peer.expect_penalty(
+                querying_peer_id, self.peer.settings['timeout_query_penalty'])
             return
         delay = self.decide_delay(querying_peer_id)
         self.peer.send_response(querying_peer_id, SortedIterSet((queried_id,)),
@@ -59,12 +59,12 @@ class PeerBehavior:
         closer to the target ID. However, if query_all is True, all known
         peers, including sync peers, will be queried.
         """
-        min_rep = min((g[self.peer.peer_id].reputation for g in
-                       self.peer.peer_query_groups(querying_peer_id)),
-                      default=0)
+        rep = self.peer.expected_min_reputation(querying_peer_id)
         enough_rep = (self.peer.settings['reputation_buffer_factor']
                       * self.peer.settings['no_penalty_reputation'])
-        if querying_peer_id != self.peer.peer_id and min_rep >= enough_rep:
+        if querying_peer_id != self.peer.peer_id and rep >= enough_rep:
+            self.peer.expect_penalty(
+                querying_peer_id, self.peer.settings['timeout_query_penalty'])
             return
         if query_all:
             peers_to_query_info = (list(pi for _, pi
@@ -79,6 +79,9 @@ class PeerBehavior:
             if querying_peer_id == self.peer.peer_id:
                 self.peer.finalize_query('impossible', in_event_id)
             else:
+                self.peer.expect_penalty(
+                    querying_peer_id,
+                    self.peer.settings['failed_query_penalty'])
                 self.peer.send_response(
                     querying_peer_id, SortedIterSet((queried_id,)), None,
                     in_event_id, delay=self.decide_delay(querying_peer_id))
@@ -100,7 +103,12 @@ class PeerBehavior:
         # query result through to another peer.
         for querying_peer_id, queried_ids in (pending_query.querying_peers
                                               .items()):
-            delay = max(self.decide_delay(querying_peer_id) - total_time, 0)
+            delay = self.decide_delay(querying_peer_id) - total_time
+            if delay < 0:
+                self.peer.expect_penalty(
+                    querying_peer_id,
+                    self.peer.settings['timeout_query_penalty'])
+                delay = 0
             self.peer.send_response(querying_peer_id, queried_ids,
                                     queried_peer_info, in_event_id,
                                     delay=delay)
@@ -120,7 +128,12 @@ class PeerBehavior:
         total_time = self.peer.env.now - pending_query.start_time
         for querying_peer_id, queried_ids in (pending_query.querying_peers
                                               .items()):
-            delay = max(self.decide_delay(querying_peer_id) - total_time, 0)
+            delay = self.decide_delay(querying_peer_id) - total_time
+            if delay < 0:
+                self.peer.expect_penalty(
+                    querying_peer_id,
+                    self.peer.settings['timeout_query_penalty'])
+                delay = 0
             self.peer.send_response(querying_peer_id, queried_ids, None,
                                     in_event_id, delay=delay)
         self.do_rep_failure(responding_peer_id, in_event_id)
@@ -144,7 +157,12 @@ class PeerBehavior:
         total_time = self.peer.env.now - pending_query.start_time
         for querying_peer_id, queried_ids in (pending_query.querying_peers
                                               .items()):
-            delay = max(self.decide_delay(querying_peer_id) - total_time, 0)
+            delay = self.decide_delay(querying_peer_id) - total_time
+            if delay < 0:
+                self.peer.expect_penalty(
+                    querying_peer_id,
+                    self.peer.settings['timeout_query_penalty'])
+                delay = 0
             self.peer.send_response(querying_peer_id, queried_ids, None,
                                     in_event_id, delay=delay)
         self.do_rep_timeout(recipient_id, in_event_id)
@@ -195,27 +213,15 @@ class PeerBehavior:
 
     def decide_delay(self, querying_peer_id):
         """Decide what penalty delay to impose."""
-        # TODO Handle the case if querying_peer is not in a query group. That
-        # can happen if a sync peer is sending out a prefix query to all known
-        # peers in order to complete his subprefix connectivity. Currently,
-        # when computing max_rep, the default=0 treats queries from sync_peers
-        # as though they are to be maximally penalized. Obviously, there needs
-        # to be a reputation mechanism for sync peers that this method honors
-        # once the sync group management is actually handled by the peers via
-        # messages.
-        max_rep = max((g[querying_peer_id].reputation
-                      for g in self.peer.peer_query_groups(querying_peer_id)),
-                      default=0)
+        max_rep = self.peer.max_peer_reputation(querying_peer_id,
+                                                querying_peer_id)
         npr = self.peer.settings['no_penalty_reputation']
         return min(max(npr - max_rep, 0), npr)
 
     def expect_delay(self, peer_to_query_id):
         """Predict the penalty delay that will be imposed."""
-        # TODO Handle the case where peer_to_query is a sync_peer. See comment
-        # in decide_delay().
-        max_rep = max((g[self.peer.peer_id].reputation
-                       for g in self.peer.peer_query_groups(peer_to_query_id)),
-                      default=0)
+        max_rep = self.peer.max_peer_reputation(self.peer.peer_id,
+                                                peer_to_query_id)
         npr = self.peer.settings['no_penalty_reputation']
         return min(max(npr - max_rep, 0), npr)
 
@@ -386,6 +392,7 @@ class Peer:
         self.address = self.network.register(self)
         self.behavior = PeerBehavior(self)
         self.query_group_history = OrderedDict()
+        self.expected_penalties = OrderedDict()
 
         # Add self-loop to the peer graph so that networkx considers the node
         # for this peer a component.
@@ -937,6 +944,8 @@ class Peer:
         self.logger.log(an.ReputationUpdateReceived(
             self.env.now, sender_id, self.peer_id, peer_id, reputation_diff,
             in_event_id))
+        self.possibly_remove_expected_penalty(sender_id, peer_id,
+                                              reputation_diff)
         # Only change the reputation in those query groups shared by the peer
         # whose reputation is changed and the peer reporting the change.
         # In the other groups there will be peers that don't know about the
@@ -1113,6 +1122,86 @@ class Peer:
         else:
             raise Exception('Invalid usefulness setting {}.'
                             .format(self.settings['usefulness']))
+
+    def max_peer_reputation(self, rep_peer_id, group_peer_id):
+        """
+        Return the maximum reputation a peer has in shared query groups.
+
+        Out of all the query groups shared known to this peer containing both
+        peers whose IDs are the arguments, return the maximum reputation of
+        rep_peer.
+
+        If there is no such query group, return 0.
+        """
+        # TODO Handle the case if the peer is not in a query group. That can
+        # happen if a sync peer is sending out a prefix query to all known
+        # peers in order to complete his subprefix connectivity. Currently,
+        # when computing the reputation, the default=0 treats queries from sync
+        # peers  as though they are to be maximally penalized. Obviously, there
+        # needs to be a reputation mechanism for sync peers that this method
+        # honors once the sync group management is actually handled by the
+        # peers via  messages.
+        return max((g[rep_peer_id].reputation
+                    for g in self.peer_query_groups(group_peer_id)), default=0)
+
+    def expected_min_reputation(self, peer_id):
+        """
+        Return the minimum expected future reputation perceived by a peer.
+
+        For all the query groups shared with the peer with the given ID, return
+        lowest of the expected reputations. The expected reputation consists of
+        the current reputation but also considers penalties that are expected
+        to be applied by others because of misbehavior.
+
+        If no groups are shared, return 0.
+        """
+        min_reps = []
+        for query_group in self.peer_query_groups(peer_id):
+            total_expected_penalties = 0
+            for qpi in query_group.infos():
+                expected_penalties = self.expected_penalties.get(qpi.peer_id,
+                                                                 [])
+                i = 0
+                while i < len(expected_penalties):
+                    eprt = self.settings['expected_penalty_retention_time']
+                    expected_penalty = expected_penalties[i]
+                    if self.env.now - expected_penalty[0] > eprt:
+                        expected_penalties.pop(i)
+                    else:
+                        total_expected_penalties += expected_penalty[1]
+                    i += 1
+            min_reps.append(query_group[self.peer_id].reputation
+                            + total_expected_penalties)
+        return min(min_reps, default=0)
+
+    def expect_penalty(self, peer_id, penalty):
+        """
+        Record a penalty that is expected to be applied in the future.
+
+        :param peer_id: The ID of the peer who is expected to apply the
+            penalty.
+        :param penalty: The penalty that is expected. Should be negative, since
+            it's added, not subtracted.
+        """
+        self.expected_penalties.setdefault(peer_id, []).append((self.env.now,
+                                                                penalty))
+
+    def possibly_remove_expected_penalty(self, sender_id, peer_id,
+                                         reputation_diff):
+        """
+        Remove an expected penalty, if applicable.
+
+        Checks whether peer_id is the own ID, so every update can be passed in.
+        """
+        if peer_id != self.peer_id:
+            return
+        expected_penalties = self.expected_penalties.get(sender_id, [])
+        i = 0
+        while i < len(expected_penalties):
+            if expected_penalties[i][1] == reputation_diff:
+                expected_penalties.pop(i)
+                return
+            i += 1
 
 
 def subprefixes(prefix):

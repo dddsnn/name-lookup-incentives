@@ -1,6 +1,7 @@
 import unittest
 from unittest.mock import ANY, call
-from test_utils import TestHelper, pending_query, PeerFactory
+from test_utils import (TestHelper, pending_query, PeerFactory, set_containing,
+                        arg_with)
 import bitstring as bs
 
 
@@ -91,6 +92,111 @@ class TestPeerSelection(unittest.TestCase):
         mocked_shuffle.assert_called_once()
 
 
+class TestOnQuerySelf(unittest.TestCase):
+    def setUp(self):
+        self.helper = TestHelper()
+        self.peer_factory = PeerFactory(self.helper.settings)
+
+    def test_responds(self):
+        peer, behavior\
+            = self.peer_factory.mock_peer_and_behavior_with_prefix('')
+        querying_peer_id = self.peer_factory.id_with_prefix('')
+        peer.send_query.return_value = None
+        behavior.on_query_self(querying_peer_id, peer.peer_id, None)
+        peer.send_response.assert_called_once_with(
+            querying_peer_id, set_containing(peer.peer_id),
+            arg_with(peer_id=peer.peer_id), ANY, delay=ANY)
+
+    def test_applies_delay(self):
+        peer, behavior\
+            = self.peer_factory.mock_peer_and_behavior_with_prefix('')
+        querying_peer, _\
+            = self.peer_factory.mock_peer_and_behavior_with_prefix('')
+        gid = self.peer_factory.create_query_group(peer, querying_peer)
+        npr = self.helper.settings['no_penalty_reputation']
+        delay = 4
+        peer.query_groups[gid][querying_peer.peer_id].reputation = npr - delay
+        peer.send_query.return_value = None
+        behavior.on_query_self(querying_peer.peer_id, peer.peer_id, None)
+        peer.send_response.assert_called_once_with(
+            querying_peer.peer_id, ANY, ANY, ANY, delay=delay)
+
+    def test_does_nothing_if_enough_reputation(self):
+        peer, behavior\
+            = self.peer_factory.mock_peer_and_behavior_with_prefix('')
+        querying_peer, _\
+            = self.peer_factory.mock_peer_and_behavior_with_prefix('')
+        query_group_id = self.peer_factory.create_query_group(peer,
+                                                              querying_peer)
+        enough_rep = (self.helper.settings['reputation_buffer_factor']
+                      * self.helper.settings['no_penalty_reputation'])
+        peer.query_groups[query_group_id][peer.peer_id].reputation\
+            = enough_rep + 1
+        peer.send_query.return_value = None
+        behavior.on_query_self(querying_peer.peer_id, peer.peer_id, None)
+        peer.send_response.assert_not_called()
+        peer.expect_penalty.assert_called_once_with(
+            querying_peer.peer_id,
+            self.helper.settings['timeout_query_penalty'])
+
+
+class TestOnQuerySync(unittest.TestCase):
+    def setUp(self):
+        self.helper = TestHelper()
+        self.peer_factory = PeerFactory(self.helper.settings)
+
+    def test_responds(self):
+        peer, behavior\
+            = self.peer_factory.mock_peer_and_behavior_with_prefix('0000')
+        sync_peer, _\
+            = self.peer_factory.mock_peer_and_behavior_with_prefix('0000')
+        querying_peer_id = self.peer_factory.id_with_prefix('')
+        peer.send_query.return_value = None
+        behavior.on_query_sync(querying_peer_id, peer.peer_id,
+                               sync_peer.info(), None)
+        peer.send_response.assert_called_once_with(
+            querying_peer_id, set_containing(peer.peer_id),
+            arg_with(peer_id=sync_peer.peer_id), ANY, delay=ANY)
+
+    def test_applies_penalty(self):
+        peer, behavior\
+            = self.peer_factory.mock_peer_and_behavior_with_prefix('0000')
+        sync_peer, _\
+            = self.peer_factory.mock_peer_and_behavior_with_prefix('0000')
+        querying_peer, _\
+            = self.peer_factory.mock_peer_and_behavior_with_prefix('')
+        gid = self.peer_factory.create_query_group(peer, querying_peer)
+        npr = self.helper.settings['no_penalty_reputation']
+        delay = 4
+        peer.query_groups[gid][querying_peer.peer_id].reputation = npr - delay
+        peer.send_query.return_value = None
+        behavior.on_query_sync(querying_peer.peer_id, peer.peer_id,
+                               sync_peer.info(), None)
+        peer.send_response.assert_called_once_with(
+            querying_peer.peer_id, ANY, ANY, ANY, delay=delay)
+
+    def test_does_nothing_if_enough_reputation(self):
+        peer, behavior\
+            = self.peer_factory.mock_peer_and_behavior_with_prefix('0000')
+        sync_peer, _\
+            = self.peer_factory.mock_peer_and_behavior_with_prefix('0000')
+        querying_peer, _\
+            = self.peer_factory.mock_peer_and_behavior_with_prefix('')
+        query_group_id = self.peer_factory.create_query_group(peer,
+                                                              querying_peer)
+        enough_rep = (self.helper.settings['reputation_buffer_factor']
+                      * self.helper.settings['no_penalty_reputation'])
+        peer.query_groups[query_group_id][peer.peer_id].reputation\
+            = enough_rep + 1
+        peer.send_query.return_value = None
+        behavior.on_query_sync(querying_peer.peer_id, peer.peer_id,
+                               sync_peer.info(), None)
+        peer.send_response.assert_not_called()
+        peer.expect_penalty.assert_called_once_with(
+            querying_peer.peer_id,
+            self.helper.settings['timeout_query_penalty'])
+
+
 class TestOnQuery(unittest.TestCase):
     def setUp(self):
         self.helper = TestHelper()
@@ -143,6 +249,8 @@ class TestOnQuery(unittest.TestCase):
         behavior.on_query(querying_peer_id, queried_id, None)
         peer_a.send_response.assert_called_once_with(
             querying_peer_id, set((queried_id,)), None, ANY, delay=ANY)
+        peer_a.expect_penalty.assert_called_once_with(
+            querying_peer_id, self.helper.settings['failed_query_penalty'])
 
     def test_does_nothing_if_enough_reputation(self):
         peer_a, behavior\
@@ -160,6 +268,9 @@ class TestOnQuery(unittest.TestCase):
         queried_id = self.peer_factory.id_with_prefix('1111')
         peer_a.send_query.return_value = None
         behavior.on_query(querying_peer.peer_id, queried_id, None)
+        peer_a.expect_penalty.assert_called_once_with(
+            querying_peer.peer_id,
+            self.helper.settings['timeout_query_penalty'])
         peer_a.send_response.assert_not_called()
         peer_a.send_query.assert_not_called()
         peer_a.add_pending_query.assert_not_called()

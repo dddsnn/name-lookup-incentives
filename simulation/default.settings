@@ -61,6 +61,10 @@
     'query_group_history_interval': 1,
     # The time interval in between reevaluating query group memberships.
     'query_group_reevaluation_interval': 1,
+    # The time for which expected future penalties are stored. This should be
+    # at least the maximum penalty plus the timeout plus the transmission
+    # delay.
+    'expected_penalty_retention_time': 13,
 
     # The multiple of the no_penalty_reputation at or above which a peer will
     # stop responding to queries.

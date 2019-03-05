@@ -580,3 +580,167 @@ class TestLeaveQueryGroup(unittest.TestCase):
         self.assertTrue(query_group_id in peer.query_group_history)
         peer.leave_query_group(query_group_id, None)
         self.assertFalse(query_group_id in peer.query_group_history)
+
+
+class TestMaxPeerReputation(unittest.TestCase):
+    def setUp(self):
+        self.helper = TestHelper()
+        self.peer_factory = PeerFactory(self.helper.settings)
+
+    def test_no_groups(self):
+        peer = self.peer_factory.peer_with_prefix('')
+        peer_a = self.peer_factory.peer_with_prefix('')
+        self.assertEqual(
+            peer.max_peer_reputation(peer_a.peer_id, peer_a.peer_id), 0)
+        self.assertEqual(
+            peer.max_peer_reputation(peer.peer_id, peer_a.peer_id), 0)
+
+    def test_no_shared_groups(self):
+        peer = self.peer_factory.peer_with_prefix('')
+        peer_a = self.peer_factory.peer_with_prefix('')
+        peer_b = self.peer_factory.peer_with_prefix('')
+        self.peer_factory.create_query_group(peer, peer_a)
+        self.assertEqual(
+            peer.max_peer_reputation(peer_b.peer_id, peer_b.peer_id), 0)
+        self.assertEqual(
+            peer.max_peer_reputation(peer.peer_id, peer_b.peer_id), 0)
+
+    def test_one_shared_group(self):
+        peer = self.peer_factory.peer_with_prefix('')
+        peer_a = self.peer_factory.peer_with_prefix('')
+        gid = self.peer_factory.create_query_group(peer, peer_a)
+        peer.query_groups[gid][peer.peer_id].reputation = 5
+        peer.query_groups[gid][peer_a.peer_id].reputation = 6
+        self.assertEqual(
+            peer.max_peer_reputation(peer_a.peer_id, peer_a.peer_id), 6)
+        self.assertEqual(
+            peer.max_peer_reputation(peer.peer_id, peer_a.peer_id), 5)
+
+    def test_multiple_shared_groups(self):
+        peer = self.peer_factory.peer_with_prefix('')
+        peer_a = self.peer_factory.peer_with_prefix('')
+        gid_1 = self.peer_factory.create_query_group(peer, peer_a)
+        gid_2 = self.peer_factory.create_query_group(peer, peer_a)
+        peer.query_groups[gid_1][peer.peer_id].reputation = 5
+        peer.query_groups[gid_1][peer_a.peer_id].reputation = 6
+        peer.query_groups[gid_2][peer.peer_id].reputation = 4
+        peer.query_groups[gid_2][peer_a.peer_id].reputation = 7
+        self.assertEqual(
+            peer.max_peer_reputation(peer_a.peer_id, peer_a.peer_id), 7)
+        self.assertEqual(
+            peer.max_peer_reputation(peer.peer_id, peer_a.peer_id), 5)
+
+
+class TestExpectedMinReputation(unittest.TestCase):
+    def setUp(self):
+        self.helper = TestHelper()
+        self.peer_factory = PeerFactory(self.helper.settings)
+
+    def test_no_groups(self):
+        peer = self.peer_factory.peer_with_prefix('')
+        peer_a = self.peer_factory.peer_with_prefix('')
+        self.assertEqual(
+            peer.expected_min_reputation(peer_a.peer_id), 0)
+
+    def test_no_shared_groups(self):
+        peer = self.peer_factory.peer_with_prefix('')
+        peer_a = self.peer_factory.peer_with_prefix('')
+        peer_b = self.peer_factory.peer_with_prefix('')
+        self.peer_factory.create_query_group(peer, peer_a)
+        self.assertEqual(
+            peer.expected_min_reputation(peer_b.peer_id), 0)
+
+    def test_one_shared_group(self):
+        peer = self.peer_factory.peer_with_prefix('')
+        peer_a = self.peer_factory.peer_with_prefix('')
+        gid = self.peer_factory.create_query_group(peer, peer_a)
+        peer.query_groups[gid][peer.peer_id].reputation = 5
+        self.assertEqual(
+            peer.expected_min_reputation(peer_a.peer_id), 5)
+
+    def test_multiple_shared_groups(self):
+        peer = self.peer_factory.peer_with_prefix('')
+        peer_a = self.peer_factory.peer_with_prefix('')
+        gid_1 = self.peer_factory.create_query_group(peer, peer_a)
+        gid_2 = self.peer_factory.create_query_group(peer, peer_a)
+        peer.query_groups[gid_1][peer.peer_id].reputation = 5
+        peer.query_groups[gid_2][peer.peer_id].reputation = 7
+        self.assertEqual(
+            peer.expected_min_reputation(peer_a.peer_id), 5)
+
+    def test_considers_expected_penalties_from_same_peer(self):
+        peer = self.peer_factory.peer_with_prefix('')
+        peer_a = self.peer_factory.peer_with_prefix('')
+        gid = self.peer_factory.create_query_group(peer, peer_a)
+        peer.query_groups[gid][peer.peer_id].reputation = 5
+        peer.expected_penalties[peer_a.peer_id] = [(0, -2)]
+        self.assertEqual(
+            peer.expected_min_reputation(peer_a.peer_id), 3)
+
+    def test_considers_expected_penalties_from_other_peer(self):
+        peer = self.peer_factory.peer_with_prefix('')
+        peer_a = self.peer_factory.peer_with_prefix('')
+        peer_b = self.peer_factory.peer_with_prefix('')
+        gid = self.peer_factory.create_query_group(peer, peer_a, peer_b)
+        peer.query_groups[gid][peer.peer_id].reputation = 5
+        peer.expected_penalties[peer_b.peer_id] = [(0, -2)]
+        self.assertEqual(
+            peer.expected_min_reputation(peer_a.peer_id), 3)
+
+    def test_considers_multiple_expected_penalties_from_different_peers(self):
+        peer = self.peer_factory.peer_with_prefix('')
+        peer_a = self.peer_factory.peer_with_prefix('')
+        peer_b = self.peer_factory.peer_with_prefix('')
+        gid = self.peer_factory.create_query_group(peer, peer_a, peer_b)
+        peer.query_groups[gid][peer.peer_id].reputation = 5
+        peer.expected_penalties[peer_a.peer_id] = [(0, -1)]
+        peer.expected_penalties[peer_b.peer_id] = [(0, -2)]
+        self.assertEqual(
+            peer.expected_min_reputation(peer_a.peer_id), 2)
+
+    def test_considers_multiple_expected_penalties_from_the_same_peer(self):
+        peer = self.peer_factory.peer_with_prefix('')
+        peer_a = self.peer_factory.peer_with_prefix('')
+        peer_b = self.peer_factory.peer_with_prefix('')
+        gid = self.peer_factory.create_query_group(peer, peer_a, peer_b)
+        peer.query_groups[gid][peer.peer_id].reputation = 5
+        peer.expected_penalties[peer_a.peer_id] = [(0, -1), (1, -1)]
+        self.assertEqual(
+            peer.expected_min_reputation(peer_a.peer_id), 3)
+
+    def test_considers_expected_penalties_for_multiple_groups(self):
+        peer = self.peer_factory.peer_with_prefix('')
+        peer_a = self.peer_factory.peer_with_prefix('')
+        gid_1 = self.peer_factory.create_query_group(peer, peer_a)
+        gid_2 = self.peer_factory.create_query_group(peer, peer_a)
+        peer.query_groups[gid_1][peer.peer_id].reputation = 5
+        peer.query_groups[gid_2][peer.peer_id].reputation = 4
+        peer.expected_penalties[peer_a.peer_id] = [(0, -2)]
+        self.assertEqual(
+            peer.expected_min_reputation(peer_a.peer_id), 2)
+
+    def test_doesnt_consider_expected_penalties_from_other_group(self):
+        peer = self.peer_factory.peer_with_prefix('')
+        peer_a = self.peer_factory.peer_with_prefix('')
+        peer_b = self.peer_factory.peer_with_prefix('')
+        gid = self.peer_factory.create_query_group(peer, peer_a)
+        self.peer_factory.create_query_group(peer, peer_b)
+        peer.query_groups[gid][peer.peer_id].reputation = 5
+        peer.expected_penalties[peer_b.peer_id] = [(0, -2)]
+        self.assertEqual(
+            peer.expected_min_reputation(peer_a.peer_id), 5)
+
+    def test_doesnt_consider_expected_penalties_after_a_timeout(self):
+        peer = self.peer_factory.peer_with_prefix('')
+        peer_a = self.peer_factory.peer_with_prefix('')
+        gid = self.peer_factory.create_query_group(peer, peer_a)
+        peer.query_groups[gid][peer.peer_id].reputation = 5
+        peer.expected_penalties[peer_a.peer_id] = [(0, -2)]
+
+        def wait(env):
+            yield env.timeout(
+                self.helper.settings['expected_penalty_retention_time'] + 1)
+        self.peer_factory.env.process(wait(self.peer_factory.env))
+        self.peer_factory.env.run()
+        self.assertEqual(
+            peer.expected_min_reputation(peer_a.peer_id), 5)
