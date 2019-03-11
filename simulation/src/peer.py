@@ -958,7 +958,7 @@ class Peer:
             self.env.now, sender_id, self.peer_id, peer_id, reputation_diff,
             in_event_id))
         self.possibly_remove_expected_penalty(sender_id, peer_id,
-                                              reputation_diff)
+                                              reputation_diff, in_event_id)
         # Only change the reputation in those query groups shared by the peer
         # whose reputation is changed and the peer reporting the change.
         # In the other groups there will be peers that don't know about the
@@ -1188,6 +1188,8 @@ class Peer:
                     eprt = self.settings['expected_penalty_retention_time']
                     expected_penalty = expected_penalties[i]
                     if self.env.now - expected_penalty[0] > eprt:
+                        self.logger.log(an.ExpectedPenaltyTimeout(
+                            self.env.now, self.peer_id, None))
                         expected_penalties.pop(i)
                     else:
                         total_expected_penalties += expected_penalty[1]
@@ -1209,7 +1211,7 @@ class Peer:
                                                                 penalty))
 
     def possibly_remove_expected_penalty(self, sender_id, peer_id,
-                                         reputation_diff):
+                                         reputation_diff, in_event_id):
         """
         Remove an expected penalty, if applicable.
 
@@ -1221,6 +1223,8 @@ class Peer:
         i = 0
         while i < len(expected_penalties):
             if expected_penalties[i][1] == reputation_diff:
+                self.logger.log(an.ExpectedPenaltyApplied(
+                    self.env.now, self.peer_id, in_event_id))
                 expected_penalties.pop(i)
                 return
             i += 1

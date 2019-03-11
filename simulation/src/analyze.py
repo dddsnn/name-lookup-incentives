@@ -1034,3 +1034,17 @@ class ReputationDecay(Event):
     def __init__(self, time, decay):
         super().__init__(time, None)
         self.decay = decay
+
+
+class ExpectedPenaltyApplied(Event):
+    """Event representing a penalty being applied as expected."""
+    def __init__(self, time, peer_id, in_event_id):
+        super().__init__(time, in_event_id)
+        self.peer_id = peer_id
+
+
+class ExpectedPenaltyTimeout(Event):
+    """Event representing a penalty that was expected timing out."""
+    def __init__(self, time, peer_id, in_event_id):
+        super().__init__(time, in_event_id)
+        self.peer_id = peer_id
