@@ -1,0 +1,111 @@
+{
+    # The seed used for the RNG.
+    'rng_seed': 0,
+    # Name of the log file that will be written.
+    'log_file_name': 'log.log',
+    # Number of peers in the simulation.
+    'num_peers': 64,
+    # The number of randomly selected peers each peer is introduced to in the
+    # beginning.
+    'num_random_introductions': 8,
+    # Whether the initialization should take care to create equally-sized
+    # sync groups, i.e. there is the same number of peers with every possible
+    # prefix.
+    'even_sync_groups': False,
+    # The initial reputation value peers get when joining a query group.
+    'initial_reputation': 0,
+    # Whether or not the setup should place all peers in one big query group.
+    'force_one_group': False,
+
+    # The time the reputation decay process sleeps.
+    'decay_timestep': 1,
+    # The reputation decay that is applied per time unit. This isn't affected
+    # by decay_timestep: if decay_timestep is 10 and decay_per_time_unit is
+    # 0.2, every 10 time units 2 reputation decay are imposed.
+    'decay_per_time_unit': 0.1,
+
+    # The reputation increase awarded for successfully answering a query.
+    'successful_query_reward': 1,
+    # The reputation decrease imposed for answering a query, but failing to
+    # present the proper record.
+    'failed_query_penalty': -2,
+    # The reputation decrease imposed for failing to respond to a query within
+    # the timeout chosen by the querying peer.
+    'timeout_query_penalty': -2,
+    # The amount of reputation at or above which no penalty is imposed.
+    'no_penalty_reputation': 10,
+
+    # Length of peer IDs in bits.
+    'id_length': 16,
+    # Length of peer prefixes in bits.
+    'prefix_length': 4,
+    # The amount of query peers every peer strives to at least have for each
+    # subprefix.
+    'min_desired_query_peers': 2,
+    # The size of a query group at which a peer considers it full.
+    'max_desired_group_size': 16,
+    # The number of time units of round trip time a peer considers to be due
+    # to network delay. In the calculation of penalty delay, this will be
+    # added on top.
+    'query_timeout': 2,
+    # The number of time units completed queries are archived to be able to
+    # match them to incoming late responses.
+    'completed_query_retention_time': 100,
+    # The number of time units reputation updates are archived to be able to
+    # roll back and reapply them in case of updates arriving out of order.
+    'update_retention_time': 100,
+    # The size of the ring buffer used to store past reputation in query
+    # groups.
+    'query_group_history_length': 100,
+    # The time interval in between recording query group reputations.
+    'query_group_history_interval': 1,
+    # The time interval in between reevaluating query group memberships.
+    'query_group_reevaluation_interval': 1,
+    # The time for which expected future penalties are stored. This should be
+    # at least the maximum penalty plus the timeout plus the transmission
+    # delay.
+    'expected_penalty_retention_time': 13,
+
+    # The multiple of the no_penalty_reputation at or above which a peer will
+    # stop responding to queries.
+    'reputation_buffer_factor': 1.5,
+    # The strategy to use when selecting and sorting the list of query peers
+    # to send a query to. Possible values are:
+    # * 'overlap': Create a list of all query peers whose prefix has a higher
+    #     overlap with the queried ID than one's own. Sort this list by the
+    #     length of that overlap, greatest first. No tie breaker.
+    # * 'overlap_high_rep_last': As 'overlap', but all peers with enough
+    #     reputation (i.e. whose minimum reputation in all shared query groups
+    #     is greater than or equal 'no_penalty_reputation' times
+    #     'reputation_buffer_factor' are taken from the front and added to the
+    #     back.
+    # * 'overlap_shuffled': Like 'overlap', except the list is shuffled
+    #     instead of sorted.
+    # * 'overlap_rep_sorted': As 'overlap' but within groups of equal overlap,
+    #     peers are sorted by reputation in ascending order.
+    # * 'rep_sorted': Peers are sorted by reputation in ascending_order.
+    'query_peer_selection': 'overlap',
+    # The minimum number of history entries to decide whether a query group
+    # performs well for a peer.
+    'query_group_min_history': 5,
+    # The fraction of the 'no_penalty_reputation' of reputation a peer needs
+    # to have in order to consider a query group performing well for him based
+    # solely on the current reputation.
+    'performance_no_penalty_fraction': 0.8,
+    # The number of reputation history entries to consider when calculating
+    # the recent development.
+    'performance_num_history_entries': 25,
+    # The minimum slope of the linear regression fitted through the recent
+    # reputation history for a peer to consider a query group to have good
+    # performance if it doesn't have enough raw reputation (yet).
+    'performance_min_slope': 0.2,
+    # The way the usefulness of a peer in a query group is calculated.
+    # Possible values are:
+    #   * 'none': All peers are considered equally useful.
+    #   * 'subprefix_constant': The usefulness increases with each other peer
+    #       in the group who needs a subprefix covered this peer covers.
+    'usefulness': 'subprefix_constant',
+
+    # The number of time units a message passed between peers takes to arrive.
+    'transmission_delay': 0.1
+}

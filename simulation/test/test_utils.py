@@ -1,5 +1,6 @@
 import util
 from peer import QueryGroup, query_group_id_iter, Peer, PeerBehavior
+import sys
 import os
 import bitstring as bs
 from copy import deepcopy
@@ -14,7 +15,7 @@ bs.Bits.__lt__ = util.bits_lt
 
 class TestHelper:
     def __init__(self):
-        file_name = os.path.join(os.getcwd(), '../default.settings')
+        file_name = os.path.join(sys.path[0], 'test.settings')
         self.settings = util.read_settings(file_name)
 
 

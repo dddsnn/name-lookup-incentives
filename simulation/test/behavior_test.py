@@ -650,7 +650,7 @@ class TestQueryGroupPerforms(unittest.TestCase):
         slope = self.helper.settings['performance_min_slope']
         for i in range(self.helper.settings['query_group_min_history']):
             peer.query_groups[query_group_id][peer.peer_id].reputation\
-                = i * slope
+                = i * (slope + 0.01)
             peer.update_query_group_history()
         self.assertTrue(behavior.query_group_performs(query_group_id))
 
