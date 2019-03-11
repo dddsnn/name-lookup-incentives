@@ -631,6 +631,42 @@ class TestMaxPeerReputation(unittest.TestCase):
             peer.max_peer_reputation(peer.peer_id, peer_a.peer_id), 5)
 
 
+class TestMinPeerReputation(unittest.TestCase):
+    def setUp(self):
+        self.helper = TestHelper()
+        self.peer_factory = PeerFactory(self.helper.settings)
+
+    def test_no_groups(self):
+        peer = self.peer_factory.peer_with_prefix('')
+        peer_a = self.peer_factory.peer_with_prefix('')
+        self.assertEqual(peer.min_peer_reputation(peer_a.peer_id), 0)
+
+    def test_no_shared_groups(self):
+        peer = self.peer_factory.peer_with_prefix('')
+        peer_a = self.peer_factory.peer_with_prefix('')
+        peer_b = self.peer_factory.peer_with_prefix('')
+        self.peer_factory.create_query_group(peer, peer_b)
+        self.assertEqual(peer.min_peer_reputation(peer_a.peer_id), 0)
+
+    def test_one_shared_group(self):
+        peer = self.peer_factory.peer_with_prefix('')
+        peer_a = self.peer_factory.peer_with_prefix('')
+        gid = self.peer_factory.create_query_group(peer, peer_a)
+        peer.query_groups[gid][peer_a.peer_id].reputation = 5
+        self.assertEqual(peer.min_peer_reputation(peer_a.peer_id), 5)
+
+    def test_multiple_shared_groups(self):
+        peer = self.peer_factory.peer_with_prefix('')
+        peer_a = self.peer_factory.peer_with_prefix('')
+        gid_1 = self.peer_factory.create_query_group(peer, peer_a)
+        gid_2 = self.peer_factory.create_query_group(peer, peer_a)
+        gid_3 = self.peer_factory.create_query_group(peer, peer_a)
+        peer.query_groups[gid_1][peer_a.peer_id].reputation = 5
+        peer.query_groups[gid_2][peer_a.peer_id].reputation = 4
+        peer.query_groups[gid_3][peer_a.peer_id].reputation = 6
+        self.assertEqual(peer.min_peer_reputation(peer_a.peer_id), 4)
+
+
 class TestExpectedMinReputation(unittest.TestCase):
     def setUp(self):
         self.helper = TestHelper()

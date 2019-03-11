@@ -51,7 +51,7 @@ class TestPeerSelection(unittest.TestCase):
                                     peer_b.peer_id])
 
     def test_puts_high_rep_peers_to_the_back(self):
-        self.helper.settings['query_peer_selection'] = 'overlap_low_rep_first'
+        self.helper.settings['query_peer_selection'] = 'overlap_high_rep_last'
         peer_a = self.peer_factory.peer_with_prefix('0000')
         peer_b = self.peer_factory.peer_with_prefix('1111')
         peer_c = self.peer_factory.peer_with_prefix('1000')
@@ -65,8 +65,8 @@ class TestPeerSelection(unittest.TestCase):
             self.peer_factory.id_with_prefix('1111'))
         self.assertEqual(selected, [peer_c.peer_id, peer_b.peer_id])
 
-    def test_considers_minimum_rep_in_all_shared_query_groups(self):
-        self.helper.settings['query_peer_selection'] = 'overlap_low_rep_first'
+    def test_overlap_high_rep_lastconsiders_minimum_rep(self):
+        self.helper.settings['query_peer_selection'] = 'overlap_high_rep_last'
         peer_a = self.peer_factory.peer_with_prefix('0000')
         peer_b = self.peer_factory.peer_with_prefix('1111')
         peer_c = self.peer_factory.peer_with_prefix('1000')
@@ -90,6 +90,84 @@ class TestPeerSelection(unittest.TestCase):
         peer_a.behavior.select_peers_to_query(
             self.peer_factory.id_with_prefix('1111'))
         mocked_shuffle.assert_called_once()
+
+    def test_sorts_by_overlap_and_reputation(self):
+        self.helper.settings['query_peer_selection'] = 'overlap_rep_sorted'
+        peer_a = self.peer_factory.peer_with_prefix('0000')
+        peer_b = self.peer_factory.peer_with_prefix('1111')
+        peer_c = self.peer_factory.peer_with_prefix('1111')
+        peer_d = self.peer_factory.peer_with_prefix('1000')
+        peer_e = self.peer_factory.peer_with_prefix('1000')
+        query_group_id = self.peer_factory.create_query_group(
+            peer_a, peer_b, peer_c, peer_d, peer_e)
+        peer_a.query_groups[query_group_id][peer_b.peer_id].reputation = 6
+        peer_a.query_groups[query_group_id][peer_c.peer_id].reputation = 5
+        peer_a.query_groups[query_group_id][peer_d.peer_id].reputation = 2
+        peer_a.query_groups[query_group_id][peer_e.peer_id].reputation = 3
+        selected = peer_a.behavior.select_peers_to_query(
+            self.peer_factory.id_with_prefix('1111'))
+        self.assertEqual(selected, [peer_c.peer_id, peer_b.peer_id,
+                                    peer_d.peer_id, peer_e.peer_id])
+
+    def test_overlap_rep_sorted_considers_minimum_rep(self):
+        self.helper.settings['query_peer_selection'] = 'overlap_rep_sorted'
+        peer_a = self.peer_factory.peer_with_prefix('0000')
+        peer_b = self.peer_factory.peer_with_prefix('1111')
+        peer_c = self.peer_factory.peer_with_prefix('1111')
+        peer_d = self.peer_factory.peer_with_prefix('1111')
+        query_group_id_1 = self.peer_factory.create_query_group(
+            peer_a, peer_b, peer_c, peer_d)
+        query_group_id_2 = self.peer_factory.create_query_group(
+            peer_a, peer_b, peer_c, peer_d)
+        peer_a.query_groups[query_group_id_1][peer_b.peer_id].reputation = 2
+        peer_a.query_groups[query_group_id_1][peer_c.peer_id].reputation = 4
+        peer_a.query_groups[query_group_id_1][peer_d.peer_id].reputation = 6
+        peer_a.query_groups[query_group_id_2][peer_b.peer_id].reputation = 7
+        peer_a.query_groups[query_group_id_2][peer_c.peer_id].reputation = 1
+        peer_a.query_groups[query_group_id_2][peer_d.peer_id].reputation = 3
+        selected = peer_a.behavior.select_peers_to_query(
+            self.peer_factory.id_with_prefix('1111'))
+        self.assertEqual(selected, [peer_c.peer_id, peer_b.peer_id,
+                                    peer_d.peer_id])
+
+    def test_sorts_by_reputation(self):
+        self.helper.settings['query_peer_selection'] = 'rep_sorted'
+        peer_a = self.peer_factory.peer_with_prefix('0000')
+        peer_b = self.peer_factory.peer_with_prefix('1111')
+        peer_c = self.peer_factory.peer_with_prefix('1111')
+        peer_d = self.peer_factory.peer_with_prefix('1000')
+        peer_e = self.peer_factory.peer_with_prefix('1000')
+        query_group_id = self.peer_factory.create_query_group(
+            peer_a, peer_b, peer_c, peer_d, peer_e)
+        peer_a.query_groups[query_group_id][peer_b.peer_id].reputation = 6
+        peer_a.query_groups[query_group_id][peer_c.peer_id].reputation = 5
+        peer_a.query_groups[query_group_id][peer_d.peer_id].reputation = 2
+        peer_a.query_groups[query_group_id][peer_e.peer_id].reputation = 3
+        selected = peer_a.behavior.select_peers_to_query(
+            self.peer_factory.id_with_prefix('1111'))
+        self.assertEqual(selected, [peer_d.peer_id, peer_e.peer_id,
+                                    peer_c.peer_id, peer_b.peer_id])
+
+    def test_rep_sorted_considers_minimum_rep(self):
+        self.helper.settings['query_peer_selection'] = 'rep_sorted'
+        peer_a = self.peer_factory.peer_with_prefix('0000')
+        peer_b = self.peer_factory.peer_with_prefix('1111')
+        peer_c = self.peer_factory.peer_with_prefix('1111')
+        peer_d = self.peer_factory.peer_with_prefix('1000')
+        query_group_id_1 = self.peer_factory.create_query_group(
+            peer_a, peer_b, peer_c, peer_d)
+        query_group_id_2 = self.peer_factory.create_query_group(
+            peer_a, peer_b, peer_c, peer_d)
+        peer_a.query_groups[query_group_id_1][peer_b.peer_id].reputation = 2
+        peer_a.query_groups[query_group_id_1][peer_c.peer_id].reputation = 4
+        peer_a.query_groups[query_group_id_1][peer_d.peer_id].reputation = 6
+        peer_a.query_groups[query_group_id_2][peer_b.peer_id].reputation = 7
+        peer_a.query_groups[query_group_id_2][peer_c.peer_id].reputation = 1
+        peer_a.query_groups[query_group_id_2][peer_d.peer_id].reputation = 3
+        selected = peer_a.behavior.select_peers_to_query(
+            self.peer_factory.id_with_prefix('1111'))
+        self.assertEqual(selected, [peer_c.peer_id, peer_b.peer_id,
+                                    peer_d.peer_id])
 
 
 class TestOnQuerySelf(unittest.TestCase):
@@ -343,7 +421,7 @@ class TestOnQuery(unittest.TestCase):
                                        peer_b.peer_id]), ANY)
 
     def test_query_all_puts_high_rep_peers_to_the_back(self):
-        self.helper.settings['query_peer_selection'] = 'overlap_low_rep_first'
+        self.helper.settings['query_peer_selection'] = 'overlap_high_rep_last'
         peer_a, behavior =\
             self.peer_factory.mock_peer_and_behavior_with_prefix('0000')
         peer_b, _ =\
@@ -367,6 +445,32 @@ class TestOnQuery(unittest.TestCase):
                                       [peer_d.peer_id, peer_b.peer_id,
                                        peer_c.peer_id]), ANY)
 
+    def test_query_all_overlap_high_rep_last_considers_minimum_rep(self):
+        self.helper.settings['query_peer_selection'] = 'overlap_high_rep_last'
+        peer_a, behavior =\
+            self.peer_factory.mock_peer_and_behavior_with_prefix('0000')
+        peer_b, _ =\
+            self.peer_factory.mock_peer_and_behavior_with_prefix('1000')
+        peer_c, _ =\
+            self.peer_factory.mock_peer_and_behavior_with_prefix('1110')
+        peer_d, _ =\
+            self.peer_factory.mock_peer_and_behavior_with_prefix('1100')
+        query_group_id_1 = self.peer_factory.create_query_group(peer_a, peer_b,
+                                                              peer_c, peer_d)
+        query_group_id_2 = self.peer_factory.create_query_group(peer_a, peer_c)
+        enough_rep = (self.helper.settings['reputation_buffer_factor']
+                      * self.helper.settings['no_penalty_reputation'])
+        peer_a.query_groups[query_group_id_1][peer_c.peer_id].reputation\
+            = enough_rep + 1
+        querying_peer_id = self.peer_factory.id_with_prefix('0000')
+        queried_id = self.peer_factory.id_with_prefix('1111')
+        peer_a.send_query.return_value = None
+        behavior.on_query(querying_peer_id, queried_id, None, query_all=True)
+        peer_a.send_query.assert_called_once_with(
+            queried_id, pending_query(querying_peer_id, queried_id,
+                                      [peer_c.peer_id, peer_d.peer_id,
+                                       peer_b.peer_id]), ANY)
+
     @unittest.mock.patch('random.shuffle')
     def test_query_all_shuffles(self, mocked_shuffle):
         self.helper.settings['query_peer_selection'] = 'overlap_shuffled'
@@ -380,6 +484,118 @@ class TestOnQuery(unittest.TestCase):
         peer_a.send_query.return_value = None
         behavior.on_query(querying_peer_id, queried_id, None, query_all=True)
         mocked_shuffle.assert_called_once()
+
+    def test_query_all_sorts_by_overlap_and_reputation(self):
+        self.helper.settings['query_peer_selection'] = 'overlap_rep_sorted'
+        peer_a, behavior =\
+            self.peer_factory.mock_peer_and_behavior_with_prefix('0000')
+        peer_b, _ =\
+            self.peer_factory.mock_peer_and_behavior_with_prefix('1111')
+        peer_c, _ =\
+            self.peer_factory.mock_peer_and_behavior_with_prefix('1111')
+        peer_d, _ =\
+            self.peer_factory.mock_peer_and_behavior_with_prefix('1000')
+        peer_e, _ =\
+            self.peer_factory.mock_peer_and_behavior_with_prefix('1000')
+        query_group_id = self.peer_factory.create_query_group(
+            peer_a, peer_b, peer_c, peer_d, peer_e)
+        peer_a.query_groups[query_group_id][peer_b.peer_id].reputation = 6
+        peer_a.query_groups[query_group_id][peer_c.peer_id].reputation = 5
+        peer_a.query_groups[query_group_id][peer_d.peer_id].reputation = 2
+        peer_a.query_groups[query_group_id][peer_e.peer_id].reputation = 3
+        querying_peer_id = self.peer_factory.id_with_prefix('0000')
+        queried_id = self.peer_factory.id_with_prefix('1111')
+        peer_a.send_query.return_value = None
+        behavior.on_query(querying_peer_id, queried_id, None, query_all=True)
+        peer_a.send_query.assert_called_once_with(
+            queried_id, pending_query(querying_peer_id, queried_id,
+                                      [peer_c.peer_id, peer_b.peer_id,
+                                       peer_d.peer_id, peer_e.peer_id]), ANY)
+
+    def test_query_all_overlap_sorted_considers_minimum_rep(self):
+        self.helper.settings['query_peer_selection'] = 'overlap_rep_sorted'
+        peer_a, behavior =\
+            self.peer_factory.mock_peer_and_behavior_with_prefix('0000')
+        peer_b, _ =\
+            self.peer_factory.mock_peer_and_behavior_with_prefix('1111')
+        peer_c, _ =\
+            self.peer_factory.mock_peer_and_behavior_with_prefix('1111')
+        peer_d, _ =\
+            self.peer_factory.mock_peer_and_behavior_with_prefix('1111')
+        query_group_id_1 = self.peer_factory.create_query_group(
+            peer_a, peer_b, peer_c, peer_d)
+        query_group_id_2 = self.peer_factory.create_query_group(
+            peer_a, peer_b, peer_c, peer_d)
+        peer_a.query_groups[query_group_id_1][peer_b.peer_id].reputation = 2
+        peer_a.query_groups[query_group_id_1][peer_c.peer_id].reputation = 4
+        peer_a.query_groups[query_group_id_1][peer_d.peer_id].reputation = 6
+        peer_a.query_groups[query_group_id_2][peer_b.peer_id].reputation = 7
+        peer_a.query_groups[query_group_id_2][peer_c.peer_id].reputation = 1
+        peer_a.query_groups[query_group_id_2][peer_d.peer_id].reputation = 3
+        querying_peer_id = self.peer_factory.id_with_prefix('0000')
+        queried_id = self.peer_factory.id_with_prefix('1111')
+        peer_a.send_query.return_value = None
+        behavior.on_query(querying_peer_id, queried_id, None, query_all=True)
+        peer_a.send_query.assert_called_once_with(
+            queried_id, pending_query(querying_peer_id, queried_id,
+                                      [peer_c.peer_id, peer_b.peer_id,
+                                       peer_d.peer_id]), ANY)
+
+    def test_query_all_sorts_by_reputation(self):
+        self.helper.settings['query_peer_selection'] = 'rep_sorted'
+        peer_a, behavior =\
+            self.peer_factory.mock_peer_and_behavior_with_prefix('0000')
+        peer_b, _ =\
+            self.peer_factory.mock_peer_and_behavior_with_prefix('1111')
+        peer_c, _ =\
+            self.peer_factory.mock_peer_and_behavior_with_prefix('1111')
+        peer_d, _ =\
+            self.peer_factory.mock_peer_and_behavior_with_prefix('1000')
+        peer_e, _ =\
+            self.peer_factory.mock_peer_and_behavior_with_prefix('1000')
+        query_group_id = self.peer_factory.create_query_group(
+            peer_a, peer_b, peer_c, peer_d, peer_e)
+        peer_a.query_groups[query_group_id][peer_b.peer_id].reputation = 6
+        peer_a.query_groups[query_group_id][peer_c.peer_id].reputation = 5
+        peer_a.query_groups[query_group_id][peer_d.peer_id].reputation = 2
+        peer_a.query_groups[query_group_id][peer_e.peer_id].reputation = 3
+        querying_peer_id = self.peer_factory.id_with_prefix('0000')
+        queried_id = self.peer_factory.id_with_prefix('1111')
+        peer_a.send_query.return_value = None
+        behavior.on_query(querying_peer_id, queried_id, None, query_all=True)
+        peer_a.send_query.assert_called_once_with(
+            queried_id, pending_query(querying_peer_id, queried_id,
+                                      [peer_d.peer_id, peer_e.peer_id,
+                                       peer_c.peer_id, peer_b.peer_id]), ANY)
+
+    def test_query_all_rep_sorted_considers_minimum_rep(self):
+        self.helper.settings['query_peer_selection'] = 'rep_sorted'
+        peer_a, behavior =\
+            self.peer_factory.mock_peer_and_behavior_with_prefix('0000')
+        peer_b, _ =\
+            self.peer_factory.mock_peer_and_behavior_with_prefix('1111')
+        peer_c, _ =\
+            self.peer_factory.mock_peer_and_behavior_with_prefix('1111')
+        peer_d, _ =\
+            self.peer_factory.mock_peer_and_behavior_with_prefix('1000')
+        query_group_id_1 = self.peer_factory.create_query_group(
+            peer_a, peer_b, peer_c, peer_d)
+        query_group_id_2 = self.peer_factory.create_query_group(
+            peer_a, peer_b, peer_c, peer_d)
+        peer_a.query_groups[query_group_id_1][peer_b.peer_id].reputation = 2
+        peer_a.query_groups[query_group_id_1][peer_c.peer_id].reputation = 4
+        peer_a.query_groups[query_group_id_1][peer_d.peer_id].reputation = 6
+        peer_a.query_groups[query_group_id_2][peer_b.peer_id].reputation = 7
+        peer_a.query_groups[query_group_id_2][peer_c.peer_id].reputation = 1
+        peer_a.query_groups[query_group_id_2][peer_d.peer_id].reputation = 3
+        querying_peer_id = self.peer_factory.id_with_prefix('0000')
+        queried_id = self.peer_factory.id_with_prefix('1111')
+        peer_a.send_query.return_value = None
+        behavior.on_query(querying_peer_id, queried_id, None, query_all=True)
+        peer_a.send_query.assert_called_once_with(
+            queried_id, pending_query(querying_peer_id, queried_id,
+                                      [peer_c.peer_id, peer_b.peer_id,
+                                       peer_d.peer_id]), ANY)
 
     def test_query_all_doesnt_include_peers_multiple_times(self):
         peer_a, behavior =\

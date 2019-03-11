@@ -255,37 +255,50 @@ class PeerBehavior:
                 higher overlap with the queried ID than one's own. Sort this
                 list by the length of that overlap, greatest first. No tie
                 breaker.
-            * 'overlap_low_rep_first': As 'overlap', but all peers with enough
+            * 'overlap_high_rep_last': As 'overlap', but all peers with enough
                 reputation (i.e. whose minimum reputation in all shared query
                 groups is greater than or equal 'no_penalty_reputation' times
                 'reputation_buffer_factor' are taken from the front and added
                 to the back.
             * 'overlap_shuffled': Like 'overlap', except the list is shuffled
                 instead of sorted.
+            * 'overlap_rep_sorted': As 'overlap' but within groups of equal
+                overlap, peers are sorted by reputation in ascending order.
+            * 'rep_sorted': Peers are sorted by reputation in ascending_order.
         """
         if (self.peer.settings['query_peer_selection']
-                not in ('overlap', 'overlap_low_rep_first',
-                        'overlap_shuffled')):
+                not in ('overlap', 'overlap_high_rep_last',
+                        'overlap_shuffled', 'overlap_rep_sorted',
+                        'rep_sorted')):
             raise Exception(
                 'Invalid query peer selection strategy {}.'
                 .format(self.peer.settings['query_peer_selection']))
         util.remove_duplicates(peer_infos, key=op.attrgetter('peer_id'))
         if (self.peer.settings['query_peer_selection']
-                in ('overlap', 'overlap_low_rep_first')):
+                in ('overlap', 'overlap_high_rep_last')):
             peer_infos.sort(key=lambda pi: util.bit_overlap(pi.prefix,
                                                             queried_id),
                             reverse=True)
         elif self.peer.settings['query_peer_selection'] == 'overlap_shuffled':
             random.shuffle(peer_infos)
+        elif (self.peer.settings['query_peer_selection']
+                == 'overlap_rep_sorted'):
+            def key(peer_info):
+                overlap = util.bit_overlap(peer_info.prefix, queried_id)
+                min_rep = self.peer.min_peer_reputation(peer_info.peer_id)
+                return (overlap, -min_rep)
+            peer_infos.sort(key=key, reverse=True)
+        elif self.peer.settings['query_peer_selection'] == 'rep_sorted':
+            def key(peer_info):
+                return self.peer.min_peer_reputation(peer_info.peer_id)
+            peer_infos.sort(key=key)
         if (self.peer.settings['query_peer_selection']
-                == 'overlap_low_rep_first'):
+                == 'overlap_high_rep_last'):
             enough_rep = (self.peer.settings['reputation_buffer_factor']
                           * self.peer.settings['no_penalty_reputation'])
             swap_back_idxs = []
             for i, peer_info in enumerate(peer_infos):
-                min_rep = min((g[peer_info.peer_id].reputation for g in
-                               self.peer.peer_query_groups(peer_info.peer_id)),
-                              default=0)
+                min_rep = self.peer.min_peer_reputation(peer_info.peer_id)
                 if min_rep >= enough_rep:
                     swap_back_idxs.append(i - len(swap_back_idxs))
             for idx in swap_back_idxs:
@@ -1143,6 +1156,15 @@ class Peer:
         # peers via  messages.
         return max((g[rep_peer_id].reputation
                     for g in self.peer_query_groups(group_peer_id)), default=0)
+
+    def min_peer_reputation(self, peer_id):
+        """
+        Return the minimum reputation a peer has in any shared query group.
+
+        If no groups are shared, return 0.
+        """
+        return min((g[peer_id].reputation for g in
+                    self.peer_query_groups(peer_id)), default=0)
 
     def expected_min_reputation(self, peer_id):
         """

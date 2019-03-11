@@ -74,13 +74,16 @@
     # * 'overlap': Create a list of all query peers whose prefix has a higher
     #     overlap with the queried ID than one's own. Sort this list by the
     #     length of that overlap, greatest first. No tie breaker.
-    # * 'overlap_low_rep_first': As 'overlap', but all peers with enough
+    # * 'overlap_high_rep_last': As 'overlap', but all peers with enough
     #     reputation (i.e. whose minimum reputation in all shared query groups
     #     is greater than or equal 'no_penalty_reputation' times
     #     'reputation_buffer_factor' are taken from the front and added to the
     #     back.
     # * 'overlap_shuffled': Like 'overlap', except the list is shuffled
     #     instead of sorted.
+    # * 'overlap_rep_sorted': As 'overlap' but within groups of equal overlap,
+    #     peers are sorted by reputation in ascending order.
+    # * 'rep_sorted': Peers are sorted by reputation in ascending_order.
     'query_peer_selection': 'overlap',
     # The minimum number of history entries to decide whether a query group
     # performs well for a peer.
