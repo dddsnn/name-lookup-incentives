@@ -6,6 +6,12 @@ import numpy as np
 from math import sqrt, ceil
 from itertools import takewhile, chain, product
 import operator as op
+import bitstring
+
+
+# Patch in a less-than for the Bits class, which is necessary for ordered dicts
+# and sets.
+bitstring.Bits.__lt__ = util.bits_lt
 
 
 class Logger:
