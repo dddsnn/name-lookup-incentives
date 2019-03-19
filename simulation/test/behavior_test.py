@@ -215,7 +215,9 @@ class TestOnQuerySelf(unittest.TestCase):
         peer.send_response.assert_not_called()
         peer.expect_penalty.assert_called_once_with(
             querying_peer.peer_id,
-            self.helper.settings['timeout_query_penalty'], ANY)
+            self.helper.settings['timeout_query_penalty'],
+            behavior.decide_delay(querying_peer.peer_id)
+            + self.helper.settings['expected_penalty_timeout_buffer'], ANY)
 
 
 class TestOnQuerySync(unittest.TestCase):
@@ -272,7 +274,9 @@ class TestOnQuerySync(unittest.TestCase):
         peer.send_response.assert_not_called()
         peer.expect_penalty.assert_called_once_with(
             querying_peer.peer_id,
-            self.helper.settings['timeout_query_penalty'], ANY)
+            self.helper.settings['timeout_query_penalty'],
+            behavior.decide_delay(querying_peer.peer_id)
+            + self.helper.settings['expected_penalty_timeout_buffer'], ANY)
 
 
 class TestOnQuery(unittest.TestCase):
@@ -329,7 +333,8 @@ class TestOnQuery(unittest.TestCase):
             querying_peer_id, set((queried_id,)), None, ANY, delay=ANY)
         peer_a.expect_penalty.assert_called_once_with(
             querying_peer_id, self.helper.settings['failed_query_penalty'],
-            ANY)
+            behavior.decide_delay(querying_peer_id)
+            + self.helper.settings['expected_penalty_timeout_buffer'], ANY)
 
     def test_does_nothing_if_enough_reputation(self):
         peer_a, behavior\
@@ -349,7 +354,9 @@ class TestOnQuery(unittest.TestCase):
         behavior.on_query(querying_peer.peer_id, queried_id, None)
         peer_a.expect_penalty.assert_called_once_with(
             querying_peer.peer_id,
-            self.helper.settings['timeout_query_penalty'], ANY)
+            self.helper.settings['timeout_query_penalty'],
+            behavior.decide_delay(querying_peer.peer_id)
+            + self.helper.settings['expected_penalty_timeout_buffer'], ANY)
         peer_a.send_response.assert_not_called()
         peer_a.send_query.assert_not_called()
         peer_a.add_pending_query.assert_not_called()

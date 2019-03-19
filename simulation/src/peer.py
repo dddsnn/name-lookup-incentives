@@ -22,12 +22,13 @@ class PeerBehavior:
         rep = self.peer.expected_min_reputation(querying_peer_id)
         enough_rep = (self.peer.settings['reputation_buffer_factor']
                       * self.peer.settings['no_penalty_reputation'])
+        delay = self.decide_delay(querying_peer_id)
         if querying_peer_id != self.peer.peer_id and rep >= enough_rep:
             self.peer.expect_penalty(
                 querying_peer_id, self.peer.settings['timeout_query_penalty'],
+                delay + self.peer.settings['expected_penalty_timeout_buffer'],
                 in_event_id)
             return
-        delay = self.decide_delay(querying_peer_id)
         self.peer.send_response(querying_peer_id, SortedIterSet((queried_id,)),
                                 self.peer.info(), in_event_id, delay=delay)
 
@@ -37,12 +38,13 @@ class PeerBehavior:
         rep = self.peer.expected_min_reputation(querying_peer_id)
         enough_rep = (self.peer.settings['reputation_buffer_factor']
                       * self.peer.settings['no_penalty_reputation'])
+        delay = self.decide_delay(querying_peer_id)
         if querying_peer_id != self.peer.peer_id and rep >= enough_rep:
             self.peer.expect_penalty(
                 querying_peer_id, self.peer.settings['timeout_query_penalty'],
+                delay + self.peer.settings['expected_penalty_timeout_buffer'],
                 in_event_id)
             return
-        delay = self.decide_delay(querying_peer_id)
         self.peer.send_response(querying_peer_id, SortedIterSet((queried_id,)),
                                 sync_peer_info, in_event_id, delay=delay)
 
@@ -64,9 +66,11 @@ class PeerBehavior:
         rep = self.peer.expected_min_reputation(querying_peer_id)
         enough_rep = (self.peer.settings['reputation_buffer_factor']
                       * self.peer.settings['no_penalty_reputation'])
+        delay = self.decide_delay(querying_peer_id)
         if querying_peer_id != self.peer.peer_id and rep >= enough_rep:
             self.peer.expect_penalty(
                 querying_peer_id, self.peer.settings['timeout_query_penalty'],
+                delay + self.peer.settings['expected_penalty_timeout_buffer'],
                 in_event_id)
             return
         if query_all:
@@ -84,10 +88,12 @@ class PeerBehavior:
             else:
                 self.peer.expect_penalty(
                     querying_peer_id,
-                    self.peer.settings['failed_query_penalty'], in_event_id)
+                    self.peer.settings['failed_query_penalty'], delay
+                    + self.peer.settings['expected_penalty_timeout_buffer'],
+                    in_event_id)
                 self.peer.send_response(
                     querying_peer_id, SortedIterSet((queried_id,)), None,
-                    in_event_id, delay=self.decide_delay(querying_peer_id))
+                    in_event_id, delay=delay)
             return
         pending_query = PendingQuery(self.peer.env.now, querying_peer_id,
                                      queried_id, peers_to_query)
@@ -110,7 +116,9 @@ class PeerBehavior:
             if delay < 0:
                 self.peer.expect_penalty(
                     querying_peer_id,
-                    self.peer.settings['timeout_query_penalty'], in_event_id)
+                    self.peer.settings['timeout_query_penalty'],
+                    self.peer.settings['expected_penalty_timeout_buffer'],
+                    in_event_id)
                 delay = 0
             self.peer.send_response(querying_peer_id, queried_ids,
                                     queried_peer_info, in_event_id,
@@ -135,6 +143,7 @@ class PeerBehavior:
             if delay < 0:
                 self.peer.expect_penalty(
                     querying_peer_id,
+                    self.peer.settings['expected_penalty_timeout_buffer'],
                     self.peer.settings['timeout_query_penalty'], in_event_id)
                 delay = 0
             self.peer.send_response(querying_peer_id, queried_ids, None,
@@ -164,6 +173,7 @@ class PeerBehavior:
             if delay < 0:
                 self.peer.expect_penalty(
                     querying_peer_id,
+                    self.peer.settings['expected_penalty_timeout_buffer'],
                     self.peer.settings['timeout_query_penalty'], in_event_id)
                 delay = 0
             self.peer.send_response(querying_peer_id, queried_ids, None,
@@ -1208,16 +1218,15 @@ class Peer:
         expected_penalties = self.expected_penalties.get(peer_id, [])
         i = 0
         while i < len(expected_penalties):
-            eprt = self.settings['expected_penalty_retention_time']
             expected_penalty = expected_penalties[i]
-            if self.env.now - expected_penalty[0] > eprt:
+            if self.env.now > expected_penalty[0]:
                 self.logger.log(an.ExpectedPenaltyTimeout(
                     self.env.now, self.peer_id, peer_id, expected_penalty[2]))
                 expected_penalties.pop(i)
             i += 1
         return expected_penalties
 
-    def expect_penalty(self, peer_id, penalty, in_event_id):
+    def expect_penalty(self, peer_id, penalty, timeout, in_event_id):
         """
         Record a penalty that is expected to be applied in the future.
 
@@ -1225,11 +1234,13 @@ class Peer:
             penalty.
         :param penalty: The penalty that is expected. Should be negative, since
             it's added, not subtracted.
+        :param timeout: The amount of time units after which the expected
+            penalty should be considered timed out.
         """
         in_event_id = self.logger.log(an.ExpectedPenalty(
             self.env.now, self.peer_id, peer_id, in_event_id))
         self.expected_penalties.setdefault(peer_id, []).append(
-            (self.env.now, penalty, in_event_id))
+            (self.env.now + timeout, penalty, in_event_id))
 
     def possibly_remove_expected_penalty(self, sender_id, peer_id,
                                          reputation_diff, in_event_id):
