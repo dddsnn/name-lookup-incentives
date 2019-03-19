@@ -1191,23 +1191,31 @@ class Peer:
         for query_group in self.peer_query_groups(peer_id):
             total_expected_penalties = 0
             for qpi in query_group.infos():
-                expected_penalties = self.expected_penalties.get(qpi.peer_id,
-                                                                 [])
-                i = 0
-                while i < len(expected_penalties):
-                    eprt = self.settings['expected_penalty_retention_time']
-                    expected_penalty = expected_penalties[i]
-                    if self.env.now - expected_penalty[0] > eprt:
-                        self.logger.log(an.ExpectedPenaltyTimeout(
-                            self.env.now, self.peer_id, qpi.peer_id,
-                            expected_penalty[2]))
-                        expected_penalties.pop(i)
-                    else:
-                        total_expected_penalties += expected_penalty[1]
-                    i += 1
+                expected_penalties = self.clear_timed_out_expected_penalties(
+                    qpi.peer_id)
+                total_expected_penalties += sum(ep[1]
+                                                for ep in expected_penalties)
             min_reps.append(query_group[self.peer_id].reputation
                             + total_expected_penalties)
         return min(min_reps, default=0)
+
+    def clear_timed_out_expected_penalties(self, peer_id):
+        """
+        Clear timed out entries from expected penalties by a peer.
+
+        Returns the cleared list.
+        """
+        expected_penalties = self.expected_penalties.get(peer_id, [])
+        i = 0
+        while i < len(expected_penalties):
+            eprt = self.settings['expected_penalty_retention_time']
+            expected_penalty = expected_penalties[i]
+            if self.env.now - expected_penalty[0] > eprt:
+                self.logger.log(an.ExpectedPenaltyTimeout(
+                    self.env.now, self.peer_id, peer_id, expected_penalty[2]))
+                expected_penalties.pop(i)
+            i += 1
+        return expected_penalties
 
     def expect_penalty(self, peer_id, penalty, in_event_id):
         """
@@ -1233,7 +1241,7 @@ class Peer:
         """
         if peer_id != self.peer_id:
             return False
-        expected_penalties = self.expected_penalties.get(sender_id, [])
+        expected_penalties = self.clear_timed_out_expected_penalties(sender_id)
         i = 0
         while i < len(expected_penalties):
             if expected_penalties[i][1] == reputation_diff:
