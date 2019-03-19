@@ -931,6 +931,7 @@ class Peer:
         if not query_groups:
             self.logger.log(an.QueryPeerVanished(
                 self.env.now, self.peer_id, peer_id, in_event_id))
+            return
         query_group_ids = SortedIterSet(qg.query_group_id
                                         for qg in query_groups)
         query_peer_ids = SortedIterSet(pi for qg in query_groups for pi in qg)
