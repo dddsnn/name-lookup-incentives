@@ -194,9 +194,9 @@ class PeerBehavior:
         A response is late if the query has already been successfully answered
         by another peer.
         """
-        # TODO Using None as in_event_id because we're not storing the ID of
-        # the event leading to this.
-        self.do_rep_failure(responding_peer_id, None)
+        # Don't apply a penalty here, as one has already been applied for the
+        # timeout.
+        pass
 
     def do_rep_success(self, peer_id, in_event_id):
         """Do the reputation update after a successful query."""
