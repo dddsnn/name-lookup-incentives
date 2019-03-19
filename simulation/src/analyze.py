@@ -459,8 +459,15 @@ class Logger:
                                  'Group {}'.format(query_group_id)))
             data_sets.append(('Peer {}'.format(peer_id.hex), data_set))
 
+        def axes_modifier(axes):
+            npr = self.settings['no_penalty_reputation']
+            enough_rep = (self.settings['reputation_buffer_factor']
+                          * self.settings['no_penalty_reputation'])
+            axes.axhline(npr, linestyle='--', color='k', alpha=0.2)
+            axes.axhline(enough_rep, linestyle='--', color='k', alpha=0.2)
+
         plot_steps('Peer reputations', 'Time', 'Reputation', data_sets,
-                   max_edge_length)
+                   max_edge_length, axes_modifier)
 
     def query_groups_event_processor(self, data, event):
         """
@@ -564,6 +571,7 @@ def plot_grid(title, xlabel, ylabel, data_sets, plotter, max_edge_length=3,
     edge_length = ceil(sqrt(len(data_sets)))
     if edge_length > max_edge_length:
         edge_length = max_edge_length
+    edge_length = max(1, edge_length)
     num_figures = ceil(len(data_sets) / edge_length ** 2)
     for figure_idx in range(num_figures):
         figure, axess = plt.subplots(edge_length, edge_length, sharex=True,
