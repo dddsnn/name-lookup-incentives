@@ -1042,15 +1042,41 @@ class ReputationDecay(Event):
         self.decay = decay
 
 
-class ExpectedPenaltyApplied(Event):
-    """Event representing a penalty being applied as expected."""
-    def __init__(self, time, peer_id, in_event_id):
+class ExpectedPenalty(Event):
+    """Event representing a penalty being expected in the future."""
+    def __init__(self, time, peer_id, penalizing_peer_id, in_event_id):
         super().__init__(time, in_event_id)
         self.peer_id = peer_id
+        self.penalizing_peer_id = penalizing_peer_id
+
+
+class UnexpectedPenaltyApplied(Event):
+    """Event representing a penalty being applied that wasn't expected."""
+    def __init__(self, time, peer_id, penalizing_peer_id, in_event_id):
+        super().__init__(time, in_event_id)
+        self.peer_id = peer_id
+        self.penalizing_peer_id = penalizing_peer_id
+
+
+class ExpectedPenaltyApplied(Event):
+    """Event representing a penalty being applied as expected."""
+    def __init__(self, time, peer_id, penalizing_peer_id, in_event_id):
+        super().__init__(time, in_event_id)
+        self.peer_id = peer_id
+        self.penalizing_peer_id = penalizing_peer_id
 
 
 class ExpectedPenaltyTimeout(Event):
     """Event representing a penalty that was expected timing out."""
-    def __init__(self, time, peer_id, in_event_id):
+    def __init__(self, time, peer_id, penalizing_peer_id, in_event_id):
         super().__init__(time, in_event_id)
         self.peer_id = peer_id
+        self.penalizing_peer_id = penalizing_peer_id
+
+
+class QueryPeerVanished(Event):
+    """Event representing a query peer not being in there for an update."""
+    def __init__(self, time, peer_id, updated_peer_id, in_event_id):
+        super().__init__(time, in_event_id)
+        self.peer_id = peer_id
+        self.updated_peer_id = updated_peer_id

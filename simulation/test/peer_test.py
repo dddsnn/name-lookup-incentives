@@ -771,7 +771,7 @@ class TestExpectedMinReputation(unittest.TestCase):
         peer_a = self.peer_factory.peer_with_prefix('')
         gid = self.peer_factory.create_query_group(peer, peer_a)
         peer.query_groups[gid][peer.peer_id].reputation = 5
-        peer.expected_penalties[peer_a.peer_id] = [(0, -2)]
+        peer.expected_penalties[peer_a.peer_id] = [(0, -2, 0)]
 
         def wait(env):
             yield env.timeout(
