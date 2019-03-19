@@ -804,9 +804,9 @@ class Peer:
         else:
             queried_peer_id = queried_peer_info.peer_id
         in_event_id = self.logger.log(
-            an.ResponseSent(self.env.now,
-                            self.peer_id, recipient_id, queried_peer_id,
-                            queried_ids, in_event_id))
+            an.ResponseScheduled(self.env.now, self.env.now + delay,
+                                 self.peer_id, recipient_id, queried_peer_id,
+                                 queried_ids, in_event_id))
         recipient_address = self.lookup_address_local(recipient_id)
         if recipient_address is None:
             # TODO

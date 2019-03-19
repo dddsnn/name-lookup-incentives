@@ -847,11 +847,13 @@ class QueryReceived(Event):
 
 
 # TODO Include the queried peer's address.
-class ResponseSent(Event):
+class ResponseScheduled(Event):
     """Event representing a response being sent."""
-    def __init__(self, time, sender_id, recipient_id, queried_peer_id,
-                 queried_ids, in_event_id):
+    def __init__(self, time, send_time, sender_id, recipient_id,
+                 queried_peer_id, queried_ids, in_event_id):
         """
+        :param send_time: The time at which the query will actually be sent (as
+            opposed to time, which is when it is scheduled).
         :param queried_peer_id: The ID of the peer that is the result of the
             query. May be None if the query was unsuccessful.
         :param queried_ids: A set containing all IDs or prefixes for which
@@ -859,6 +861,7 @@ class ResponseSent(Event):
             prefix of queried_id.
         """
         super().__init__(time, in_event_id)
+        self.send_time = send_time
         self.sender_id = sender_id
         self.recipient_id = recipient_id
         self.queried_peer_id = queried_peer_id
