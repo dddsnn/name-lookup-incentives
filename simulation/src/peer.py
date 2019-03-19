@@ -112,14 +112,7 @@ class PeerBehavior:
         # query result through to another peer.
         for querying_peer_id, queried_ids in (pending_query.querying_peers
                                               .items()):
-            delay = self.decide_delay(querying_peer_id) - total_time
-            if delay < 0:
-                self.peer.expect_penalty(
-                    querying_peer_id,
-                    self.peer.settings['timeout_query_penalty'],
-                    self.peer.settings['expected_penalty_timeout_buffer'],
-                    in_event_id)
-                delay = 0
+            delay = max(0, self.decide_delay(querying_peer_id) - total_time)
             self.peer.send_response(querying_peer_id, queried_ids,
                                     queried_peer_info, in_event_id,
                                     delay=delay)
@@ -139,13 +132,7 @@ class PeerBehavior:
         total_time = self.peer.env.now - pending_query.start_time
         for querying_peer_id, queried_ids in (pending_query.querying_peers
                                               .items()):
-            delay = self.decide_delay(querying_peer_id) - total_time
-            if delay < 0:
-                self.peer.expect_penalty(
-                    querying_peer_id,
-                    self.peer.settings['expected_penalty_timeout_buffer'],
-                    self.peer.settings['timeout_query_penalty'], in_event_id)
-                delay = 0
+            delay = max(0, self.decide_delay(querying_peer_id) - total_time)
             self.peer.send_response(querying_peer_id, queried_ids, None,
                                     in_event_id, delay=delay)
         self.do_rep_failure(responding_peer_id, in_event_id)
@@ -169,13 +156,7 @@ class PeerBehavior:
         total_time = self.peer.env.now - pending_query.start_time
         for querying_peer_id, queried_ids in (pending_query.querying_peers
                                               .items()):
-            delay = self.decide_delay(querying_peer_id) - total_time
-            if delay < 0:
-                self.peer.expect_penalty(
-                    querying_peer_id,
-                    self.peer.settings['expected_penalty_timeout_buffer'],
-                    self.peer.settings['timeout_query_penalty'], in_event_id)
-                delay = 0
+            delay = max(0, self.decide_delay(querying_peer_id) - total_time)
             self.peer.send_response(querying_peer_id, queried_ids, None,
                                     in_event_id, delay=delay)
         self.do_rep_timeout(recipient_id, in_event_id)
