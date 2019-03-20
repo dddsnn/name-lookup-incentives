@@ -380,9 +380,9 @@ class Logger:
 
         data_sets = [('Query group {}'.format(i), [np.array(list(p.values()))])
                      for i, p in selection_probabilities.items()]
-        plot_hists('Peer selection probabilities by query group',
-                   'Probability', 'Number of peers', data_sets, num_bins,
-                   max_edge_length)
+        plot_hists('Peer selection probabilities by query group at time {}'
+                   .format(time), 'Probability', 'Number of peers', data_sets,
+                   num_bins, max_edge_length)
 
     def plot_query_group_sizes_until(self, until_time, max_edge_length=3):
         """Plot query group sizes over time until some point."""
