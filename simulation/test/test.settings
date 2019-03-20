@@ -78,8 +78,8 @@
     #     is greater than or equal 'no_penalty_reputation' times
     #     'reputation_buffer_factor' are taken from the front and added to the
     #     back.
-    # * 'overlap_shuffled': Like 'overlap', except the list is shuffled
-    #     instead of sorted.
+    # * 'shuffled': Like 'overlap', except the list is shuffled instead of
+    #     sorted.
     # * 'overlap_rep_sorted': As 'overlap' but within groups of equal overlap,
     #     peers are sorted by reputation in ascending order.
     # * 'rep_sorted': Peers are sorted by reputation in ascending_order.

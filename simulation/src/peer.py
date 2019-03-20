@@ -254,16 +254,15 @@ class PeerBehavior:
                 groups is greater than or equal 'no_penalty_reputation' times
                 'reputation_buffer_factor' are taken from the front and added
                 to the back.
-            * 'overlap_shuffled': Like 'overlap', except the list is shuffled
-                instead of sorted.
+            * 'shuffled': Like 'overlap', except the list is shuffled instead
+                of sorted.
             * 'overlap_rep_sorted': As 'overlap' but within groups of equal
                 overlap, peers are sorted by reputation in ascending order.
             * 'rep_sorted': Peers are sorted by reputation in ascending_order.
         """
         if (self.peer.settings['query_peer_selection']
-                not in ('overlap', 'overlap_high_rep_last',
-                        'overlap_shuffled', 'overlap_rep_sorted',
-                        'rep_sorted')):
+                not in ('overlap', 'overlap_high_rep_last', 'shuffled',
+                        'overlap_rep_sorted', 'rep_sorted')):
             raise Exception(
                 'Invalid query peer selection strategy {}.'
                 .format(self.peer.settings['query_peer_selection']))
@@ -273,7 +272,7 @@ class PeerBehavior:
             peer_infos.sort(key=lambda pi: util.bit_overlap(pi.prefix,
                                                             queried_id),
                             reverse=True)
-        elif self.peer.settings['query_peer_selection'] == 'overlap_shuffled':
+        elif self.peer.settings['query_peer_selection'] == 'shuffled':
             random.shuffle(peer_infos)
         elif (self.peer.settings['query_peer_selection']
                 == 'overlap_rep_sorted'):

@@ -83,7 +83,7 @@ class TestPeerSelection(unittest.TestCase):
 
     @unittest.mock.patch('random.shuffle')
     def test_shuffles(self, mocked_shuffle):
-        self.helper.settings['query_peer_selection'] = 'overlap_shuffled'
+        self.helper.settings['query_peer_selection'] = 'shuffled'
         peer_a = self.peer_factory.peer_with_prefix('0000')
         peer_b = self.peer_factory.peer_with_prefix('1000')
         self.peer_factory.create_query_group(peer_a, peer_b)
@@ -481,7 +481,7 @@ class TestOnQuery(unittest.TestCase):
 
     @unittest.mock.patch('random.shuffle')
     def test_query_all_shuffles(self, mocked_shuffle):
-        self.helper.settings['query_peer_selection'] = 'overlap_shuffled'
+        self.helper.settings['query_peer_selection'] = 'shuffled'
         peer_a, behavior =\
             self.peer_factory.mock_peer_and_behavior_with_prefix('0000')
         peer_b, _ =\
