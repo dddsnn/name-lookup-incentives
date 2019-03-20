@@ -2,7 +2,7 @@ import analyze as an
 import util
 from util import SortedIterSet
 import simpy
-from itertools import count, chain, islice
+import itertools as it
 from copy import deepcopy
 from collections import namedtuple, OrderedDict, deque
 import random
@@ -10,7 +10,7 @@ import operator as op
 import numpy as np
 
 
-query_group_id_iter = count()
+query_group_id_iter = it.count()
 
 
 class PeerBehavior:
@@ -328,7 +328,7 @@ class PeerBehavior:
             return True
         interval = self.peer.settings['query_group_history_interval']
         recent_reps = []
-        for rep in islice(
+        for rep in it.islice(
                 reversed(history),
                 self.peer.settings['performance_num_history_entries']):
             recent_reps.insert(0, rep)
@@ -359,7 +359,7 @@ class PeerBehavior:
             can_be_removed = True
             coverage = group_coverage[query_group_id]
             for subprefix in (sp for sp, ps in coverage.items() if ps):
-                covering_peer_ids = SortedIterSet(chain(*(
+                covering_peer_ids = SortedIterSet(it.chain(*(
                     pc[subprefix] for gid, pc in group_coverage.items()
                     if gid != query_group_id)))
                 num_missing_peers\
@@ -865,52 +865,72 @@ class Peer:
                                        responding_peer_id, self.peer_id,
                                        queried_peer_id, queried_ids,
                                        status, in_event_id)
+        # Tuples of queried ID and associated pending query.
+        qid_pqs = []
         for queried_id in queried_ids:
             pending_query = self.pending_queries.get(queried_id)
             if pending_query is not None:
-                break
-        for qid in queried_ids:
-            # Only one of the queried IDs for which we receive a response
-            # should have a pending query on record (namely the longest one).
-            # The other IDs should be part of that record, but not the key for
-            # it.
-            assert qid == queried_id or qid not in self.pending_queries
-        if pending_query is None:
-            status = self.check_completed_queries(responding_peer_id,
-                                                  queried_id,
-                                                  queried_peer_info)
-            if status is None:
-                status = 'unmatched'
-            in_event_id = self.logger.log(event(status))
+                qid_pqs.append((queried_id, pending_query))
+        for qid1, qid2 in it.product((qid for qid, _ in qid_pqs), repeat=2):
+            if qid1 == qid2:
+                continue
+            assert qid1.startswith(qid2) or qid2.startswith(qid1)
+            assert len(qid1) != len(qid2)
+        if not qid_pqs:
+            # This is not a response to a currently pending query.
+            statuses = [self.check_completed_queries(responding_peer_id,
+                                                     qid, queried_peer_info)
+                        for qid in queried_ids]
+            not_none_statuses = [s for s in statuses if s is not None]
+            if not not_none_statuses:
+                in_event_id = self.logger.log(event('unmatched'))
+            else:
+                for status in not_none_statuses:
+                    in_event_id = self.logger.log(event(status))
             return
-        if responding_peer_id not in pending_query.queries_sent:
-            status = self.check_completed_queries(responding_peer_id,
-                                                  queried_id,
-                                                  queried_peer_info)
-            if status is None:
-                status = 'wrong_responder'
-            in_event_id = self.logger.log(event(status))
-            return
-        pending_query.timeout_proc.interrupt()
-        if queried_peer_info is not None:
-            in_event_id = self.logger.log(event('success'))
-            self.behavior.on_response_success(pending_query,
-                                              responding_peer_id,
-                                              queried_peer_info, in_event_id)
-            self.pending_queries.pop(queried_id, None)
-            self.archive_completed_query(pending_query, queried_id)
-            self.introduce(queried_peer_info)
-            return
-        if not self.pending_query_has_known_query_peer(pending_query):
-            in_event_id = self.logger.log(event('failure_ultimate'))
-            self.behavior.on_response_failure(pending_query,
-                                              responding_peer_id, in_event_id)
-            self.pending_queries.pop(queried_id, None)
-            self.archive_completed_query(pending_query, queried_id)
-            return
-        in_event_id = self.logger.log(event('failure_retry'))
-        self.behavior.on_response_retry(pending_query, responding_peer_id,
-                                        queried_id, in_event_id)
+        retry_qid_pqs = []
+        for queried_id, pending_query in qid_pqs:
+            if responding_peer_id not in pending_query.queries_sent:
+                status = self.check_completed_queries(
+                    responding_peer_id, queried_id, queried_peer_info)
+                if status is None:
+                    status = 'wrong_responder'
+                in_event_id = self.logger.log(event(status))
+                continue
+            pending_query.timeout_proc.interrupt()
+            if queried_peer_info is not None:
+                in_event_id = self.logger.log(event('success'))
+                self.behavior.on_response_success(
+                    pending_query, responding_peer_id, queried_peer_info,
+                    in_event_id)
+                self.pending_queries.pop(queried_id, None)
+                self.archive_completed_query(pending_query, queried_id)
+                self.introduce(queried_peer_info)
+                continue
+            if not self.pending_query_has_known_query_peer(pending_query):
+                in_event_id = self.logger.log(event('failure_ultimate'))
+                self.behavior.on_response_failure(
+                    pending_query, responding_peer_id, in_event_id)
+                self.pending_queries.pop(queried_id, None)
+                self.archive_completed_query(pending_query, queried_id)
+                continue
+            retry_qid_pqs.append((queried_id, pending_query))
+        if retry_qid_pqs:
+            in_event_id = self.logger.log(event('failure_retry'))
+            # Only retry the longest of the queried IDs, but add the others to
+            # the pending query.
+            queried_id, pending_query = max(retry_qid_pqs,
+                                            key=lambda t: len(t[0]))
+            for qid, pq in retry_qid_pqs:
+                if qid == queried_id:
+                    continue
+                for qpid, qids in pq.querying_peers:
+                    pending_query.querying_peers.setdefault(
+                        qpid, SortedIterSet()).update(qids)
+                self.pending_queries.pop(qid, None)
+                self.archive_completed_query(pq, qid)
+            self.behavior.on_response_retry(pending_query, responding_peer_id,
+                                            queried_id, in_event_id)
 
     def send_reputation_update(self, peer_id, reputation_diff, in_event_id):
         """
