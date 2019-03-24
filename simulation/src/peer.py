@@ -960,14 +960,15 @@ class Peer:
                                     in_event_id))
         for query_peer_id in query_peer_ids:
             address = self.lookup_address_local(query_peer_id)
-            self.network.send_reputation_update(self.peer_id, self.address,
-                                                address, peer_id,
-                                                reputation_diff, self.env.now,
-                                                in_event_id)
+            self.network.send_reputation_update(
+                self.peer_id, self.address, address, peer_id, query_group_ids,
+                reputation_diff, self.env.now, in_event_id)
 
-    def recv_reputation_update(self, sender_id, peer_id, reputation_diff, time,
-                               in_event_id):
+    def recv_reputation_update(self, sender_id, peer_id, query_group_ids,
+                               reputation_diff, time, in_event_id):
         """
+        :param query_group_ids: The IDs of the query groups in which the peer's
+            reputation should be updated.
         :param time: The time at which the update is meant to be applied.
         """
         assert sender_id != peer_id
@@ -979,12 +980,10 @@ class Peer:
         if peer_id == self.peer_id and reputation_diff < 0 and not expected:
             self.logger.log(an.UnexpectedPenaltyApplied(
                 self.env.now, self.peer_id, sender_id, in_event_id))
-        # Only change the reputation in those query groups shared by the peer
-        # whose reputation is changed and the peer reporting the change.
-        # In the other groups there will be peers that don't know about the
-        # update.
-        query_groups = SortedIterSet(g for g in self.peer_query_groups(peer_id)
-                                     if sender_id in g)
+        query_groups = SortedIterSet(self.query_groups[gid]
+                                     for gid in query_group_ids
+                                     if gid in self.query_groups
+                                     and peer_id in self.query_groups[gid])
         for query_group in query_groups:
             query_peer_info = query_group[peer_id]
             # Roll back younger updates.

@@ -4,7 +4,7 @@ import bitstring as bs
 import peer as p
 
 
-class TestReputationUpdate(unittest.TestCase):
+class TestRecvReputationUpdate(unittest.TestCase):
     def setUp(self):
         self.helper = TestHelper()
         self.peer_factory = PeerFactory(self.helper.settings)
@@ -12,59 +12,105 @@ class TestReputationUpdate(unittest.TestCase):
         self.peer_b = self.peer_factory.peer_with_prefix('')
         self.peer_c = self.peer_factory.peer_with_prefix('')
 
-    def test_recv_updates_reputation(self):
+    def test_updates_reputation(self):
         query_group_id = self.peer_factory.create_query_group(
             self.peer_a, self.peer_b, self.peer_c)
         query_group = self.peer_a.query_groups[query_group_id]
         self.assertEqual(query_group[self.peer_b.peer_id].reputation, 0)
-        self.peer_a.recv_reputation_update(self.peer_c.peer_id,
-                                           self.peer_b.peer_id, 5, 0, None)
+        self.peer_a.recv_reputation_update(
+            self.peer_c.peer_id, self.peer_b.peer_id, set((query_group_id,)),
+            5, 0, None)
         self.assertEqual(query_group[self.peer_b.peer_id].reputation, 5)
 
-    def test_recv_doesnt_allow_negative_reputation(self):
+    def test_doesnt_allow_negative_reputation(self):
         query_group_id = self.peer_factory.create_query_group(
             self.peer_a, self.peer_b, self.peer_c)
         query_group = self.peer_a.query_groups[query_group_id]
-        self.peer_a.recv_reputation_update(self.peer_c.peer_id,
-                                           self.peer_b.peer_id, 5, 0, None)
-        self.peer_a.recv_reputation_update(self.peer_c.peer_id,
-                                           self.peer_b.peer_id, -7, 0, None)
+        self.peer_a.recv_reputation_update(
+            self.peer_c.peer_id, self.peer_b.peer_id, set((query_group_id,)),
+            5, 0, None)
+        self.peer_a.recv_reputation_update(
+            self.peer_c.peer_id, self.peer_b.peer_id, set((query_group_id,)),
+            -7, 0, None)
         self.assertEqual(query_group[self.peer_b.peer_id].reputation, 0)
 
-    def test_recv_rolls_back_and_repplys_younger_updates(self):
+    def test_rolls_back_and_repplys_younger_updates(self):
         query_group_id = self.peer_factory.create_query_group(
             self.peer_a, self.peer_b, self.peer_c)
         query_group = self.peer_a.query_groups[query_group_id]
-        self.peer_a.recv_reputation_update(self.peer_c.peer_id,
-                                           self.peer_b.peer_id, 3, 0, None)
-        self.peer_a.recv_reputation_update(self.peer_c.peer_id,
-                                           self.peer_b.peer_id, -7, 2, None)
-        self.peer_a.recv_reputation_update(self.peer_c.peer_id,
-                                           self.peer_b.peer_id, 5, 1, None)
+        self.peer_a.recv_reputation_update(
+            self.peer_c.peer_id, self.peer_b.peer_id, set((query_group_id,)),
+            3, 0, None)
+        self.peer_a.recv_reputation_update(
+            self.peer_c.peer_id, self.peer_b.peer_id, set((query_group_id,)),
+            -7, 2, None)
+        self.peer_a.recv_reputation_update(
+            self.peer_c.peer_id, self.peer_b.peer_id, set((query_group_id,)),
+            5, 1, None)
         self.assertEqual(query_group[self.peer_b.peer_id].reputation, 1)
 
-    def test_recv_updates_in_multiple_groups(self):
-        self.peer_factory.create_query_group(self.peer_a, self.peer_b,
-                                             self.peer_c)
-        self.peer_factory.create_query_group(self.peer_a, self.peer_b,
-                                             self.peer_c)
-        self.peer_a.recv_reputation_update(self.peer_c.peer_id,
-                                           self.peer_b.peer_id, 3, 0, None)
+    def test_updates_in_multiple_groups(self):
+        gid1 = self.peer_factory.create_query_group(self.peer_a, self.peer_b,
+                                                    self.peer_c)
+        gid2 = self.peer_factory.create_query_group(self.peer_a, self.peer_b,
+                                                    self.peer_c)
+        self.peer_a.recv_reputation_update(
+            self.peer_c.peer_id, self.peer_b.peer_id, set((gid1, gid2)), 3, 0,
+            None)
         self.assertEqual(len(self.peer_a.query_groups), 2)
         for query_group in self.peer_a.query_groups.values():
             self.assertEqual(query_group[self.peer_b.peer_id].reputation, 3)
 
-    def test_recv_only_updates_in_groups_shared_by_sender_and_subject(self):
-        self.peer_factory.create_query_group(self.peer_a, self.peer_b,
-                                             self.peer_c)
-        query_group_2_id = self.peer_factory.create_query_group(self.peer_a,
-                                                                self.peer_b)
-        self.peer_a.recv_reputation_update(self.peer_c.peer_id,
-                                           self.peer_b.peer_id, 3, 0, None)
-        query_group = self.peer_a.query_groups[query_group_2_id]
+    def test_only_updates_in_specified_groups(self):
+        gid1 = self.peer_factory.create_query_group(self.peer_a, self.peer_b,
+                                                    self.peer_c)
+        gid2 = self.peer_factory.create_query_group(self.peer_a, self.peer_b,
+                                                    self.peer_c)
+        self.peer_a.recv_reputation_update(
+            self.peer_c.peer_id, self.peer_b.peer_id, set((gid1,)), 3, 0, None)
+        query_group = self.peer_a.query_groups[gid2]
         self.assertEqual(query_group[self.peer_b.peer_id].reputation, 0)
 
-    def test_send_updates_for_all(self):
+    def test_updates_in_specified_groups_even_if_the_sender_isnt_in_them(self):
+        gid1 = self.peer_factory.create_query_group(self.peer_a, self.peer_b,
+                                                    self.peer_c)
+        gid2 = self.peer_factory.create_query_group(self.peer_a, self.peer_b)
+        self.peer_a.recv_reputation_update(
+            self.peer_c.peer_id, self.peer_b.peer_id, set((gid1, gid2)), 3, 0,
+            None)
+        query_group_1 = self.peer_a.query_groups[gid1]
+        query_group_2 = self.peer_a.query_groups[gid2]
+        self.assertEqual(query_group_1[self.peer_b.peer_id].reputation, 3)
+        self.assertEqual(query_group_2[self.peer_b.peer_id].reputation, 3)
+
+    def test_updates_in_all_specified_groups_when_reapplying(self):
+        gid1 = self.peer_factory.create_query_group(self.peer_a, self.peer_b,
+                                                    self.peer_c)
+        gid2 = self.peer_factory.create_query_group(self.peer_a, self.peer_b,
+                                                    self.peer_c)
+        query_group = self.peer_a.query_groups[gid2]
+        self.peer_a.recv_reputation_update(
+            self.peer_c.peer_id, self.peer_b.peer_id, set((gid1, gid2)),
+            3, 0, None)
+        self.peer_a.recv_reputation_update(
+            self.peer_c.peer_id, self.peer_b.peer_id, set((gid1, gid2)),
+            -7, 2, None)
+        del self.peer_factory.all_query_groups[gid2][self.peer_c.peer_id]
+        del self.peer_a.query_groups[gid2][self.peer_c.peer_id]
+        self.peer_a.recv_reputation_update(
+            self.peer_c.peer_id, self.peer_b.peer_id, set((gid1, gid2)),
+            5, 1, None)
+        self.assertEqual(query_group[self.peer_b.peer_id].reputation, 1)
+
+
+class TestSendReputationUpdate(unittest.TestCase):
+    def setUp(self):
+        self.helper = TestHelper()
+        self.peer_factory = PeerFactory(self.helper.settings)
+        self.peer_a = self.peer_factory.peer_with_prefix('')
+        self.peer_b = self.peer_factory.peer_with_prefix('')
+
+    def test_updates_for_all(self):
         self.peer_factory.create_query_group(self.peer_a, self.peer_b)
         self.peer_factory.create_query_group(self.peer_a, self.peer_b)
         self.peer_a.send_reputation_update(self.peer_b.peer_id, 3, None)
@@ -75,6 +121,12 @@ class TestReputationUpdate(unittest.TestCase):
             self.assertEqual(query_group[self.peer_b.peer_id].reputation, 3)
         for query_group in self.peer_b.query_groups.values():
             self.assertEqual(query_group[self.peer_b.peer_id].reputation, 3)
+
+    def test_updates_all_query_groups(self):
+        gid = self.peer_factory.create_query_group(self.peer_a, self.peer_b)
+        self.peer_a.send_reputation_update(self.peer_b.peer_id, 3, None)
+        aqg = self.peer_factory.all_query_groups
+        self.assertEqual(aqg[gid][self.peer_b.peer_id].reputation, 3)
 
 
 class TestQueryGroups(unittest.TestCase):

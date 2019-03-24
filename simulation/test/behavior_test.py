@@ -464,8 +464,8 @@ class TestOnQuery(unittest.TestCase):
         peer_d, _ =\
             self.peer_factory.mock_peer_and_behavior_with_prefix('1100')
         query_group_id_1 = self.peer_factory.create_query_group(peer_a, peer_b,
-                                                              peer_c, peer_d)
-        query_group_id_2 = self.peer_factory.create_query_group(peer_a, peer_c)
+                                                                peer_c, peer_d)
+        self.peer_factory.create_query_group(peer_a, peer_c)
         enough_rep = (self.helper.settings['reputation_buffer_factor']
                       * self.helper.settings['no_penalty_reputation'])
         peer_a.query_groups[query_group_id_1][peer_c.peer_id].reputation\

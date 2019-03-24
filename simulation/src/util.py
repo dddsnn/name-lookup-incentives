@@ -45,12 +45,12 @@ class Network:
                                              queried_peer_info, in_event_id))
 
     def send_reputation_update(self, sender_id, sender_address,
-                               recipient_address, peer_id, reputation_diff,
-                               time, in_event_id):
+                               recipient_address, peer_id, query_group_ids,
+                               reputation_diff, time, in_event_id):
         self.send(sender_id, sender_address, recipient_address,
-                  lambda si, r: SendReputationUpdate(self.env, si, r, peer_id,
-                                                     reputation_diff, time,
-                                                     in_event_id))
+                  lambda si, r: SendReputationUpdate(
+                      self.env, si, r, peer_id, query_group_ids,
+                      reputation_diff, time, in_event_id))
 
 
 class SendQuery(simpy.events.Event):
@@ -86,22 +86,23 @@ class SendResponse(simpy.events.Event):
 
 
 class SendReputationUpdate(simpy.events.Event):
-    def __init__(self, env, sender_id, recipient, peer_id, reputation_diff,
-                 time, in_event_id):
+    def __init__(self, env, sender_id, recipient, peer_id, query_group_ids,
+                 reputation_diff, time, in_event_id):
         super().__init__(env)
         self.ok = True
         self.sender_id = sender_id
         self.recipient = recipient
         self.peer_id = peer_id
+        self.query_group_ids = query_group_ids
         self.reputation_diff = reputation_diff
         self.time = time
         self.in_event_id = in_event_id
         self.callbacks.append(SendReputationUpdate.action)
 
     def action(self):
-        self.recipient.recv_reputation_update(self.sender_id, self.peer_id,
-                                              self.reputation_diff, self.time,
-                                              self.in_event_id)
+        self.recipient.recv_reputation_update(
+            self.sender_id, self.peer_id, self.query_group_ids,
+            self.reputation_diff, self.time, self.in_event_id)
 
 
 class UnassignedAddressError(Exception):
