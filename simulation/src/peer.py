@@ -1000,8 +1000,10 @@ class Peer:
             new_rep = max(0, query_peer_info.reputation + reputation_diff)
             # Reapply rolled back updates.
             for update in younger_updates:
+                new_update = ReputationUpdate(update.time, new_rep,
+                                              update.reputation_diff)
                 new_rep = max(0, new_rep + update.reputation_diff)
-                query_peer_info.reputation_updates.append(update)
+                query_peer_info.reputation_updates.append(new_update)
             query_peer_info.reputation = new_rep
             # Prune old updates. This must not be done too eagerly, as it could
             # otherwise result in desynchronization of the reputation record

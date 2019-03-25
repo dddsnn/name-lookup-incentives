@@ -34,7 +34,7 @@ class TestRecvReputationUpdate(unittest.TestCase):
             -7, 0, None)
         self.assertEqual(query_group[self.peer_b.peer_id].reputation, 0)
 
-    def test_rolls_back_and_repplys_younger_updates(self):
+    def test_rolls_back_and_repplies_younger_updates(self):
         query_group_id = self.helper.create_query_group(
             self.peer_a, self.peer_b, self.peer_c)
         query_group = self.peer_a.query_groups[query_group_id]
@@ -46,8 +46,26 @@ class TestRecvReputationUpdate(unittest.TestCase):
             -7, 2, None)
         self.peer_a.recv_reputation_update(
             self.peer_c.peer_id, self.peer_b.peer_id, set((query_group_id,)),
-            5, 1, None)
-        self.assertEqual(query_group[self.peer_b.peer_id].reputation, 1)
+            6, 1, None)
+        self.assertEqual(query_group[self.peer_b.peer_id].reputation, 2)
+
+    def test_rolls_back_and_repplies_the_same_update_multiple_times(self):
+        query_group_id = self.helper.create_query_group(
+            self.peer_a, self.peer_b, self.peer_c)
+        query_group = self.peer_a.query_groups[query_group_id]
+        self.peer_a.recv_reputation_update(
+            self.peer_c.peer_id, self.peer_b.peer_id, set((query_group_id,)),
+            3, 0, None)
+        self.peer_a.recv_reputation_update(
+            self.peer_c.peer_id, self.peer_b.peer_id, set((query_group_id,)),
+            -7, 3, None)
+        self.peer_a.recv_reputation_update(
+            self.peer_c.peer_id, self.peer_b.peer_id, set((query_group_id,)),
+            6, 1, None)
+        self.peer_a.recv_reputation_update(
+            self.peer_c.peer_id, self.peer_b.peer_id, set((query_group_id,)),
+            5, 2, None)
+        self.assertEqual(query_group[self.peer_b.peer_id].reputation, 7)
 
     def test_updates_in_multiple_groups(self):
         gid1 = self.helper.create_query_group(self.peer_a, self.peer_b,
