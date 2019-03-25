@@ -1,5 +1,5 @@
 import unittest
-from test_utils import TestHelper, PeerFactory, set_containing
+from test_utils import TestHelper, set_containing
 import bitstring as bs
 import peer as p
 
@@ -7,13 +7,13 @@ import peer as p
 class TestRecvReputationUpdate(unittest.TestCase):
     def setUp(self):
         self.helper = TestHelper()
-        self.peer_factory = PeerFactory(self.helper.settings)
-        self.peer_a = self.peer_factory.peer_with_prefix('')
-        self.peer_b = self.peer_factory.peer_with_prefix('')
-        self.peer_c = self.peer_factory.peer_with_prefix('')
+        self.peer_a = self.helper.peer_with_prefix('')
+        self.peer_b = self.helper.peer_with_prefix('')
+        self.peer_c = self.helper.peer_with_prefix('')
+        self.peer_d = self.helper.peer_with_prefix('')
 
     def test_updates_reputation(self):
-        query_group_id = self.peer_factory.create_query_group(
+        query_group_id = self.helper.create_query_group(
             self.peer_a, self.peer_b, self.peer_c)
         query_group = self.peer_a.query_groups[query_group_id]
         self.assertEqual(query_group[self.peer_b.peer_id].reputation, 0)
@@ -23,7 +23,7 @@ class TestRecvReputationUpdate(unittest.TestCase):
         self.assertEqual(query_group[self.peer_b.peer_id].reputation, 5)
 
     def test_doesnt_allow_negative_reputation(self):
-        query_group_id = self.peer_factory.create_query_group(
+        query_group_id = self.helper.create_query_group(
             self.peer_a, self.peer_b, self.peer_c)
         query_group = self.peer_a.query_groups[query_group_id]
         self.peer_a.recv_reputation_update(
@@ -35,7 +35,7 @@ class TestRecvReputationUpdate(unittest.TestCase):
         self.assertEqual(query_group[self.peer_b.peer_id].reputation, 0)
 
     def test_rolls_back_and_repplys_younger_updates(self):
-        query_group_id = self.peer_factory.create_query_group(
+        query_group_id = self.helper.create_query_group(
             self.peer_a, self.peer_b, self.peer_c)
         query_group = self.peer_a.query_groups[query_group_id]
         self.peer_a.recv_reputation_update(
@@ -50,10 +50,10 @@ class TestRecvReputationUpdate(unittest.TestCase):
         self.assertEqual(query_group[self.peer_b.peer_id].reputation, 1)
 
     def test_updates_in_multiple_groups(self):
-        gid1 = self.peer_factory.create_query_group(self.peer_a, self.peer_b,
-                                                    self.peer_c)
-        gid2 = self.peer_factory.create_query_group(self.peer_a, self.peer_b,
-                                                    self.peer_c)
+        gid1 = self.helper.create_query_group(self.peer_a, self.peer_b,
+                                              self.peer_c)
+        gid2 = self.helper.create_query_group(self.peer_a, self.peer_b,
+                                              self.peer_c)
         self.peer_a.recv_reputation_update(
             self.peer_c.peer_id, self.peer_b.peer_id, set((gid1, gid2)), 3, 0,
             None)
@@ -62,19 +62,19 @@ class TestRecvReputationUpdate(unittest.TestCase):
             self.assertEqual(query_group[self.peer_b.peer_id].reputation, 3)
 
     def test_only_updates_in_specified_groups(self):
-        gid1 = self.peer_factory.create_query_group(self.peer_a, self.peer_b,
-                                                    self.peer_c)
-        gid2 = self.peer_factory.create_query_group(self.peer_a, self.peer_b,
-                                                    self.peer_c)
+        gid1 = self.helper.create_query_group(self.peer_a, self.peer_b,
+                                              self.peer_c)
+        gid2 = self.helper.create_query_group(self.peer_a, self.peer_b,
+                                              self.peer_c)
         self.peer_a.recv_reputation_update(
             self.peer_c.peer_id, self.peer_b.peer_id, set((gid1,)), 3, 0, None)
         query_group = self.peer_a.query_groups[gid2]
         self.assertEqual(query_group[self.peer_b.peer_id].reputation, 0)
 
     def test_updates_in_specified_groups_even_if_the_sender_isnt_in_them(self):
-        gid1 = self.peer_factory.create_query_group(self.peer_a, self.peer_b,
-                                                    self.peer_c)
-        gid2 = self.peer_factory.create_query_group(self.peer_a, self.peer_b)
+        gid1 = self.helper.create_query_group(self.peer_a, self.peer_b,
+                                              self.peer_c)
+        gid2 = self.helper.create_query_group(self.peer_a, self.peer_b)
         self.peer_a.recv_reputation_update(
             self.peer_c.peer_id, self.peer_b.peer_id, set((gid1, gid2)), 3, 0,
             None)
@@ -84,10 +84,10 @@ class TestRecvReputationUpdate(unittest.TestCase):
         self.assertEqual(query_group_2[self.peer_b.peer_id].reputation, 3)
 
     def test_updates_in_all_specified_groups_when_reapplying(self):
-        gid1 = self.peer_factory.create_query_group(self.peer_a, self.peer_b,
-                                                    self.peer_c)
-        gid2 = self.peer_factory.create_query_group(self.peer_a, self.peer_b,
-                                                    self.peer_c)
+        gid1 = self.helper.create_query_group(self.peer_a, self.peer_b,
+                                              self.peer_c)
+        gid2 = self.helper.create_query_group(self.peer_a, self.peer_b,
+                                              self.peer_c)
         query_group = self.peer_a.query_groups[gid2]
         self.peer_a.recv_reputation_update(
             self.peer_c.peer_id, self.peer_b.peer_id, set((gid1, gid2)),
@@ -95,7 +95,7 @@ class TestRecvReputationUpdate(unittest.TestCase):
         self.peer_a.recv_reputation_update(
             self.peer_c.peer_id, self.peer_b.peer_id, set((gid1, gid2)),
             -7, 2, None)
-        del self.peer_factory.all_query_groups[gid2][self.peer_c.peer_id]
+        del self.helper.all_query_groups[gid2][self.peer_c.peer_id]
         del self.peer_a.query_groups[gid2][self.peer_c.peer_id]
         self.peer_a.recv_reputation_update(
             self.peer_c.peer_id, self.peer_b.peer_id, set((gid1, gid2)),
@@ -106,15 +106,14 @@ class TestRecvReputationUpdate(unittest.TestCase):
 class TestSendReputationUpdate(unittest.TestCase):
     def setUp(self):
         self.helper = TestHelper()
-        self.peer_factory = PeerFactory(self.helper.settings)
-        self.peer_a = self.peer_factory.peer_with_prefix('')
-        self.peer_b = self.peer_factory.peer_with_prefix('')
+        self.peer_a = self.helper.peer_with_prefix('')
+        self.peer_b = self.helper.peer_with_prefix('')
 
     def test_updates_for_all(self):
-        self.peer_factory.create_query_group(self.peer_a, self.peer_b)
-        self.peer_factory.create_query_group(self.peer_a, self.peer_b)
+        self.helper.create_query_group(self.peer_a, self.peer_b)
+        self.helper.create_query_group(self.peer_a, self.peer_b)
         self.peer_a.send_reputation_update(self.peer_b.peer_id, 3, None)
-        self.peer_factory.env.run()
+        self.helper.env.run()
         self.assertEqual(len(self.peer_a.query_groups), 2)
         self.assertEqual(len(self.peer_b.query_groups), 2)
         for query_group in self.peer_a.query_groups.values():
@@ -123,29 +122,28 @@ class TestSendReputationUpdate(unittest.TestCase):
             self.assertEqual(query_group[self.peer_b.peer_id].reputation, 3)
 
     def test_updates_all_query_groups(self):
-        gid = self.peer_factory.create_query_group(self.peer_a, self.peer_b)
+        gid = self.helper.create_query_group(self.peer_a, self.peer_b)
         self.peer_a.send_reputation_update(self.peer_b.peer_id, 3, None)
-        aqg = self.peer_factory.all_query_groups
+        aqg = self.helper.all_query_groups
         self.assertEqual(aqg[gid][self.peer_b.peer_id].reputation, 3)
 
 
 class TestQueryGroups(unittest.TestCase):
     def setUp(self):
         self.helper = TestHelper()
-        self.peer_factory = PeerFactory(self.helper.settings)
-        self.peer_a = self.peer_factory.peer_with_prefix('')
-        self.peer_b = self.peer_factory.peer_with_prefix('')
-        self.peer_c = self.peer_factory.peer_with_prefix('')
+        self.peer_a = self.helper.peer_with_prefix('')
+        self.peer_b = self.helper.peer_with_prefix('')
+        self.peer_c = self.helper.peer_with_prefix('')
 
     def test_first_tries_to_join_others_group(self):
-        query_group_id = self.peer_factory.create_query_group(self.peer_a)
+        query_group_id = self.helper.create_query_group(self.peer_a)
         self.peer_b.join_group_with(self.peer_a.info())
         self.assertTrue(query_group_id in self.peer_b.query_groups)
         self.assertTrue(self.peer_b.peer_id
                         in self.peer_a.query_groups[query_group_id])
 
     def test_then_tries_to_add_other_to_own_group(self):
-        query_group_id = self.peer_factory.create_query_group(self.peer_b)
+        query_group_id = self.helper.create_query_group(self.peer_b)
         self.peer_b.join_group_with(self.peer_a.info())
         self.assertTrue(query_group_id in self.peer_a.query_groups)
         self.assertTrue(self.peer_a.peer_id
@@ -153,9 +151,9 @@ class TestQueryGroups(unittest.TestCase):
 
     def test_otherwise_creates_new_group(self):
         self.peer_b.join_group_with(self.peer_a.info())
-        self.assertEqual(len(self.peer_factory.all_query_groups), 1)
+        self.assertEqual(len(self.helper.all_query_groups), 1)
         query_group_id = next(iter(
-            self.peer_factory.all_query_groups.values())).query_group_id
+            self.helper.all_query_groups.values())).query_group_id
         self.assertTrue(self.peer_a.peer_id
                         in self.peer_a.query_groups[query_group_id])
         self.assertTrue(self.peer_b.peer_id
@@ -166,10 +164,10 @@ class TestQueryGroups(unittest.TestCase):
                         in self.peer_b.query_groups[query_group_id])
 
     def test_initializes_joining_others_to_current_state(self):
-        query_group_id = self.peer_factory.create_query_group(self.peer_a,
-                                                              self.peer_c)
+        query_group_id = self.helper.create_query_group(self.peer_a,
+                                                        self.peer_c)
         self.peer_c.send_reputation_update(self.peer_a.peer_id, 3, None)
-        self.peer_factory.env.run()
+        self.helper.env.run()
         self.assertEqual(
             self.peer_a.query_groups[query_group_id][self.peer_a.peer_id]
             .reputation, 3)
@@ -179,10 +177,10 @@ class TestQueryGroups(unittest.TestCase):
             .reputation, 3)
 
     def test_initializes_adding_to_own_to_current_state(self):
-        query_group_id = self.peer_factory.create_query_group(self.peer_a,
-                                                              self.peer_c)
+        query_group_id = self.helper.create_query_group(self.peer_a,
+                                                        self.peer_c)
         self.peer_c.send_reputation_update(self.peer_a.peer_id, 3, None)
-        self.peer_factory.env.run()
+        self.helper.env.run()
         self.assertEqual(
             self.peer_a.query_groups[query_group_id][self.peer_a.peer_id]
             .reputation, 3)
@@ -220,32 +218,31 @@ class TestSubprefixes(unittest.TestCase):
 class TestSubprefixCoverage(unittest.TestCase):
     def setUp(self):
         self.helper = TestHelper()
-        self.peer_factory = PeerFactory(self.helper.settings)
 
     def test_with_no_query_groups(self):
-        peer = self.peer_factory.peer_with_prefix('0000')
+        peer = self.helper.peer_with_prefix('0000')
         self.assertEqual(peer.subprefix_coverage(),
                          {sp: 0 for sp in peer.subprefixes()})
 
     def test_with_all_peers_same_prefix(self):
-        peer = self.peer_factory.peer_with_prefix('0000')
-        self.peer_factory.create_query_group(
+        peer = self.helper.peer_with_prefix('0000')
+        self.helper.create_query_group(
             peer,
-            self.peer_factory.peer_with_prefix('0000'),
-            self.peer_factory.peer_with_prefix('0000'))
+            self.helper.peer_with_prefix('0000'),
+            self.helper.peer_with_prefix('0000'))
         self.assertEqual(peer.subprefix_coverage(),
                          {sp: 0 for sp in peer.subprefixes()})
 
     def test_subprefix_coverage(self):
-        peer = self.peer_factory.peer_with_prefix('0000')
-        self.peer_factory.create_query_group(
+        peer = self.helper.peer_with_prefix('0000')
+        self.helper.create_query_group(
             peer,
-            self.peer_factory.peer_with_prefix('0001'),
-            self.peer_factory.peer_with_prefix('0001'),
-            self.peer_factory.peer_with_prefix('0100'),
-            self.peer_factory.peer_with_prefix('0101'),
-            self.peer_factory.peer_with_prefix('0110'),
-            self.peer_factory.peer_with_prefix('1111'))
+            self.helper.peer_with_prefix('0001'),
+            self.helper.peer_with_prefix('0001'),
+            self.helper.peer_with_prefix('0100'),
+            self.helper.peer_with_prefix('0101'),
+            self.helper.peer_with_prefix('0110'),
+            self.helper.peer_with_prefix('1111'))
         self.assertEqual(peer.subprefix_coverage(), {
                          bs.Bits(bin='0001'): 2,
                          bs.Bits(bin='001'): 0,
@@ -253,10 +250,10 @@ class TestSubprefixCoverage(unittest.TestCase):
                          bs.Bits(bin='1'): 1})
 
     def test_doesnt_count_peers_multiple_times(self):
-        peer = self.peer_factory.peer_with_prefix('0000')
-        other_peer = self.peer_factory.peer_with_prefix('1111')
-        self.peer_factory.create_query_group(peer, other_peer)
-        self.peer_factory.create_query_group(peer, other_peer)
+        peer = self.helper.peer_with_prefix('0000')
+        other_peer = self.helper.peer_with_prefix('1111')
+        self.helper.create_query_group(peer, other_peer)
+        self.helper.create_query_group(peer, other_peer)
         self.assertEqual(peer.subprefix_coverage(), {
                          bs.Bits(bin='0001'): 0,
                          bs.Bits(bin='001'): 0,
@@ -267,30 +264,28 @@ class TestSubprefixCoverage(unittest.TestCase):
 class TestQueryGroupSubprefixCoverage(unittest.TestCase):
     def setUp(self):
         self.helper = TestHelper()
-        self.peer_factory = PeerFactory(self.helper.settings)
 
     def test_with_no_query_groups(self):
-        peer = self.peer_factory.peer_with_prefix('0000')
+        peer = self.helper.peer_with_prefix('0000')
         self.assertEqual(peer.query_group_subprefix_coverage(), {})
 
     def test_with_all_peers_same_prefix(self):
-        peer = self.peer_factory.peer_with_prefix('0000')
+        peer = self.helper.peer_with_prefix('0000')
 
-        query_group_id = self.peer_factory.create_query_group(
+        query_group_id = self.helper.create_query_group(
             peer,
-            self.peer_factory.peer_with_prefix('0000'),
-            self.peer_factory.peer_with_prefix('0000'))
+            self.helper.peer_with_prefix('0000'),
+            self.helper.peer_with_prefix('0000'))
         self.assertEqual(peer.query_group_subprefix_coverage(),
                          {query_group_id: {sp: set()
                                            for sp in peer.subprefixes()}})
 
     def test_with_peers_in_same_query_group_and_same_prefix(self):
-        peer = self.peer_factory.peer_with_prefix('0000')
-        peer_a = self.peer_factory.peer_with_prefix('0001')
-        peer_b = self.peer_factory.peer_with_prefix('0001')
+        peer = self.helper.peer_with_prefix('0000')
+        peer_a = self.helper.peer_with_prefix('0001')
+        peer_b = self.helper.peer_with_prefix('0001')
 
-        query_group_id = self.peer_factory.create_query_group(peer, peer_a,
-                                                              peer_b)
+        query_group_id = self.helper.create_query_group(peer, peer_a, peer_b)
         self.assertEqual(peer.query_group_subprefix_coverage(), {
                          query_group_id: {
                              bs.Bits(bin='0001'): set_containing(
@@ -300,12 +295,11 @@ class TestQueryGroupSubprefixCoverage(unittest.TestCase):
                              bs.Bits(bin='1'): set()}})
 
     def test_with_peers_in_same_query_group_and_different_prefixes(self):
-        peer = self.peer_factory.peer_with_prefix('0000')
-        peer_a = self.peer_factory.peer_with_prefix('0001')
-        peer_b = self.peer_factory.peer_with_prefix('0010')
+        peer = self.helper.peer_with_prefix('0000')
+        peer_a = self.helper.peer_with_prefix('0001')
+        peer_b = self.helper.peer_with_prefix('0010')
 
-        query_group_id = self.peer_factory.create_query_group(peer, peer_a,
-                                                              peer_b)
+        query_group_id = self.helper.create_query_group(peer, peer_a, peer_b)
         self.assertEqual(peer.query_group_subprefix_coverage(), {
                          query_group_id: {
                              bs.Bits(bin='0001'): set_containing(
@@ -316,12 +310,12 @@ class TestQueryGroupSubprefixCoverage(unittest.TestCase):
                              bs.Bits(bin='1'): set()}})
 
     def test_with_peers_in_different_query_groups(self):
-        peer = self.peer_factory.peer_with_prefix('0000')
-        peer_a = self.peer_factory.peer_with_prefix('0001')
-        peer_b = self.peer_factory.peer_with_prefix('0010')
+        peer = self.helper.peer_with_prefix('0000')
+        peer_a = self.helper.peer_with_prefix('0001')
+        peer_b = self.helper.peer_with_prefix('0010')
 
-        query_group_id_1 = self.peer_factory.create_query_group(peer, peer_a)
-        query_group_id_2 = self.peer_factory.create_query_group(peer, peer_b)
+        query_group_id_1 = self.helper.create_query_group(peer, peer_a)
+        query_group_id_2 = self.helper.create_query_group(peer, peer_b)
         self.assertEqual(peer.query_group_subprefix_coverage(), {
                          query_group_id_1: {
                              bs.Bits(bin='0001'): set_containing(
@@ -337,11 +331,11 @@ class TestQueryGroupSubprefixCoverage(unittest.TestCase):
                              bs.Bits(bin='1'): set()}})
 
     def test_with_same_peer_in_different_query_groups(self):
-        peer = self.peer_factory.peer_with_prefix('0000')
-        peer_a = self.peer_factory.peer_with_prefix('0001')
+        peer = self.helper.peer_with_prefix('0000')
+        peer_a = self.helper.peer_with_prefix('0001')
 
-        query_group_id_1 = self.peer_factory.create_query_group(peer, peer_a)
-        query_group_id_2 = self.peer_factory.create_query_group(peer, peer_a)
+        query_group_id_1 = self.helper.create_query_group(peer, peer_a)
+        query_group_id_2 = self.helper.create_query_group(peer, peer_a)
         self.assertEqual(peer.query_group_subprefix_coverage(), {
                          query_group_id_1: {
                              bs.Bits(bin='0001'): set_containing(
@@ -357,16 +351,16 @@ class TestQueryGroupSubprefixCoverage(unittest.TestCase):
                              bs.Bits(bin='1'): set()}})
 
     def test_complex(self):
-        peer = self.peer_factory.peer_with_prefix('0000')
-        peer_a = self.peer_factory.peer_with_prefix('0001')
-        peer_b = self.peer_factory.peer_with_prefix('0001')
-        peer_c = self.peer_factory.peer_with_prefix('0100')
-        peer_d = self.peer_factory.peer_with_prefix('0101')
-        peer_e = self.peer_factory.peer_with_prefix('0110')
-        peer_f = self.peer_factory.peer_with_prefix('1111')
-        query_group_id_1 = self.peer_factory.create_query_group(
+        peer = self.helper.peer_with_prefix('0000')
+        peer_a = self.helper.peer_with_prefix('0001')
+        peer_b = self.helper.peer_with_prefix('0001')
+        peer_c = self.helper.peer_with_prefix('0100')
+        peer_d = self.helper.peer_with_prefix('0101')
+        peer_e = self.helper.peer_with_prefix('0110')
+        peer_f = self.helper.peer_with_prefix('1111')
+        query_group_id_1 = self.helper.create_query_group(
             peer, peer_a, peer_c, peer_d)
-        query_group_id_2 = self.peer_factory.create_query_group(
+        query_group_id_2 = self.helper.create_query_group(
             peer, peer_b, peer_c, peer_e, peer_f)
         self.assertEqual(peer.query_group_subprefix_coverage(), {
                          query_group_id_1: {
@@ -389,77 +383,73 @@ class TestQueryGroupSubprefixCoverage(unittest.TestCase):
 class TestPeerIsKnown(unittest.TestCase):
     def setUp(self):
         self.helper = TestHelper()
-        self.peer_factory = PeerFactory(self.helper.settings)
 
     def test_not_known(self):
-        peer = self.peer_factory.peer_with_prefix('')
-        peer_id = self.peer_factory.id_with_prefix('')
+        peer = self.helper.peer_with_prefix('')
+        peer_id = self.helper.id_with_prefix('')
         self.assertFalse(peer.peer_is_known(peer_id))
 
     def test_known_query_peer(self):
-        peer = self.peer_factory.peer_with_prefix('')
-        other = self.peer_factory.peer_with_prefix('')
+        peer = self.helper.peer_with_prefix('')
+        other = self.helper.peer_with_prefix('')
         peer.sync_peers[other.peer_id] = other.info()
         self.assertTrue(peer.peer_is_known(other.peer_id))
 
     def test_known_sync_peer(self):
-        peer = self.peer_factory.peer_with_prefix('')
-        other = self.peer_factory.peer_with_prefix('')
-        self.peer_factory.create_query_group(peer, other)
+        peer = self.helper.peer_with_prefix('')
+        other = self.helper.peer_with_prefix('')
+        self.helper.create_query_group(peer, other)
         self.assertTrue(peer.peer_is_known(other.peer_id))
 
 
 class TestPendingQueryHasKnownQueryPeer(unittest.TestCase):
     def setUp(self):
         self.helper = TestHelper()
-        self.peer_factory = PeerFactory(self.helper.settings)
 
     def test_no_peers(self):
-        peer = self.peer_factory.peer_with_prefix('')
+        peer = self.helper.peer_with_prefix('')
         pending_query = p.PendingQuery(
-            0, self.peer_factory.id_with_prefix(''),
-            self.peer_factory.id_with_prefix(''), [])
+            0, self.helper.id_with_prefix(''), self.helper.id_with_prefix(''),
+            [])
         self.assertFalse(
             peer.pending_query_has_known_query_peer(pending_query))
 
     def test_unknown_peer(self):
-        peer = self.peer_factory.peer_with_prefix('')
-        other = self.peer_factory.peer_with_prefix('')
+        peer = self.helper.peer_with_prefix('')
+        other = self.helper.peer_with_prefix('')
         pending_query = p.PendingQuery(
-            0, self.peer_factory.id_with_prefix(''),
-            self.peer_factory.id_with_prefix(''), [other.peer_id])
+            0, self.helper.id_with_prefix(''), self.helper.id_with_prefix(''),
+            [other.peer_id])
         self.assertFalse(
             peer.pending_query_has_known_query_peer(pending_query))
 
     def test_known_peer(self):
-        peer = self.peer_factory.peer_with_prefix('')
-        other = self.peer_factory.peer_with_prefix('')
-        self.peer_factory.create_query_group(peer, other)
+        peer = self.helper.peer_with_prefix('')
+        other = self.helper.peer_with_prefix('')
+        self.helper.create_query_group(peer, other)
         pending_query = p.PendingQuery(
-            0, self.peer_factory.id_with_prefix(''),
-            self.peer_factory.id_with_prefix(''), [other.peer_id])
+            0, self.helper.id_with_prefix(''), self.helper.id_with_prefix(''),
+            [other.peer_id])
         self.assertTrue(peer.pending_query_has_known_query_peer(pending_query))
 
     def test_removes_unkown_from_front(self):
-        peer = self.peer_factory.peer_with_prefix('')
-        unknown = self.peer_factory.peer_with_prefix('')
-        known = self.peer_factory.peer_with_prefix('')
-        self.peer_factory.create_query_group(peer, known)
+        peer = self.helper.peer_with_prefix('')
+        unknown = self.helper.peer_with_prefix('')
+        known = self.helper.peer_with_prefix('')
+        self.helper.create_query_group(peer, known)
         pending_query = p.PendingQuery(
-            0, self.peer_factory.id_with_prefix(''),
-            self.peer_factory.id_with_prefix(''),
+            0, self.helper.id_with_prefix(''), self.helper.id_with_prefix(''),
             [unknown.peer_id, known.peer_id])
         peer.pending_query_has_known_query_peer(pending_query)
         self.assertEqual(pending_query.peers_to_query, [known.peer_id])
 
     def test_doesnt_remove_unkown_from_back(self):
-        peer = self.peer_factory.peer_with_prefix('')
-        unknown = self.peer_factory.peer_with_prefix('')
-        known = self.peer_factory.peer_with_prefix('')
-        self.peer_factory.create_query_group(peer, known)
+        peer = self.helper.peer_with_prefix('')
+        unknown = self.helper.peer_with_prefix('')
+        known = self.helper.peer_with_prefix('')
+        self.helper.create_query_group(peer, known)
         pending_query = p.PendingQuery(
-            0, self.peer_factory.id_with_prefix(''),
-            self.peer_factory.id_with_prefix(''),
+            0, self.helper.id_with_prefix(''), self.helper.id_with_prefix(''),
             [known.peer_id, unknown.peer_id])
         peer.pending_query_has_known_query_peer(pending_query)
         self.assertEqual(pending_query.peers_to_query,
@@ -469,165 +459,162 @@ class TestPendingQueryHasKnownQueryPeer(unittest.TestCase):
 class TestFindQueryPeersFor(unittest.TestCase):
     def setUp(self):
         self.helper = TestHelper()
-        self.peer_factory = PeerFactory(self.helper.settings)
 
     def test_doesnt_do_anything_when_no_query_groups(self):
-        peer = self.peer_factory.peer_with_prefix('1111')
+        peer = self.helper.peer_with_prefix('1111')
         prefix = bs.Bits('0b0000')
         self.assertFalse(peer.find_query_peers_for(prefix, set(), 1, 0, None))
         self.assertEqual(len(peer.query_groups), 0)
 
     def test_doesnt_join_groups_without_covering_peers(self):
-        peer = self.peer_factory.peer_with_prefix('1111')
+        peer = self.helper.peer_with_prefix('1111')
         prefix = bs.Bits('0b0000')
-        peer_a = self.peer_factory.peer_with_prefix('0001')
-        self.peer_factory.create_query_group(peer_a)
+        peer_a = self.helper.peer_with_prefix('0001')
+        self.helper.create_query_group(peer_a)
         self.assertFalse(peer.find_query_peers_for(prefix, set(), 1, 0, None))
         self.assertEqual(len(peer.query_groups), 0)
 
     def test_joins_group_with_covering_peer(self):
-        peer = self.peer_factory.peer_with_prefix('1111')
+        peer = self.helper.peer_with_prefix('1111')
         prefix = bs.Bits('0b0000')
-        peer_a = self.peer_factory.peer_with_prefix('0000')
-        query_group_id = self.peer_factory.create_query_group(peer_a)
+        peer_a = self.helper.peer_with_prefix('0000')
+        query_group_id = self.helper.create_query_group(peer_a)
         self.assertTrue(peer.find_query_peers_for(prefix, set(), 1, 0, None))
         self.assertTrue(peer.peer_id in peer.query_groups[query_group_id])
         self.assertTrue(peer.peer_id
-                        in self.peer_factory.all_query_groups[query_group_id])
+                        in self.helper.all_query_groups[query_group_id])
         self.assertTrue(peer.peer_id in peer_a.query_groups[query_group_id])
 
     def test_joins_multiple_groups_if_necessary(self):
-        peer = self.peer_factory.peer_with_prefix('1111')
+        peer = self.helper.peer_with_prefix('1111')
         prefix = bs.Bits('0b0000')
-        peer_a = self.peer_factory.peer_with_prefix('0000')
-        peer_b = self.peer_factory.peer_with_prefix('0000')
-        query_group_id_1 = self.peer_factory.create_query_group(peer_a)
-        query_group_id_2 = self.peer_factory.create_query_group(peer_b)
+        peer_a = self.helper.peer_with_prefix('0000')
+        peer_b = self.helper.peer_with_prefix('0000')
+        query_group_id_1 = self.helper.create_query_group(peer_a)
+        query_group_id_2 = self.helper.create_query_group(peer_b)
         self.assertTrue(peer.find_query_peers_for(prefix, set(), 2, 0, None))
         self.assertTrue(peer.peer_id in peer.query_groups[query_group_id_1])
         self.assertTrue(peer.peer_id in peer.query_groups[query_group_id_2])
+        self.assertTrue(peer.peer_id
+                        in self.helper.all_query_groups[query_group_id_1])
         self.assertTrue(
             peer.peer_id
-            in self.peer_factory.all_query_groups[query_group_id_1])
-        self.assertTrue(
-            peer.peer_id
-            in self.peer_factory.all_query_groups[query_group_id_2])
+            in self.helper.all_query_groups[query_group_id_2])
         self.assertTrue(peer.peer_id in peer_a.query_groups[query_group_id_1])
         self.assertTrue(peer.peer_id in peer_b.query_groups[query_group_id_2])
 
     def test_doesnt_join_more_groups_than_necessary(self):
-        peer = self.peer_factory.peer_with_prefix('1111')
+        peer = self.helper.peer_with_prefix('1111')
         prefix = bs.Bits('0b0000')
-        peer_a = self.peer_factory.peer_with_prefix('0000')
-        peer_b = self.peer_factory.peer_with_prefix('0000')
-        query_group_id_1 = self.peer_factory.create_query_group(peer_a)
-        query_group_id_2 = self.peer_factory.create_query_group(peer_b)
+        peer_a = self.helper.peer_with_prefix('0000')
+        peer_b = self.helper.peer_with_prefix('0000')
+        query_group_id_1 = self.helper.create_query_group(peer_a)
+        query_group_id_2 = self.helper.create_query_group(peer_b)
         self.assertTrue(peer.find_query_peers_for(prefix, set(), 1, 0, None))
         self.assertEqual(len(peer.query_groups), 1)
         self.assertTrue(
             (peer.peer_id
-             in self.peer_factory.all_query_groups[query_group_id_1])
+             in self.helper.all_query_groups[query_group_id_1])
             ^ (peer.peer_id
-               in self.peer_factory.all_query_groups[query_group_id_2]))
+               in self.helper.all_query_groups[query_group_id_2]))
         self.assertTrue((peer.peer_id in peer_a.query_groups[query_group_id_1])
                         ^ (peer.peer_id
                         in peer_b.query_groups[query_group_id_2]))
 
     def test_ignores_groups_its_already_in(self):
-        peer = self.peer_factory.peer_with_prefix('1111')
+        peer = self.helper.peer_with_prefix('1111')
         prefix = bs.Bits('0b0000')
-        peer_a = self.peer_factory.peer_with_prefix('0000')
-        self.peer_factory.create_query_group(peer, peer_a)
+        peer_a = self.helper.peer_with_prefix('0000')
+        self.helper.create_query_group(peer, peer_a)
         self.assertFalse(peer.find_query_peers_for(prefix,
                                                    set((peer_a.peer_id,)), 1,
                                                    0, None))
 
     def test_ignores_peers_it_already_knows_in_other_groups(self):
-        peer = self.peer_factory.peer_with_prefix('1111')
+        peer = self.helper.peer_with_prefix('1111')
         prefix = bs.Bits('0b0000')
-        peer_a = self.peer_factory.peer_with_prefix('0000')
-        self.peer_factory.create_query_group(peer, peer_a)
-        query_group_id = self.peer_factory.create_query_group(peer_a)
+        peer_a = self.helper.peer_with_prefix('0000')
+        self.helper.create_query_group(peer, peer_a)
+        query_group_id = self.helper.create_query_group(peer_a)
         self.assertFalse(peer.find_query_peers_for(prefix,
                                                    set((peer_a.peer_id,)), 1,
                                                    0, None))
         self.assertEqual(len(peer.query_groups), 1)
         self.assertFalse(query_group_id in peer.query_groups)
         self.assertFalse(peer.peer_id
-                         in self.peer_factory.all_query_groups[query_group_id])
+                         in self.helper.all_query_groups[query_group_id])
         self.assertFalse(peer.peer_id
                          in peer_a.query_groups[query_group_id])
 
     def test_still_returns_false_if_not_enough_peers_found(self):
-        peer = self.peer_factory.peer_with_prefix('1111')
+        peer = self.helper.peer_with_prefix('1111')
         prefix = bs.Bits('0b0000')
-        peer_a = self.peer_factory.peer_with_prefix('0000')
-        query_group_id = self.peer_factory.create_query_group(peer_a)
+        peer_a = self.helper.peer_with_prefix('0000')
+        query_group_id = self.helper.create_query_group(peer_a)
         self.assertFalse(peer.find_query_peers_for(prefix, set(), 2, 0, None))
         self.assertTrue(peer.peer_id in peer.query_groups[query_group_id])
         self.assertTrue(peer.peer_id
-                        in self.peer_factory.all_query_groups[query_group_id])
+                        in self.helper.all_query_groups[query_group_id])
         self.assertTrue(peer.peer_id in peer_a.query_groups[query_group_id])
 
     def test_doesnt_join_full_groups(self):
-        peer = self.peer_factory.peer_with_prefix('1111')
+        peer = self.helper.peer_with_prefix('1111')
         prefix = bs.Bits('0b0000')
-        peers = [self.peer_factory.peer_with_prefix('0000') for _
+        peers = [self.helper.peer_with_prefix('0000') for _
                  in range(self.helper.settings['max_desired_group_size'])]
-        query_group_id = self.peer_factory.create_query_group(*peers)
+        query_group_id = self.helper.create_query_group(*peers)
         self.assertFalse(peer.find_query_peers_for(prefix, set(), 1, 0, None))
         self.assertEqual(len(peer.query_groups), 0)
         self.assertFalse(peer.peer_id
-                         in self.peer_factory.all_query_groups[query_group_id])
+                         in self.helper.all_query_groups[query_group_id])
         for p in peers:
             self.assertFalse(peer.peer_id
                              in p.query_groups[query_group_id])
 
     def test_doesnt_join_groups_with_lower_usefulness(self):
-        peer = self.peer_factory.peer_with_prefix('1111')
+        peer = self.helper.peer_with_prefix('1111')
         prefix = bs.Bits('0b0000')
-        peer_a = self.peer_factory.peer_with_prefix('0000')
-        query_group_id = self.peer_factory.create_query_group(peer_a)
+        peer_a = self.helper.peer_with_prefix('0000')
+        query_group_id = self.helper.create_query_group(peer_a)
         self.assertFalse(peer.find_query_peers_for(prefix, set(), 1, 6, None))
         self.assertFalse(query_group_id in peer.query_groups)
         self.assertFalse(peer.peer_id
-                         in self.peer_factory.all_query_groups[query_group_id])
+                         in self.helper.all_query_groups[query_group_id])
         self.assertFalse(peer.peer_id in peer_a.query_groups[query_group_id])
 
 
 class TestLeaveQueryGroup(unittest.TestCase):
     def setUp(self):
         self.helper = TestHelper()
-        self.peer_factory = PeerFactory(self.helper.settings)
 
     def test_removes_group_from_own_group_dict(self):
-        peer = self.peer_factory.peer_with_prefix('')
-        query_group_id = self.peer_factory.create_query_group(peer)
+        peer = self.helper.peer_with_prefix('')
+        query_group_id = self.helper.create_query_group(peer)
         self.assertTrue(query_group_id in peer.query_groups)
         peer.leave_query_group(query_group_id, None)
         self.assertFalse(query_group_id in peer.query_groups)
 
     def test_removes_itself_from_query_peers_copies(self):
-        peer = self.peer_factory.peer_with_prefix('')
-        peer_a = self.peer_factory.peer_with_prefix('')
-        query_group_id = self.peer_factory.create_query_group(peer, peer_a)
+        peer = self.helper.peer_with_prefix('')
+        peer_a = self.helper.peer_with_prefix('')
+        query_group_id = self.helper.create_query_group(peer, peer_a)
         self.assertTrue(peer.peer_id in peer_a.query_groups[query_group_id])
         peer.leave_query_group(query_group_id, None)
         self.assertFalse(peer.peer_id in peer_a.query_groups[query_group_id])
 
     def test_removes_itself_from_all_query_groups(self):
-        peer = self.peer_factory.peer_with_prefix('')
-        peer_a = self.peer_factory.peer_with_prefix('')
-        query_group_id = self.peer_factory.create_query_group(peer, peer_a)
+        peer = self.helper.peer_with_prefix('')
+        peer_a = self.helper.peer_with_prefix('')
+        query_group_id = self.helper.create_query_group(peer, peer_a)
         self.assertTrue(peer.peer_id
-                        in self.peer_factory.all_query_groups[query_group_id])
+                        in self.helper.all_query_groups[query_group_id])
         peer.leave_query_group(query_group_id, None)
         self.assertFalse(peer.peer_id
-                         in self.peer_factory.all_query_groups[query_group_id])
+                         in self.helper.all_query_groups[query_group_id])
 
     def test_removes_group_from_history_dict(self):
-        peer = self.peer_factory.peer_with_prefix('')
-        query_group_id = self.peer_factory.create_query_group(peer)
+        peer = self.helper.peer_with_prefix('')
+        query_group_id = self.helper.create_query_group(peer)
         peer.update_query_group_history()
         self.assertTrue(query_group_id in peer.query_group_history)
         peer.leave_query_group(query_group_id, None)
@@ -637,30 +624,29 @@ class TestLeaveQueryGroup(unittest.TestCase):
 class TestMaxPeerReputation(unittest.TestCase):
     def setUp(self):
         self.helper = TestHelper()
-        self.peer_factory = PeerFactory(self.helper.settings)
 
     def test_no_groups(self):
-        peer = self.peer_factory.peer_with_prefix('')
-        peer_a = self.peer_factory.peer_with_prefix('')
+        peer = self.helper.peer_with_prefix('')
+        peer_a = self.helper.peer_with_prefix('')
         self.assertEqual(
             peer.max_peer_reputation(peer_a.peer_id, peer_a.peer_id), 0)
         self.assertEqual(
             peer.max_peer_reputation(peer.peer_id, peer_a.peer_id), 0)
 
     def test_no_shared_groups(self):
-        peer = self.peer_factory.peer_with_prefix('')
-        peer_a = self.peer_factory.peer_with_prefix('')
-        peer_b = self.peer_factory.peer_with_prefix('')
-        self.peer_factory.create_query_group(peer, peer_a)
+        peer = self.helper.peer_with_prefix('')
+        peer_a = self.helper.peer_with_prefix('')
+        peer_b = self.helper.peer_with_prefix('')
+        self.helper.create_query_group(peer, peer_a)
         self.assertEqual(
             peer.max_peer_reputation(peer_b.peer_id, peer_b.peer_id), 0)
         self.assertEqual(
             peer.max_peer_reputation(peer.peer_id, peer_b.peer_id), 0)
 
     def test_one_shared_group(self):
-        peer = self.peer_factory.peer_with_prefix('')
-        peer_a = self.peer_factory.peer_with_prefix('')
-        gid = self.peer_factory.create_query_group(peer, peer_a)
+        peer = self.helper.peer_with_prefix('')
+        peer_a = self.helper.peer_with_prefix('')
+        gid = self.helper.create_query_group(peer, peer_a)
         peer.query_groups[gid][peer.peer_id].reputation = 5
         peer.query_groups[gid][peer_a.peer_id].reputation = 6
         self.assertEqual(
@@ -669,10 +655,10 @@ class TestMaxPeerReputation(unittest.TestCase):
             peer.max_peer_reputation(peer.peer_id, peer_a.peer_id), 5)
 
     def test_multiple_shared_groups(self):
-        peer = self.peer_factory.peer_with_prefix('')
-        peer_a = self.peer_factory.peer_with_prefix('')
-        gid_1 = self.peer_factory.create_query_group(peer, peer_a)
-        gid_2 = self.peer_factory.create_query_group(peer, peer_a)
+        peer = self.helper.peer_with_prefix('')
+        peer_a = self.helper.peer_with_prefix('')
+        gid_1 = self.helper.create_query_group(peer, peer_a)
+        gid_2 = self.helper.create_query_group(peer, peer_a)
         peer.query_groups[gid_1][peer.peer_id].reputation = 5
         peer.query_groups[gid_1][peer_a.peer_id].reputation = 6
         peer.query_groups[gid_2][peer.peer_id].reputation = 4
@@ -686,33 +672,32 @@ class TestMaxPeerReputation(unittest.TestCase):
 class TestMinPeerReputation(unittest.TestCase):
     def setUp(self):
         self.helper = TestHelper()
-        self.peer_factory = PeerFactory(self.helper.settings)
 
     def test_no_groups(self):
-        peer = self.peer_factory.peer_with_prefix('')
-        peer_a = self.peer_factory.peer_with_prefix('')
+        peer = self.helper.peer_with_prefix('')
+        peer_a = self.helper.peer_with_prefix('')
         self.assertEqual(peer.min_peer_reputation(peer_a.peer_id), 0)
 
     def test_no_shared_groups(self):
-        peer = self.peer_factory.peer_with_prefix('')
-        peer_a = self.peer_factory.peer_with_prefix('')
-        peer_b = self.peer_factory.peer_with_prefix('')
-        self.peer_factory.create_query_group(peer, peer_b)
+        peer = self.helper.peer_with_prefix('')
+        peer_a = self.helper.peer_with_prefix('')
+        peer_b = self.helper.peer_with_prefix('')
+        self.helper.create_query_group(peer, peer_b)
         self.assertEqual(peer.min_peer_reputation(peer_a.peer_id), 0)
 
     def test_one_shared_group(self):
-        peer = self.peer_factory.peer_with_prefix('')
-        peer_a = self.peer_factory.peer_with_prefix('')
-        gid = self.peer_factory.create_query_group(peer, peer_a)
+        peer = self.helper.peer_with_prefix('')
+        peer_a = self.helper.peer_with_prefix('')
+        gid = self.helper.create_query_group(peer, peer_a)
         peer.query_groups[gid][peer_a.peer_id].reputation = 5
         self.assertEqual(peer.min_peer_reputation(peer_a.peer_id), 5)
 
     def test_multiple_shared_groups(self):
-        peer = self.peer_factory.peer_with_prefix('')
-        peer_a = self.peer_factory.peer_with_prefix('')
-        gid_1 = self.peer_factory.create_query_group(peer, peer_a)
-        gid_2 = self.peer_factory.create_query_group(peer, peer_a)
-        gid_3 = self.peer_factory.create_query_group(peer, peer_a)
+        peer = self.helper.peer_with_prefix('')
+        peer_a = self.helper.peer_with_prefix('')
+        gid_1 = self.helper.create_query_group(peer, peer_a)
+        gid_2 = self.helper.create_query_group(peer, peer_a)
+        gid_3 = self.helper.create_query_group(peer, peer_a)
         peer.query_groups[gid_1][peer_a.peer_id].reputation = 5
         peer.query_groups[gid_2][peer_a.peer_id].reputation = 4
         peer.query_groups[gid_3][peer_a.peer_id].reputation = 6
@@ -722,64 +707,63 @@ class TestMinPeerReputation(unittest.TestCase):
 class TestExpectedMinReputation(unittest.TestCase):
     def setUp(self):
         self.helper = TestHelper()
-        self.peer_factory = PeerFactory(self.helper.settings)
 
     def test_no_groups(self):
-        peer = self.peer_factory.peer_with_prefix('')
-        peer_a = self.peer_factory.peer_with_prefix('')
+        peer = self.helper.peer_with_prefix('')
+        peer_a = self.helper.peer_with_prefix('')
         self.assertEqual(
             peer.expected_min_reputation(peer_a.peer_id), 0)
 
     def test_no_shared_groups(self):
-        peer = self.peer_factory.peer_with_prefix('')
-        peer_a = self.peer_factory.peer_with_prefix('')
-        peer_b = self.peer_factory.peer_with_prefix('')
-        self.peer_factory.create_query_group(peer, peer_a)
+        peer = self.helper.peer_with_prefix('')
+        peer_a = self.helper.peer_with_prefix('')
+        peer_b = self.helper.peer_with_prefix('')
+        self.helper.create_query_group(peer, peer_a)
         self.assertEqual(
             peer.expected_min_reputation(peer_b.peer_id), 0)
 
     def test_one_shared_group(self):
-        peer = self.peer_factory.peer_with_prefix('')
-        peer_a = self.peer_factory.peer_with_prefix('')
-        gid = self.peer_factory.create_query_group(peer, peer_a)
+        peer = self.helper.peer_with_prefix('')
+        peer_a = self.helper.peer_with_prefix('')
+        gid = self.helper.create_query_group(peer, peer_a)
         peer.query_groups[gid][peer.peer_id].reputation = 5
         self.assertEqual(
             peer.expected_min_reputation(peer_a.peer_id), 5)
 
     def test_multiple_shared_groups(self):
-        peer = self.peer_factory.peer_with_prefix('')
-        peer_a = self.peer_factory.peer_with_prefix('')
-        gid_1 = self.peer_factory.create_query_group(peer, peer_a)
-        gid_2 = self.peer_factory.create_query_group(peer, peer_a)
+        peer = self.helper.peer_with_prefix('')
+        peer_a = self.helper.peer_with_prefix('')
+        gid_1 = self.helper.create_query_group(peer, peer_a)
+        gid_2 = self.helper.create_query_group(peer, peer_a)
         peer.query_groups[gid_1][peer.peer_id].reputation = 5
         peer.query_groups[gid_2][peer.peer_id].reputation = 7
         self.assertEqual(
             peer.expected_min_reputation(peer_a.peer_id), 5)
 
     def test_considers_expected_penalties_from_same_peer(self):
-        peer = self.peer_factory.peer_with_prefix('')
-        peer_a = self.peer_factory.peer_with_prefix('')
-        gid = self.peer_factory.create_query_group(peer, peer_a)
+        peer = self.helper.peer_with_prefix('')
+        peer_a = self.helper.peer_with_prefix('')
+        gid = self.helper.create_query_group(peer, peer_a)
         peer.query_groups[gid][peer.peer_id].reputation = 5
         peer.expected_penalties[peer_a.peer_id] = [(0, -2)]
         self.assertEqual(
             peer.expected_min_reputation(peer_a.peer_id), 3)
 
     def test_considers_expected_penalties_from_other_peer(self):
-        peer = self.peer_factory.peer_with_prefix('')
-        peer_a = self.peer_factory.peer_with_prefix('')
-        peer_b = self.peer_factory.peer_with_prefix('')
-        gid = self.peer_factory.create_query_group(peer, peer_a, peer_b)
+        peer = self.helper.peer_with_prefix('')
+        peer_a = self.helper.peer_with_prefix('')
+        peer_b = self.helper.peer_with_prefix('')
+        gid = self.helper.create_query_group(peer, peer_a, peer_b)
         peer.query_groups[gid][peer.peer_id].reputation = 5
         peer.expected_penalties[peer_b.peer_id] = [(0, -2)]
         self.assertEqual(
             peer.expected_min_reputation(peer_a.peer_id), 3)
 
     def test_considers_multiple_expected_penalties_from_different_peers(self):
-        peer = self.peer_factory.peer_with_prefix('')
-        peer_a = self.peer_factory.peer_with_prefix('')
-        peer_b = self.peer_factory.peer_with_prefix('')
-        gid = self.peer_factory.create_query_group(peer, peer_a, peer_b)
+        peer = self.helper.peer_with_prefix('')
+        peer_a = self.helper.peer_with_prefix('')
+        peer_b = self.helper.peer_with_prefix('')
+        gid = self.helper.create_query_group(peer, peer_a, peer_b)
         peer.query_groups[gid][peer.peer_id].reputation = 5
         peer.expected_penalties[peer_a.peer_id] = [(0, -1)]
         peer.expected_penalties[peer_b.peer_id] = [(0, -2)]
@@ -787,20 +771,20 @@ class TestExpectedMinReputation(unittest.TestCase):
             peer.expected_min_reputation(peer_a.peer_id), 2)
 
     def test_considers_multiple_expected_penalties_from_the_same_peer(self):
-        peer = self.peer_factory.peer_with_prefix('')
-        peer_a = self.peer_factory.peer_with_prefix('')
-        peer_b = self.peer_factory.peer_with_prefix('')
-        gid = self.peer_factory.create_query_group(peer, peer_a, peer_b)
+        peer = self.helper.peer_with_prefix('')
+        peer_a = self.helper.peer_with_prefix('')
+        peer_b = self.helper.peer_with_prefix('')
+        gid = self.helper.create_query_group(peer, peer_a, peer_b)
         peer.query_groups[gid][peer.peer_id].reputation = 5
         peer.expected_penalties[peer_a.peer_id] = [(0, -1), (1, -1)]
         self.assertEqual(
             peer.expected_min_reputation(peer_a.peer_id), 3)
 
     def test_considers_expected_penalties_for_multiple_groups(self):
-        peer = self.peer_factory.peer_with_prefix('')
-        peer_a = self.peer_factory.peer_with_prefix('')
-        gid_1 = self.peer_factory.create_query_group(peer, peer_a)
-        gid_2 = self.peer_factory.create_query_group(peer, peer_a)
+        peer = self.helper.peer_with_prefix('')
+        peer_a = self.helper.peer_with_prefix('')
+        gid_1 = self.helper.create_query_group(peer, peer_a)
+        gid_2 = self.helper.create_query_group(peer, peer_a)
         peer.query_groups[gid_1][peer.peer_id].reputation = 5
         peer.query_groups[gid_2][peer.peer_id].reputation = 4
         peer.expected_penalties[peer_a.peer_id] = [(0, -2)]
@@ -808,28 +792,25 @@ class TestExpectedMinReputation(unittest.TestCase):
             peer.expected_min_reputation(peer_a.peer_id), 2)
 
     def test_doesnt_consider_expected_penalties_from_other_group(self):
-        peer = self.peer_factory.peer_with_prefix('')
-        peer_a = self.peer_factory.peer_with_prefix('')
-        peer_b = self.peer_factory.peer_with_prefix('')
-        gid = self.peer_factory.create_query_group(peer, peer_a)
-        self.peer_factory.create_query_group(peer, peer_b)
+        peer = self.helper.peer_with_prefix('')
+        peer_a = self.helper.peer_with_prefix('')
+        peer_b = self.helper.peer_with_prefix('')
+        gid = self.helper.create_query_group(peer, peer_a)
+        self.helper.create_query_group(peer, peer_b)
         peer.query_groups[gid][peer.peer_id].reputation = 5
         peer.expected_penalties[peer_b.peer_id] = [(0, -2)]
         self.assertEqual(
             peer.expected_min_reputation(peer_a.peer_id), 5)
 
     def test_doesnt_consider_expected_penalties_after_a_timeout(self):
-        peer = self.peer_factory.peer_with_prefix('')
-        peer_a = self.peer_factory.peer_with_prefix('')
-        gid = self.peer_factory.create_query_group(peer, peer_a)
+        peer = self.helper.peer_with_prefix('')
+        peer_a = self.helper.peer_with_prefix('')
+        gid = self.helper.create_query_group(peer, peer_a)
         peer.query_groups[gid][peer.peer_id].reputation = 5
         timeout_time = 11
         peer.expected_penalties[peer_a.peer_id] = [(timeout_time, -2, 0)]
 
-        def wait_until(env, until_time):
-            yield env.timeout(until_time)
-        self.peer_factory.env.process(wait_until(self.peer_factory.env,
-                                                 timeout_time + 1))
-        self.peer_factory.env.run()
+        self.helper.schedule_in(timeout_time + 1, lambda: None)
+        self.helper.env.run()
         self.assertEqual(
             peer.expected_min_reputation(peer_a.peer_id), 5)

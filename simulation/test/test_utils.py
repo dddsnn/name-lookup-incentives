@@ -15,13 +15,8 @@ bs.Bits.__lt__ = util.bits_lt
 
 class TestHelper:
     def __init__(self):
-        file_name = os.path.join(sys.path[0], 'test.settings')
-        self.settings = util.read_settings(file_name)
-
-
-class PeerFactory:
-    def __init__(self, settings):
-        self.settings = settings
+        settings_file_name = os.path.join(sys.path[0], 'test.settings')
+        self.settings = util.read_settings(settings_file_name)
         self.all_query_groups = {}
         self.env = simpy.Environment()
         self.logger = analyze.Logger(self.settings)
@@ -67,6 +62,12 @@ class PeerFactory:
             peer.query_groups[query_group.query_group_id]\
                 = deepcopy(query_group)
         return query_group.query_group_id
+
+    def schedule_in(self, time, f, *args):
+        def gen():
+            yield self.env.timeout(time)
+            f(*args)
+        self.env.process(gen())
 
 
 class PendingQueryMatcher:
