@@ -8,6 +8,7 @@ from collections import namedtuple, OrderedDict, deque
 import random
 import operator as op
 import numpy as np
+import math
 
 
 query_group_id_iter = it.count()
@@ -997,12 +998,16 @@ class Peer:
             query_peer_info.reputation_updates.append(
                 ReputationUpdate(time, query_peer_info.reputation,
                                  reputation_diff))
-            new_rep = max(0, query_peer_info.reputation + reputation_diff)
+            new_rep = calculate_reputation(
+                self.settings['reward_attenuation'],
+                query_peer_info.reputation, reputation_diff)
             # Reapply rolled back updates.
             for update in younger_updates:
                 new_update = ReputationUpdate(update.time, new_rep,
                                               update.reputation_diff)
-                new_rep = max(0, new_rep + update.reputation_diff)
+                new_rep = calculate_reputation(
+                    self.settings['reward_attenuation'], new_rep,
+                    update.reputation_diff)
                 query_peer_info.reputation_updates.append(new_update)
             query_peer_info.reputation = new_rep
             # Prune old updates. This must not be done too eagerly, as it could
@@ -1263,6 +1268,80 @@ class Peer:
                 return True
             i += 1
         return False
+
+
+def calculate_reputation(ra, current_reputation, reputation_diff):
+    """
+    Calculate new reputation after a reputation update.
+
+    :param ra: The reward_attenuation settings describing the strategy to be
+        used.
+    """
+    if reputation_diff <= 0 or ra['type'] == 'none':
+        new_rep = current_reputation + reputation_diff
+    elif ra['type'] == 'constant':
+        assert ra['lower_bound'] >= 0
+        assert ra['lower_bound'] <= ra['upper_bound']
+        assert ra['upper_bound'] > 0
+        assert ra['coefficient'] > 0 and ra['coefficient'] <= 1
+        unattenuated_rep = min(current_reputation, ra['lower_bound'])
+        attenuated_rep = current_reputation - unattenuated_rep
+        attenuated_rep /= ra['coefficient']
+        unattenuated_rep += reputation_diff
+        attenuated_rep += max(unattenuated_rep - ra['lower_bound'], 0)
+        unattenuated_rep = min(unattenuated_rep, ra['lower_bound'])
+        attenuated_rep *= ra['coefficient']
+        new_rep = min(unattenuated_rep + attenuated_rep, ra['upper_bound'])
+    elif ra['type'] == 'square_root':
+        assert ra['lower_bound'] >= 0
+        assert ra['lower_bound'] <= ra['upper_bound']
+        assert ra['upper_bound'] > 0
+        assert ra['coefficient'] > 0
+        unattenuated_rep = min(current_reputation, ra['lower_bound'])
+        attenuated_rep = current_reputation - unattenuated_rep
+        attenuated_rep = (attenuated_rep / ra['coefficient']) ** 2
+        unattenuated_rep += reputation_diff
+        attenuated_rep += max(unattenuated_rep - ra['lower_bound'], 0)
+        unattenuated_rep = min(unattenuated_rep, ra['lower_bound'])
+        attenuated_rep = ra['coefficient'] * math.sqrt(attenuated_rep)
+        new_rep = min(unattenuated_rep + attenuated_rep, ra['upper_bound'])
+    elif ra['type'] == 'harmonic':
+        assert ra['lower_bound'] >= 0
+        assert ra['lower_bound'] <= ra['upper_bound']
+        assert ra['upper_bound'] > 0
+        assert ra['a'] > 0
+        assert ra['k'] > 0
+        unattenuated_rep = min(current_reputation, ra['lower_bound'])
+        attenuated_rep = current_reputation - unattenuated_rep
+        a = ra['a']
+        k = ra['k']
+        acc = 0
+        i = 0
+        raw_rep = 0
+        while attenuated_rep - acc > 1:
+            denominator = a + i * k
+            raw_rep += denominator
+            acc += 1
+            i += 1
+        denominator = a + i * k
+        raw_rep += denominator * (attenuated_rep - acc)
+        unattenuated_rep += reputation_diff
+        raw_rep += max(unattenuated_rep - ra['lower_bound'], 0)
+        unattenuated_rep = min(unattenuated_rep, ra['lower_bound'])
+        attenuated_rep = 0
+        i = 0
+        denominator = a + i * k
+        while raw_rep > denominator:
+            attenuated_rep += 1
+            raw_rep -= denominator
+            i += 1
+            denominator = a + i * k
+        attenuated_rep += raw_rep / denominator
+        new_rep = min(unattenuated_rep + attenuated_rep, ra['upper_bound'])
+    else:
+        raise Exception('Invalid reward attenuation type {}'
+                        .format(ra['type']))
+    return max(0, new_rep)
 
 
 def subprefixes(prefix):

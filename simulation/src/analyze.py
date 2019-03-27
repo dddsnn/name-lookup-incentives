@@ -7,6 +7,7 @@ from math import sqrt, ceil
 from itertools import takewhile, chain, product
 import operator as op
 import bitstring
+import peer
 
 
 # Patch in a less-than for the Bits class, which is necessary for ordered dicts
@@ -493,8 +494,10 @@ class Logger:
                 query_group = data.get(query_group_id)
                 if query_group is None:
                     query_group = data.setdefault(query_group_id, {})
-                new_rep = max(0, query_group.setdefault(event.peer_id, 0)
-                              + event.reputation_diff)
+                new_rep = peer.calculate_reputation(
+                    self.settings['reward_attenuation'],
+                    query_group.setdefault(event.peer_id, 0),
+                    event.reputation_diff)
                 query_group[event.peer_id] = new_rep
         elif isinstance(event, ReputationDecay):
             for query_group in data.values():

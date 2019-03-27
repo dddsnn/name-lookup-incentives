@@ -120,6 +120,49 @@ class TestRecvReputationUpdate(unittest.TestCase):
             5, 1, None)
         self.assertEqual(query_group[self.peer_b.peer_id].reputation, 1)
 
+    def test_attenuates_rewards(self):
+        self.helper.settings['reward_attenuation'] = {
+            'type': 'constant',
+            'coefficient': 0.5,
+            'lower_bound': 10,
+            'upper_bound': 20
+        }
+        gid = self.helper.create_query_group(self.peer_a, self.peer_b,
+                                             self.peer_c)
+        query_group = self.peer_a.query_groups[gid]
+        self.peer_a.recv_reputation_update(
+            self.peer_c.peer_id, self.peer_b.peer_id, set((gid,)), 10, 0, None)
+        self.assertEqual(query_group[self.peer_b.peer_id].reputation, 10)
+        self.peer_a.recv_reputation_update(
+            self.peer_c.peer_id, self.peer_b.peer_id, set((gid,)), 5, 1, None)
+        self.assertEqual(query_group[self.peer_b.peer_id].reputation, 12.5)
+        self.peer_a.recv_reputation_update(
+            self.peer_c.peer_id, self.peer_b.peer_id, set((gid,)), 10, 2, None)
+        self.assertEqual(query_group[self.peer_b.peer_id].reputation, 17.5)
+
+    def test_attenuates_rewards_after_rolling_back(self):
+        self.helper.settings['reward_attenuation'] = {
+            'type': 'constant',
+            'coefficient': 0.5,
+            'lower_bound': 10,
+            'upper_bound': 20
+        }
+        query_group_id = self.helper.create_query_group(
+            self.peer_a, self.peer_b, self.peer_c)
+        query_group = self.peer_a.query_groups[query_group_id]
+        self.peer_a.recv_reputation_update(
+            self.peer_c.peer_id, self.peer_b.peer_id, set((query_group_id,)),
+            9, 0, None)
+        self.assertEqual(query_group[self.peer_b.peer_id].reputation, 9)
+        self.peer_a.recv_reputation_update(
+            self.peer_c.peer_id, self.peer_b.peer_id, set((query_group_id,)),
+            2, 2, None)
+        self.assertEqual(query_group[self.peer_b.peer_id].reputation, 10.5)
+        self.peer_a.recv_reputation_update(
+            self.peer_c.peer_id, self.peer_b.peer_id, set((query_group_id,)),
+            6, 1, None)
+        self.assertEqual(query_group[self.peer_b.peer_id].reputation, 13.5)
+
 
 class TestSendReputationUpdate(unittest.TestCase):
     def setUp(self):
@@ -832,3 +875,71 @@ class TestExpectedMinReputation(unittest.TestCase):
         self.helper.env.run()
         self.assertEqual(
             peer.expected_min_reputation(peer_a.peer_id), 5)
+
+
+class TestCalculateReputation(unittest.TestCase):
+    def test_doesnt_go_below_zero(self):
+        ra = {'type': 'none'}
+        self.assertEqual(p.calculate_reputation(ra, 1, -2), 0)
+
+    def test_doesnt_attenuate_anything(self):
+        ra = {'type': 'none'}
+        self.assertEqual(p.calculate_reputation(ra, 20, 2), 22)
+
+    def test_attenuates_rewards_by_a_constant_coefficient(self):
+        ra = {
+            'type': 'constant',
+            'coefficient': 0.5,
+            'lower_bound': 10,
+            'upper_bound': 20
+        }
+        self.assertEqual(p.calculate_reputation(ra, 5, 2), 7)
+        self.assertEqual(p.calculate_reputation(ra, 9, 2), 10.5)
+        self.assertEqual(p.calculate_reputation(ra, 10, 2), 11)
+        self.assertEqual(p.calculate_reputation(ra, 12, 2), 13)
+        self.assertEqual(p.calculate_reputation(ra, 15, 5), 17.5)
+        self.assertEqual(p.calculate_reputation(ra, 19, 5), 20)
+        self.assertEqual(p.calculate_reputation(ra, 20, 2), 20)
+        self.assertEqual(p.calculate_reputation(ra, 30, 1000), 20)
+        self.assertEqual(p.calculate_reputation(ra, 15, -2), 13)
+
+    def test_attenuates_rewards_by_square_root(self):
+        ra = {
+            'type': 'square_root',
+            'coefficient': 0.5,
+            'lower_bound': 10,
+            'upper_bound': 20
+        }
+        self.assertEqual(p.calculate_reputation(ra, 5, 4), 9)
+        self.assertEqual(p.calculate_reputation(ra, 9, 5), 11)
+        self.assertEqual(p.calculate_reputation(ra, 10, 4), 11)
+        self.assertEqual(p.calculate_reputation(ra, 11, 5), 11.5)
+        self.assertEqual(p.calculate_reputation(ra, 19, 76), 20)
+        self.assertEqual(p.calculate_reputation(ra, 20, 1000), 20)
+        self.assertEqual(p.calculate_reputation(ra, 30, 1000), 20)
+        self.assertEqual(p.calculate_reputation(ra, 15, -2), 13)
+
+    def test_attenuates_rewards_harmonically(self):
+        ra = {
+            'type': 'harmonic',
+            'a': 2,
+            'k': 2,
+            'lower_bound': 10,
+            'upper_bound': 20
+        }
+        self.assertEqual(p.calculate_reputation(ra, 5, 4), 9)
+        self.assertEqual(p.calculate_reputation(ra, 9, 2), 10.5)
+        self.assertEqual(p.calculate_reputation(ra, 10, 1), 10.5)
+        self.assertEqual(p.calculate_reputation(ra, 10, 2), 11)
+        self.assertEqual(p.calculate_reputation(ra, 11, 2), 11.5)
+        self.assertEqual(p.calculate_reputation(ra, 11, 3), 11.75)
+        self.assertEqual(p.calculate_reputation(ra, 11, 4), 12)
+        self.assertEqual(p.calculate_reputation(ra, 12, 3), 12.5)
+        self.assertEqual(p.calculate_reputation(ra, 12, 6), 13)
+        self.assertEqual(p.calculate_reputation(ra, 13.5, 2), 13.75)
+        self.assertEqual(p.calculate_reputation(ra, 10, 90), 19)
+        self.assertEqual(p.calculate_reputation(ra, 19, 2), 19.1)
+        self.assertEqual(p.calculate_reputation(ra, 19, 5), 19.25)
+        self.assertEqual(p.calculate_reputation(ra, 20, 1000), 20)
+        self.assertEqual(p.calculate_reputation(ra, 30, 1000), 20)
+        self.assertEqual(p.calculate_reputation(ra, 15, -2), 13)
