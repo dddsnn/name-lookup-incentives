@@ -1270,77 +1270,74 @@ class Peer:
         return False
 
 
-def calculate_reputation(ra, current_reputation, reputation_diff):
+def calculate_reputation(reward_attenuation_strategy, current_reputation,
+                         reputation_diff):
     """
     Calculate new reputation after a reputation update.
 
-    :param ra: The reward_attenuation settings describing the strategy to be
-        used.
+    :param reward_attenuation_strategy: The reward_attenuation settings
+        describing the strategy to be used.
     """
-    if reputation_diff <= 0 or ra['type'] == 'none':
+    def add_attenuated_repuation(unattenuate_rep, attenuate_rep):
+        lower_bound = reward_attenuation_strategy['lower_bound']
+        upper_bound = reward_attenuation_strategy['upper_bound']
+        assert lower_bound >= 0
+        assert lower_bound <= upper_bound
+        assert upper_bound > 0
+        unattenuated_rep = min(current_reputation, lower_bound)
+        attenuated_rep = current_reputation - unattenuated_rep
+        raw_rep = unattenuate_rep(attenuated_rep)
+        unattenuated_rep += reputation_diff
+        raw_rep += max(unattenuated_rep - lower_bound, 0)
+        unattenuated_rep = min(unattenuated_rep, lower_bound)
+        attenuated_rep = attenuate_rep(raw_rep)
+        return min(unattenuated_rep + attenuated_rep, upper_bound)
+
+    if reputation_diff <= 0 or reward_attenuation_strategy['type'] == 'none':
         new_rep = current_reputation + reputation_diff
-    elif ra['type'] == 'constant':
-        assert ra['lower_bound'] >= 0
-        assert ra['lower_bound'] <= ra['upper_bound']
-        assert ra['upper_bound'] > 0
-        assert ra['coefficient'] > 0 and ra['coefficient'] <= 1
-        unattenuated_rep = min(current_reputation, ra['lower_bound'])
-        attenuated_rep = current_reputation - unattenuated_rep
-        attenuated_rep /= ra['coefficient']
-        unattenuated_rep += reputation_diff
-        attenuated_rep += max(unattenuated_rep - ra['lower_bound'], 0)
-        unattenuated_rep = min(unattenuated_rep, ra['lower_bound'])
-        attenuated_rep *= ra['coefficient']
-        new_rep = min(unattenuated_rep + attenuated_rep, ra['upper_bound'])
-    elif ra['type'] == 'square_root':
-        assert ra['lower_bound'] >= 0
-        assert ra['lower_bound'] <= ra['upper_bound']
-        assert ra['upper_bound'] > 0
-        assert ra['coefficient'] > 0
-        unattenuated_rep = min(current_reputation, ra['lower_bound'])
-        attenuated_rep = current_reputation - unattenuated_rep
-        attenuated_rep = (attenuated_rep / ra['coefficient']) ** 2
-        unattenuated_rep += reputation_diff
-        attenuated_rep += max(unattenuated_rep - ra['lower_bound'], 0)
-        unattenuated_rep = min(unattenuated_rep, ra['lower_bound'])
-        attenuated_rep = ra['coefficient'] * math.sqrt(attenuated_rep)
-        new_rep = min(unattenuated_rep + attenuated_rep, ra['upper_bound'])
-    elif ra['type'] == 'harmonic':
-        assert ra['lower_bound'] >= 0
-        assert ra['lower_bound'] <= ra['upper_bound']
-        assert ra['upper_bound'] > 0
-        assert ra['a'] > 0
-        assert ra['k'] > 0
-        unattenuated_rep = min(current_reputation, ra['lower_bound'])
-        attenuated_rep = current_reputation - unattenuated_rep
-        a = ra['a']
-        k = ra['k']
-        acc = 0
-        i = 0
-        raw_rep = 0
-        while attenuated_rep - acc > 1:
+    elif reward_attenuation_strategy['type'] == 'constant':
+        coefficient = reward_attenuation_strategy['coefficient']
+        assert coefficient > 0 and coefficient <= 1
+        new_rep = add_attenuated_repuation(lambda a: a / coefficient,
+                                           lambda r: r * coefficient)
+    elif reward_attenuation_strategy['type'] == 'square_root':
+        coefficient = reward_attenuation_strategy['coefficient']
+        assert coefficient > 0
+        new_rep = add_attenuated_repuation(
+            lambda a: (a / coefficient) ** 2,
+            lambda r: coefficient * math.sqrt(r))
+    elif reward_attenuation_strategy['type'] == 'harmonic':
+        a = reward_attenuation_strategy['a']
+        k = reward_attenuation_strategy['k']
+        assert a > 0
+        assert k > 0
+
+        def unattenuate_rep(attenuated_rep):
+            acc = 0
+            i = 0
+            raw_rep = 0
+            while attenuated_rep - acc > 1:
+                denominator = a + i * k
+                raw_rep += denominator
+                acc += 1
+                i += 1
             denominator = a + i * k
-            raw_rep += denominator
-            acc += 1
-            i += 1
-        denominator = a + i * k
-        raw_rep += denominator * (attenuated_rep - acc)
-        unattenuated_rep += reputation_diff
-        raw_rep += max(unattenuated_rep - ra['lower_bound'], 0)
-        unattenuated_rep = min(unattenuated_rep, ra['lower_bound'])
-        attenuated_rep = 0
-        i = 0
-        denominator = a + i * k
-        while raw_rep > denominator:
-            attenuated_rep += 1
-            raw_rep -= denominator
-            i += 1
+            return raw_rep + (denominator * (attenuated_rep - acc))
+
+        def attenuate_rep(raw_rep):
+            attenuated_rep = 0
+            i = 0
             denominator = a + i * k
-        attenuated_rep += raw_rep / denominator
-        new_rep = min(unattenuated_rep + attenuated_rep, ra['upper_bound'])
+            while raw_rep > denominator:
+                attenuated_rep += 1
+                raw_rep -= denominator
+                i += 1
+                denominator = a + i * k
+            return attenuated_rep + (raw_rep / denominator)
+        new_rep = add_attenuated_repuation(unattenuate_rep, attenuate_rep)
     else:
         raise Exception('Invalid reward attenuation type {}'
-                        .format(ra['type']))
+                        .format(reward_attenuation_strategy['type']))
     return max(0, new_rep)
 
 
