@@ -47,7 +47,7 @@
     #     # non-zero and 0 < coefficient <= 1.
     #     'type': 'constant',
     #     'coefficient': 0.5,
-    #     'lower_bound': 10,
+    #     'lower_bound': 12,
     #     'upper_bound': 20
     # },
     # {
@@ -59,7 +59,7 @@
     #     'type': 'exponential',
     #     'exponent': 0.5,
     #     'coefficient': 1,
-    #     'lower_bound': 10,
+    #     'lower_bound': 12,
     #     'upper_bound': 20
     # },
     # {
@@ -72,7 +72,7 @@
     #     'type': 'harmonic',
     #     'a': 1,
     #     'k': 2,
-    #     'lower_bound': 10,
+    #     'lower_bound': 12,
     #     'upper_bound': 20
     # }
     'reward_attenuation': {
