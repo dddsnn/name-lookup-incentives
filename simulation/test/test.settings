@@ -51,12 +51,13 @@
     #     'upper_bound': 20
     # },
     # {
-    #     # For all reputation gained above the lower bound the square root is
-    #     # taken and the result multiplied by the coefficient. Reputation
+    #     # All reputation gained above the lower bound is raised to the
+    #     # exponent and the result multiplied by the coefficient. Reputation
     #     # can't surpass the upper bound.
     #     # lower_bound must be in ]0, upper_bound], upper_bound must be
     #     # non-zero and factor > 0.
-    #     'type': 'square_root',
+    #     'type': 'exponential',
+    #     'exponent': 0.5,
     #     'coefficient': 1,
     #     'lower_bound': 10,
     #     'upper_bound': 20

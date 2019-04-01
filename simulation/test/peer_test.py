@@ -904,9 +904,10 @@ class TestCalculateReputation(unittest.TestCase):
         self.assertEqual(p.calculate_reputation(ra, 30, 1000), 20)
         self.assertEqual(p.calculate_reputation(ra, 15, -2), 13)
 
-    def test_attenuates_rewards_by_square_root(self):
+    def test_attenuates_rewards_by_exponential(self):
         ra = {
-            'type': 'square_root',
+            'type': 'exponential',
+            'exponent': 0.5,
             'coefficient': 0.5,
             'lower_bound': 10,
             'upper_bound': 20
@@ -920,6 +921,14 @@ class TestCalculateReputation(unittest.TestCase):
         self.assertEqual(p.calculate_reputation(ra, 20, 1000), 20)
         self.assertEqual(p.calculate_reputation(ra, 30, 1000), 20)
         self.assertEqual(p.calculate_reputation(ra, 15, -2), 13)
+        ra['exponent'] = 0.4
+        self.assertEqual(p.calculate_reputation(ra, 10, 32 ** 0.5), 11)
+        self.assertEqual(p.calculate_reputation(ra, 10, 32), 12)
+        self.assertEqual(p.calculate_reputation(ra, 11, 32 - 32 ** 0.5), 12)
+        ra['exponent'] = 2
+        self.assertAlmostEqual(p.calculate_reputation(ra, 10, 2 ** 0.5), 11)
+        self.assertAlmostEqual(
+            p.calculate_reputation(ra, 11, 2 - 2 ** 0.5), 12)
 
     def test_attenuates_rewards_harmonically(self):
         ra = {

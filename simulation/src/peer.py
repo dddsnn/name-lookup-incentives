@@ -8,7 +8,6 @@ from collections import namedtuple, OrderedDict, deque
 import random
 import operator as op
 import numpy as np
-import math
 
 
 query_group_id_iter = it.count()
@@ -1300,12 +1299,13 @@ def calculate_reputation(reward_attenuation_strategy, current_reputation,
         assert coefficient > 0 and coefficient <= 1
         new_rep = add_attenuated_repuation(lambda a: a / coefficient,
                                            lambda r: r * coefficient)
-    elif reward_attenuation_strategy['type'] == 'square_root':
+    elif reward_attenuation_strategy['type'] == 'exponential':
         coefficient = reward_attenuation_strategy['coefficient']
+        exponent = reward_attenuation_strategy['exponent']
         assert coefficient > 0
         new_rep = add_attenuated_repuation(
-            lambda a: (a / coefficient) ** 2,
-            lambda r: coefficient * math.sqrt(r))
+            lambda a: (a / coefficient) ** (1 / exponent),
+            lambda r: coefficient * (r ** exponent))
     elif reward_attenuation_strategy['type'] == 'harmonic':
         a = reward_attenuation_strategy['a']
         k = reward_attenuation_strategy['k']
