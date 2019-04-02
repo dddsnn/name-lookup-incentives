@@ -18,11 +18,11 @@
     'force_one_group': False,
 
     # The time the reputation decay process sleeps.
-    'decay_timestep': 1,
+    'decay_timestep': float('inf'),
     # The reputation decay that is applied per time unit. This isn't affected
     # by decay_timestep: if decay_timestep is 10 and decay_per_time_unit is
     # 0.2, every 10 time units 2 reputation decay are imposed.
-    'decay_per_time_unit': 0.1,
+    'decay_per_time_unit': 0,
 
     # The reputation increase awarded for successfully answering a query.
     'successful_query_reward': 1,
