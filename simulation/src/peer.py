@@ -923,7 +923,7 @@ class Peer:
             for qid, pq in retry_qid_pqs:
                 if qid == queried_id:
                     continue
-                for qpid, qids in pq.querying_peers:
+                for qpid, qids in pq.querying_peers.items():
                     pending_query.querying_peers.setdefault(
                         qpid, SortedIterSet()).update(qids)
                 self.pending_queries.pop(qid, None)
