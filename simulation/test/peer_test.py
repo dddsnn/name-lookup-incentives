@@ -50,6 +50,7 @@ class TestRecvReputationUpdate(unittest.TestCase):
         self.assertEqual(query_group[self.peer_b.peer_id].reputation, 2)
 
     def test_rolls_back_and_repplies_the_same_update_multiple_times(self):
+        self.helper.settings['reward_attenuation'] = {'type': 'none'}
         query_group_id = self.helper.create_query_group(
             self.peer_a, self.peer_b, self.peer_c)
         query_group = self.peer_a.query_groups[query_group_id]

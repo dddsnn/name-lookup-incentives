@@ -76,7 +76,11 @@
     #     'upper_bound': 20
     # }
     'reward_attenuation': {
-        'type': 'none'
+        'type': 'exponential',
+        'exponent': 0.35,
+        'coefficient': 1,
+        'lower_bound': 12,
+        'upper_bound': 20
     },
 
     # Length of peer IDs in bits.
