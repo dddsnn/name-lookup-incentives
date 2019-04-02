@@ -138,7 +138,7 @@
     # The fraction of the 'no_penalty_reputation' of reputation a peer needs
     # to have in order to consider a query group performing well for him based
     # solely on the current reputation.
-    'performance_no_penalty_fraction': 0.8,
+    'performance_no_penalty_fraction': 0,
     # The number of reputation history entries to consider when calculating
     # the recent development.
     'performance_num_history_entries': 25,

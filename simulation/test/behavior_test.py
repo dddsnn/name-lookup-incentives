@@ -605,6 +605,7 @@ class TestQueryGroupPerforms(unittest.TestCase):
         self.assertTrue(behavior.query_group_performs(query_group_id))
 
     def test_doesnt_perform_if_rep_rises_too_slowly(self):
+        self.helper.settings['performance_no_penalty_fraction'] = 0.8
         peer, behavior = self.helper.mock_peer_and_behavior_with_prefix('')
         query_group_id = self.helper.create_query_group(peer)
         slope = self.helper.settings['performance_min_slope'] - 0.01
@@ -615,6 +616,7 @@ class TestQueryGroupPerforms(unittest.TestCase):
         self.assertFalse(behavior.query_group_performs(query_group_id))
 
     def test_accounts_for_history_interval(self):
+        self.helper.settings['performance_no_penalty_fraction'] = 0.8
         peer, behavior = self.helper.mock_peer_and_behavior_with_prefix('')
         interval = 10
         self.helper.settings['query_group_history_interval'] = interval
@@ -643,6 +645,7 @@ class TestReevaluateQueryGroups(unittest.TestCase):
         peer.leave_query_group.assert_not_called()
 
     def test_removes_non_performing_group_if_covered_by_other_group(self):
+        self.helper.settings['performance_no_penalty_fraction'] = 0.8
         peer, behavior = self.helper.mock_peer_and_behavior_with_prefix('1111')
         peer_a = self.helper.peer_with_prefix('0000')
         peer_b = self.helper.peer_with_prefix('0000')
@@ -659,6 +662,7 @@ class TestReevaluateQueryGroups(unittest.TestCase):
         peer.leave_query_group.assert_called_once_with(query_group_id_1, ANY)
 
     def test_removes_non_performing_group_if_joined_replacement(self):
+        self.helper.settings['performance_no_penalty_fraction'] = 0.8
         peer, behavior = self.helper.mock_peer_and_behavior_with_prefix('1111')
         peer_a = self.helper.peer_with_prefix('0000')
         peer_b = self.helper.peer_with_prefix('0000')
@@ -674,6 +678,7 @@ class TestReevaluateQueryGroups(unittest.TestCase):
         peer.leave_query_group.assert_called_once_with(query_group_id, ANY)
 
     def test_includes_already_covering_peers(self):
+        self.helper.settings['performance_no_penalty_fraction'] = 0.8
         peer, behavior = self.helper.mock_peer_and_behavior_with_prefix('1111')
         peer_a = self.helper.peer_with_prefix('0000')
         peer_b = self.helper.peer_with_prefix('0000')
@@ -689,6 +694,7 @@ class TestReevaluateQueryGroups(unittest.TestCase):
             bs.Bits('0b0'), set((peer_b.peer_id,)), ANY, ANY, ANY)
 
     def test_specifies_number_of_missing_peers(self):
+        self.helper.settings['performance_no_penalty_fraction'] = 0.8
         peer, behavior = self.helper.mock_peer_and_behavior_with_prefix('1111')
         peer_a = self.helper.peer_with_prefix('0000')
         peer_b = self.helper.peer_with_prefix('0000')
@@ -704,6 +710,7 @@ class TestReevaluateQueryGroups(unittest.TestCase):
             bs.Bits('0b0'), ANY, 1, ANY, ANY)
 
     def test_doesnt_remove_non_performing_group_if_no_replacement(self):
+        self.helper.settings['performance_no_penalty_fraction'] = 0.8
         peer, behavior = self.helper.mock_peer_and_behavior_with_prefix('1111')
         peer_a = self.helper.peer_with_prefix('0000')
         query_group_id = self.helper.create_query_group(peer, peer_a)
@@ -714,6 +721,7 @@ class TestReevaluateQueryGroups(unittest.TestCase):
         peer.leave_query_group.assert_not_called()
 
     def test_checks_all_subprefixes(self):
+        self.helper.settings['performance_no_penalty_fraction'] = 0.8
         peer, behavior = self.helper.mock_peer_and_behavior_with_prefix('1111')
         peer_a = self.helper.peer_with_prefix('0000')
         peer_b = self.helper.peer_with_prefix('1110')
@@ -729,6 +737,7 @@ class TestReevaluateQueryGroups(unittest.TestCase):
         peer.leave_query_group.assert_not_called()
 
     def test_removes_multiple_groups(self):
+        self.helper.settings['performance_no_penalty_fraction'] = 0.8
         peer, behavior = self.helper.mock_peer_and_behavior_with_prefix('1111')
         peer_a = self.helper.peer_with_prefix('0000')
         peer_b = self.helper.peer_with_prefix('0000')
@@ -749,6 +758,7 @@ class TestReevaluateQueryGroups(unittest.TestCase):
                         in peer.leave_query_group.call_args_list)
 
     def test_specifies_min_usefulness(self):
+        self.helper.settings['performance_no_penalty_fraction'] = 0.8
         peer, behavior = self.helper.mock_peer_and_behavior_with_prefix('1111')
         peer_a = self.helper.peer_with_prefix('0000')
         query_group_id = self.helper.create_query_group(peer, peer_a)
