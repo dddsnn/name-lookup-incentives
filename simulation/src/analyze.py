@@ -158,9 +158,6 @@ class Logger:
                 record = reputations.setdefault(query_group_id, ([], []))
                 time_list = record[0]
                 rep_list = record[1]
-                if rep_list and rep_list[-1] == reputation_per_peer:
-                    # Value hasn't changed, no need to record it.
-                    continue
                 time_list.append(current_time)
                 rep_list.append(reputation_per_peer)
 
@@ -192,10 +189,6 @@ class Logger:
                 record = reputations.setdefault(query_group_id, ([], []))
                 time_list = record[0]
                 rep_list = record[1]
-                if len(rep_list) > 0 and np.array_equal(rep_list[-1],
-                                                        percentiles):
-                    # Value hasn't changed, no need to record it.
-                    continue
                 time_list.append(current_time)
                 rep_list.append(percentiles)
 
@@ -397,9 +390,6 @@ class Logger:
                 record = sizes.setdefault(query_group_id, ([], []))
                 time_list = record[0]
                 size_list = record[1]
-                if len(size_list) > 0 and size == size_list[-1]:
-                    # Value hasn't changed, no need to record it.
-                    continue
                 time_list.append(current_time)
                 size_list.append(size)
 
@@ -435,9 +425,6 @@ class Logger:
                     record = peer_reps.setdefault(query_group_id, ([], []))
                     time_list = record[0]
                     rep_list = record[1]
-                    if len(rep_list) > 0 and rep == rep_list[-1]:
-                        # Value hasn't changed, no need to record it.
-                        continue
                     time_list.append(current_time)
                     rep_list.append(rep)
 
