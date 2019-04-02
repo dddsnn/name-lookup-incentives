@@ -131,7 +131,7 @@
     # * 'overlap_rep_sorted': As 'overlap' but within groups of equal overlap,
     #     peers are sorted by reputation in ascending order.
     # * 'rep_sorted': Peers are sorted by reputation in ascending_order.
-    'query_peer_selection': 'overlap',
+    'query_peer_selection': 'overlap_rep_sorted',
     # The minimum number of history entries to decide whether a query group
     # performs well for a peer.
     'query_group_min_history': 5,
