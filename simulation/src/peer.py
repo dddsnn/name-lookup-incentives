@@ -582,6 +582,8 @@ class Peer:
         This peer will be able to directly contact the other peer without
         needing to look up the ID/address mapping.
         """
+        if peer_info.peer_id == self.peer_id:
+            return
         if peer_info.peer_id.startswith(self.prefix):
             self.sync_peers[peer_info.peer_id] = peer_info
             self.logger.log(an.ConnectionAdd(self.env.now, self.peer_id,

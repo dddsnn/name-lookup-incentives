@@ -10,6 +10,7 @@ import sys
 from collections import OrderedDict
 from math import log2
 from copy import deepcopy
+import itertools as it
 
 
 # Patch in a less-than for the Bits class, which is necessary for ordered dicts
@@ -62,43 +63,100 @@ def terminate(progress_proc, logger, file_name):
     return handler
 
 
-def even_sync_groups_peer_ids(settings):
-    if settings['num_peers'] > 2 ** settings['id_length']:
+def even_sync_groups_peer_id_batches(settings):
+    peer_batches = settings['peer_batches']
+    total_num_peers = sum(n for _, n in peer_batches)
+    if total_num_peers > 2 ** settings['id_length']:
         raise Exception('IDs are too short for the number of peers.')
-    if (log2(settings['num_peers']) % 1
-            or settings['num_peers'] < 2 ** settings['prefix_length']):
+    if (log2(total_num_peers) % 1
+            or total_num_peers < 2 ** settings['prefix_length']):
         raise Exception('For even sync groups, the number of peers must be a'
                         ' power of 2 and greater or equal the number of sync'
                         ' groups.')
-    peer_ids = []
+    all_peer_ids = []
     num_sync_groups = 2 ** settings['prefix_length']
-    num_peers_per_sync_group = settings['num_peers'] // num_sync_groups
+    num_peers_per_sync_group = total_num_peers // num_sync_groups
     suffix_length = settings['id_length'] - settings['prefix_length']
-    for i in range(num_sync_groups):
-        prefix = bs.Bits(uint=i, length=settings['prefix_length'])
-        for _ in range(num_peers_per_sync_group):
+    for _ in range(num_peers_per_sync_group):
+        for i in range(num_sync_groups):
+            prefix = bs.Bits(uint=i, length=settings['prefix_length'])
             while True:
                 suffix_uint = random.randrange(2 ** suffix_length)
                 suffix = bs.Bits(uint=suffix_uint, length=suffix_length)
                 peer_id = prefix + suffix
-                if peer_id not in peer_ids:
+                if peer_id not in all_peer_ids:
+                    all_peer_ids.append(peer_id)
+                    break
+    peer_id_batches = []
+    peer_id_iter = iter(all_peer_ids)
+    for time, num_peers in peer_batches:
+        peer_id_batches.append((time, it.islice(peer_id_iter, num_peers)))
+    return peer_id_batches, all_peer_ids
+
+
+def random_peer_id_batches(settings):
+    peer_batches = settings['peer_batches']
+    total_num_peers = sum(n for _, n in peer_batches)
+    if total_num_peers > 2 ** settings['id_length']:
+        raise Exception('IDs are too short for the number of peers.')
+    peer_id_batches = []
+    all_peer_ids = []
+    for time, num_peers in peer_batches:
+        peer_ids = []
+        for _ in range(num_peers):
+            while True:
+                peer_id_uint = random.randrange(2 ** settings['id_length'])
+                peer_id = bs.Bits(uint=peer_id_uint,
+                                  length=settings['id_length'])
+                if peer_id not in all_peer_ids:
+                    all_peer_ids.append(peer_id)
                     peer_ids.append(peer_id)
                     break
-    return peer_ids
+        peer_id_batches.append((time, peer_ids))
+    return peer_id_batches, all_peer_ids
 
 
-def random_peer_ids(settings):
-    if settings['num_peers'] > 2 ** settings['id_length']:
-        raise Exception('IDs are too short for the number of peers.')
-    peer_ids = []
-    for _ in range(settings['num_peers']):
-        while True:
-            peer_id_uint = random.randrange(2 ** settings['id_length'])
-            peer_id = bs.Bits(uint=peer_id_uint, length=settings['id_length'])
-            if peer_id not in peer_ids:
-                peer_ids.append(peer_id)
-                break
-    return peer_ids
+def add_peers(time, peer_id_batch, all_peers, env, logger, network,
+              all_query_groups, settings, sync_groups, query_group_id):
+    added_peers = []
+    for peer_id in peer_id_batch:
+        peer = p.Peer(env, logger, network, peer_id, all_query_groups,
+                      settings)
+        all_peers[peer_id] = peer
+        added_peers.append(peer)
+        prefix = peer_id[:settings['prefix_length']]
+        sync_groups.setdefault(prefix, SortedIterSet()).add(peer)
+        env.process(request_generator(env, all_peers, peer))
+        logger.log(an.PeerAdd(env.now, peer.peer_id, peer.prefix, None))
+        logger.log(an.UncoveredSubprefixes(
+            env.now, peer.peer_id, SortedIterSet(peer.uncovered_subprefixes()),
+            None))
+        for sync_peer in sync_groups[prefix]:
+            peer.introduce(sync_peer.info())
+            sync_peer.introduce(peer.info())
+    if settings['force_one_group']:
+        assert query_group_id is not None
+        for peer in added_peers:
+            query_group = all_query_groups[query_group_id]
+            query_group[peer.peer_id] = p.QueryPeerInfo(
+                peer.info(), settings['initial_reputation'])
+            peer.query_groups[query_group_id] = deepcopy(query_group)
+            for qpi in query_group.infos():
+                all_peers[qpi.peer_id]\
+                    .query_groups[query_group_id][peer.peer_id]\
+                    = p.QueryPeerInfo(peer.info(),
+                                      settings['initial_reputation'])
+            logger.log(an.QueryGroupAdd(time, peer.peer_id, query_group_id,
+                                        None))
+    else:
+        assert query_group_id is None
+        for peer in added_peers:
+            for other_peer in random.sample(
+                    list(all_peers.values()),
+                    settings['num_random_introductions']):
+                peer.introduce(other_peer.info())
+        for peer in added_peers:
+            peer.find_missing_query_peers()
 
 
 if __name__ == '__main__':
@@ -113,43 +171,25 @@ if __name__ == '__main__':
     sync_groups = OrderedDict()
     all_query_groups = OrderedDict()
     network = util.Network(env, settings)
-    if settings['even_sync_groups']:
-        peer_ids = even_sync_groups_peer_ids(settings)
-    else:
-        peer_ids = random_peer_ids(settings)
-    assert len(peer_ids) == len(set(peer_ids))
-    for peer_id in peer_ids:
-        peer = p.Peer(env, logger, network, peer_id, all_query_groups,
-                      settings)
-        peers[peer_id] = peer
-        sync_groups.setdefault(peer_id[:settings['prefix_length']],
-                               SortedIterSet()).add(peer)
-        env.process(request_generator(env, peers, peer))
-        logger.log(an.PeerAdd(env.now, peer.peer_id, peer.prefix, None))
-        logger.log(an.UncoveredSubprefixes(
-            env.now, peer.peer_id, SortedIterSet(peer.uncovered_subprefixes()),
-            None))
 
-    for sync_group in sync_groups.values():
-        for peer in sync_group:
-            for other_peer in sync_group:
-                peer.introduce(other_peer.info())
     if settings['force_one_group']:
-        gid = next(p.query_group_id_iter)
-        group = p.QueryGroup(gid, (pr.info() for pr in peers.values()), 0)
-        all_query_groups[gid] = group
-        for pr in peers.values():
-            pr.query_groups[gid] = deepcopy(group)
-            logger.log(an.QueryGroupAdd(0, pr.peer_id, gid, None))
+        query_group_id = next(p.query_group_id_iter)
+        query_group = p.QueryGroup(query_group_id, (),
+                                   settings['initial_reputation'])
+        all_query_groups[query_group_id] = query_group
     else:
-        for peer in peers.values():
-            for other_peer in random.sample(
-                    list(peers.values()),
-                    settings['num_random_introductions']):
-                peer.introduce(other_peer.info())
-        print('scheduling queries for missing subprefixes')
-        for peer in peers.values():
-            peer.find_missing_query_peers()
+        query_group_id = None
+
+    if settings['even_sync_groups']:
+        peer_id_batches, all_peer_ids\
+            = even_sync_groups_peer_id_batches(settings)
+    else:
+        peer_id_batches, all_peer_ids = random_peer_id_batches(settings)
+    assert len(all_peer_ids) == len(set(all_peer_ids))
+    for time, peer_id_batch in peer_id_batches:
+        util.do_delayed(
+            env, time, add_peers, time, peer_id_batch, peers, env, logger,
+            network, all_query_groups, settings, sync_groups, query_group_id)
 
     until = float('inf')
     if len(sys.argv) > 2:
@@ -157,7 +197,6 @@ if __name__ == '__main__':
     file_name = settings['log_file_name']
     progress_proc = env.process(util.progress_process(env, 1))
     signal.signal(signal.SIGINT, terminate(progress_proc, logger, file_name))
-    print()
     print('running simulation until {}'.format(until))
     env.process(decay_reputation(env, all_query_groups, peers, logger,
                                  settings))
