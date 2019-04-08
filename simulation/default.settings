@@ -120,7 +120,7 @@
 
     # The multiple of the no_penalty_reputation at or above which a peer will
     # stop responding to queries.
-    'reputation_buffer_factor': 1.5,
+    'reputation_buffer_factor': 1.4,
     # The strategy to use when selecting and sorting the list of query peers
     # to send a query to. Possible values are:
     # * 'overlap': Create a list of all query peers whose prefix has a higher
