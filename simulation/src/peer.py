@@ -383,12 +383,13 @@ class PeerBehavior:
 
 class Peer:
     def __init__(self, env, logger, network, peer_id, all_query_groups,
-                 settings, start_processes=True):
+                 all_prefixes, settings, start_processes=True):
         self.env = env
         self.logger = logger
         self.network = network
         self.peer_id = peer_id
         self.all_query_groups = all_query_groups
+        self.all_prefixes = all_prefixes
         self.settings = settings
         self.prefix = self.peer_id[:self.settings['prefix_length']]
         self.query_groups = OrderedDict()
@@ -570,6 +571,9 @@ class Peer:
         This way, sync peers will be queried as well.
         """
         for subprefix in self.uncovered_subprefixes():
+            if (self.settings['ignore_non_existent_subprefixes']
+                    and not self.subprefix_exists(subprefix)):
+                continue
             self.behavior.on_query(self.peer_id, subprefix, None,
                                    query_all=True)
 
@@ -630,6 +634,12 @@ class Peer:
     def uncovered_subprefixes(self):
         """Return subprefixes for which no peer is known."""
         return (sp for sp, c in self.subprefix_coverage().items() if c == 0)
+
+    def subprefix_exists(self, subprefix):
+        for prefix in self.all_prefixes:
+            if prefix.startswith(subprefix):
+                return True
+        return False
 
     def query_group_subprefix_coverage(self):
         """

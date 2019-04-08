@@ -113,6 +113,10 @@
     # The amount of time after an expected penalty is expected to be applied
     # at which the expected penalty times out.
     'expected_penalty_timeout_buffer': 4,
+    # Whether to ignore subprefixes for which there doesn't exist any peer in
+    # the simulation when querying for missing subprefixes. Makes use of
+    # global information not normally available to a peer.
+    'ignore_non_existent_subprefixes': False,
 
     # The multiple of the no_penalty_reputation at or above which a peer will
     # stop responding to queries.

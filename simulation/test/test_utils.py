@@ -18,6 +18,7 @@ class TestHelper:
         settings_file_name = os.path.join(sys.path[0], 'test.settings')
         self.settings = util.read_settings(settings_file_name)
         self.all_query_groups = {}
+        self.all_prefixes = set()
         self.env = simpy.Environment()
         self.logger = analyze.Logger(self.settings)
         self.network = util.Network(self.env, self.settings)
@@ -37,7 +38,8 @@ class TestHelper:
     def peer_with_prefix(self, prefix_str, start_processes=False):
         peer_id = self.id_with_prefix(prefix_str)
         return Peer(self.env, self.logger, self.network, peer_id,
-                    self.all_query_groups, self.settings, start_processes)
+                    self.all_query_groups, self.all_prefixes, self.settings,
+                    start_processes)
 
     def mock_peer_and_behavior_with_prefix(self, prefix_str,
                                            start_processes=False):

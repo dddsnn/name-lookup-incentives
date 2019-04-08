@@ -117,15 +117,17 @@ def random_peer_id_batches(settings):
 
 
 def add_peers(time, peer_id_batch, all_peers, env, logger, network,
-              all_query_groups, settings, sync_groups, query_group_id):
+              all_query_groups, all_prefixes, settings, sync_groups,
+              query_group_id):
     added_peers = []
     for peer_id in peer_id_batch:
         peer = p.Peer(env, logger, network, peer_id, all_query_groups,
-                      settings)
+                      all_prefixes, settings)
         all_peers[peer_id] = peer
         added_peers.append(peer)
         prefix = peer_id[:settings['prefix_length']]
         sync_groups.setdefault(prefix, SortedIterSet()).add(peer)
+        all_prefixes.add(prefix)
         env.process(request_generator(env, all_peers, peer))
         logger.log(an.PeerAdd(env.now, peer.peer_id, peer.prefix, None))
         logger.log(an.UncoveredSubprefixes(
@@ -170,6 +172,7 @@ if __name__ == '__main__':
     peers = OrderedDict()
     sync_groups = OrderedDict()
     all_query_groups = OrderedDict()
+    all_prefixes = SortedIterSet()
     network = util.Network(env, settings)
 
     if settings['force_one_group']:
@@ -189,7 +192,8 @@ if __name__ == '__main__':
     for time, peer_id_batch in peer_id_batches:
         util.do_delayed(
             env, time, add_peers, time, peer_id_batch, peers, env, logger,
-            network, all_query_groups, settings, sync_groups, query_group_id)
+            network, all_query_groups, all_prefixes, settings, sync_groups,
+            query_group_id)
 
     until = float('inf')
     if len(sys.argv) > 2:
