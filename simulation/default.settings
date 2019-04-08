@@ -48,8 +48,8 @@
     #     # non-zero and 0 < coefficient <= 1.
     #     'type': 'constant',
     #     'coefficient': 0.5,
-    #     'lower_bound': 12,
-    #     'upper_bound': 20
+    #     'lower_bound': 10,
+    #     'upper_bound': 15
     # },
     # {
     #     # All reputation gained above the lower bound is raised to the
@@ -60,8 +60,8 @@
     #     'type': 'exponential',
     #     'exponent': 0.5,
     #     'coefficient': 1,
-    #     'lower_bound': 12,
-    #     'upper_bound': 20
+    #     'lower_bound': 10,
+    #     'upper_bound': 15
     # },
     # {
     #     # All reputation gained above the lower bound is attenuated with
@@ -73,15 +73,15 @@
     #     'type': 'harmonic',
     #     'a': 1,
     #     'k': 2,
-    #     'lower_bound': 12,
-    #     'upper_bound': 20
+    #     'lower_bound': 10,
+    #     'upper_bound': 15
     # }
     'reward_attenuation': {
         'type': 'exponential',
         'exponent': 0.35,
         'coefficient': 1,
-        'lower_bound': 12,
-        'upper_bound': 20
+        'lower_bound': 10,
+        'upper_bound': 15
     },
 
     # Length of peer IDs in bits.
