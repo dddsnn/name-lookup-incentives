@@ -353,7 +353,7 @@ class TestOnQuery(unittest.TestCase):
         behavior.on_query(querying_peer.peer_id, queried_id, None)
         peer_a.send_query.assert_called_once()
 
-    def test_query_all_also_queries_query_peers_with_smaller_overlap(self):
+    def test_query_further_also_queries_query_peers_with_smaller_overlap(self):
         peer_a, behavior =\
             self.helper.mock_peer_and_behavior_with_prefix('1111')
         peer_b, _ =\
@@ -362,12 +362,13 @@ class TestOnQuery(unittest.TestCase):
         querying_peer_id = self.helper.id_with_prefix('0000')
         queried_id = self.helper.id_with_prefix('1111')
         peer_a.send_query.return_value = None
-        behavior.on_query(querying_peer_id, queried_id, None, query_all=True)
+        behavior.on_query(querying_peer_id, queried_id, None,
+                          query_further=True)
         peer_a.send_query.assert_called_once_with(
             queried_id, pending_query(querying_peer_id, queried_id,
                                       [peer_b.peer_id]), ANY)
 
-    def test_query_all_also_queries_sync_peers(self):
+    def test_query_sync_also_queries_sync_peers(self):
         peer_a, behavior =\
             self.helper.mock_peer_and_behavior_with_prefix('1000')
         peer_b, _ = self.helper.mock_peer_and_behavior_with_prefix('1000')
@@ -375,12 +376,12 @@ class TestOnQuery(unittest.TestCase):
         querying_peer_id = self.helper.id_with_prefix('0000')
         queried_id = self.helper.id_with_prefix('1111')
         peer_a.send_query.return_value = None
-        behavior.on_query(querying_peer_id, queried_id, None, query_all=True)
+        behavior.on_query(querying_peer_id, queried_id, None, query_sync=True)
         peer_a.send_query.assert_called_once_with(
             queried_id, pending_query(querying_peer_id, queried_id,
                                       [peer_b.peer_id]), ANY)
 
-    def test_query_all_sorts_by_overlap_length(self):
+    def test_query_further_sorts_by_overlap_length(self):
         self.helper.settings['query_peer_selection'] = 'overlap'
         peer_a, behavior =\
             self.helper.mock_peer_and_behavior_with_prefix('0000')
@@ -391,13 +392,14 @@ class TestOnQuery(unittest.TestCase):
         querying_peer_id = self.helper.id_with_prefix('0000')
         queried_id = self.helper.id_with_prefix('1111')
         peer_a.send_query.return_value = None
-        behavior.on_query(querying_peer_id, queried_id, None, query_all=True)
+        behavior.on_query(querying_peer_id, queried_id, None,
+                          query_further=True)
         peer_a.send_query.assert_called_once_with(
             queried_id, pending_query(querying_peer_id, queried_id,
                                       [peer_c.peer_id, peer_d.peer_id,
                                        peer_b.peer_id]), ANY)
 
-    def test_query_all_puts_high_rep_peers_to_the_back(self):
+    def test_query_further_puts_high_rep_peers_to_the_back(self):
         self.helper.settings['query_peer_selection'] = 'overlap_high_rep_last'
         peer_a, behavior =\
             self.helper.mock_peer_and_behavior_with_prefix('0000')
@@ -413,13 +415,14 @@ class TestOnQuery(unittest.TestCase):
         querying_peer_id = self.helper.id_with_prefix('0000')
         queried_id = self.helper.id_with_prefix('1111')
         peer_a.send_query.return_value = None
-        behavior.on_query(querying_peer_id, queried_id, None, query_all=True)
+        behavior.on_query(querying_peer_id, queried_id, None,
+                          query_further=True)
         peer_a.send_query.assert_called_once_with(
             queried_id, pending_query(querying_peer_id, queried_id,
                                       [peer_d.peer_id, peer_b.peer_id,
                                        peer_c.peer_id]), ANY)
 
-    def test_query_all_overlap_high_rep_last_considers_minimum_rep(self):
+    def test_query_further_overlap_high_rep_last_considers_minimum_rep(self):
         self.helper.settings['query_peer_selection'] = 'overlap_high_rep_last'
         peer_a, behavior =\
             self.helper.mock_peer_and_behavior_with_prefix('0000')
@@ -436,14 +439,15 @@ class TestOnQuery(unittest.TestCase):
         querying_peer_id = self.helper.id_with_prefix('0000')
         queried_id = self.helper.id_with_prefix('1111')
         peer_a.send_query.return_value = None
-        behavior.on_query(querying_peer_id, queried_id, None, query_all=True)
+        behavior.on_query(querying_peer_id, queried_id, None,
+                          query_further=True)
         peer_a.send_query.assert_called_once_with(
             queried_id, pending_query(querying_peer_id, queried_id,
                                       [peer_c.peer_id, peer_d.peer_id,
                                        peer_b.peer_id]), ANY)
 
     @unittest.mock.patch('random.shuffle')
-    def test_query_all_shuffles(self, mocked_shuffle):
+    def test_query_further_shuffles(self, mocked_shuffle):
         self.helper.settings['query_peer_selection'] = 'shuffled'
         peer_a, behavior =\
             self.helper.mock_peer_and_behavior_with_prefix('0000')
@@ -452,10 +456,24 @@ class TestOnQuery(unittest.TestCase):
         querying_peer_id = self.helper.id_with_prefix('0000')
         queried_id = self.helper.id_with_prefix('1111')
         peer_a.send_query.return_value = None
-        behavior.on_query(querying_peer_id, queried_id, None, query_all=True)
+        behavior.on_query(querying_peer_id, queried_id, None,
+                          query_further=True)
         mocked_shuffle.assert_called_once()
 
-    def test_query_all_sorts_by_overlap_and_reputation(self):
+    @unittest.mock.patch('random.shuffle')
+    def test_query_sync_shuffles(self, mocked_shuffle):
+        self.helper.settings['query_peer_selection'] = 'shuffled'
+        peer_a, behavior =\
+            self.helper.mock_peer_and_behavior_with_prefix('1000')
+        peer_b, _ = self.helper.mock_peer_and_behavior_with_prefix('1000')
+        peer_a.sync_peers[peer_b.peer_id] = peer_b.info()
+        querying_peer_id = self.helper.id_with_prefix('0000')
+        queried_id = self.helper.id_with_prefix('1111')
+        peer_a.send_query.return_value = None
+        behavior.on_query(querying_peer_id, queried_id, None, query_sync=True)
+        mocked_shuffle.assert_called_once()
+
+    def test_query_further_sorts_by_overlap_and_reputation(self):
         self.helper.settings['query_peer_selection'] = 'overlap_rep_sorted'
         peer_a, behavior =\
             self.helper.mock_peer_and_behavior_with_prefix('0000')
@@ -472,13 +490,14 @@ class TestOnQuery(unittest.TestCase):
         querying_peer_id = self.helper.id_with_prefix('0000')
         queried_id = self.helper.id_with_prefix('1111')
         peer_a.send_query.return_value = None
-        behavior.on_query(querying_peer_id, queried_id, None, query_all=True)
+        behavior.on_query(querying_peer_id, queried_id, None,
+                          query_further=True)
         peer_a.send_query.assert_called_once_with(
             queried_id, pending_query(querying_peer_id, queried_id,
                                       [peer_c.peer_id, peer_b.peer_id,
                                        peer_d.peer_id, peer_e.peer_id]), ANY)
 
-    def test_query_all_overlap_sorted_considers_minimum_rep(self):
+    def test_query_further_overlap_sorted_considers_minimum_rep(self):
         self.helper.settings['query_peer_selection'] = 'overlap_rep_sorted'
         peer_a, behavior =\
             self.helper.mock_peer_and_behavior_with_prefix('0000')
@@ -498,13 +517,14 @@ class TestOnQuery(unittest.TestCase):
         querying_peer_id = self.helper.id_with_prefix('0000')
         queried_id = self.helper.id_with_prefix('1111')
         peer_a.send_query.return_value = None
-        behavior.on_query(querying_peer_id, queried_id, None, query_all=True)
+        behavior.on_query(querying_peer_id, queried_id, None,
+                          query_further=True)
         peer_a.send_query.assert_called_once_with(
             queried_id, pending_query(querying_peer_id, queried_id,
                                       [peer_c.peer_id, peer_b.peer_id,
                                        peer_d.peer_id]), ANY)
 
-    def test_query_all_sorts_by_reputation(self):
+    def test_query_further_sorts_by_reputation(self):
         self.helper.settings['query_peer_selection'] = 'rep_sorted'
         peer_a, behavior =\
             self.helper.mock_peer_and_behavior_with_prefix('0000')
@@ -521,13 +541,14 @@ class TestOnQuery(unittest.TestCase):
         querying_peer_id = self.helper.id_with_prefix('0000')
         queried_id = self.helper.id_with_prefix('1111')
         peer_a.send_query.return_value = None
-        behavior.on_query(querying_peer_id, queried_id, None, query_all=True)
+        behavior.on_query(querying_peer_id, queried_id, None,
+                          query_further=True)
         peer_a.send_query.assert_called_once_with(
             queried_id, pending_query(querying_peer_id, queried_id,
                                       [peer_d.peer_id, peer_e.peer_id,
                                        peer_c.peer_id, peer_b.peer_id]), ANY)
 
-    def test_query_all_rep_sorted_considers_minimum_rep(self):
+    def test_query_further_rep_sorted_considers_minimum_rep(self):
         self.helper.settings['query_peer_selection'] = 'rep_sorted'
         peer_a, behavior =\
             self.helper.mock_peer_and_behavior_with_prefix('0000')
@@ -547,13 +568,14 @@ class TestOnQuery(unittest.TestCase):
         querying_peer_id = self.helper.id_with_prefix('0000')
         queried_id = self.helper.id_with_prefix('1111')
         peer_a.send_query.return_value = None
-        behavior.on_query(querying_peer_id, queried_id, None, query_all=True)
+        behavior.on_query(querying_peer_id, queried_id, None,
+                          query_further=True)
         peer_a.send_query.assert_called_once_with(
             queried_id, pending_query(querying_peer_id, queried_id,
                                       [peer_c.peer_id, peer_b.peer_id,
                                        peer_d.peer_id]), ANY)
 
-    def test_query_all_doesnt_include_peers_multiple_times(self):
+    def test_query_further_doesnt_include_peers_multiple_times(self):
         peer_a, behavior =\
             self.helper.mock_peer_and_behavior_with_prefix('0000')
         peer_b, _ = self.helper.mock_peer_and_behavior_with_prefix('1000')
@@ -562,7 +584,8 @@ class TestOnQuery(unittest.TestCase):
         querying_peer_id = self.helper.id_with_prefix('0000')
         queried_id = self.helper.id_with_prefix('1111')
         peer_a.send_query.return_value = None
-        behavior.on_query(querying_peer_id, queried_id, None, query_all=True)
+        behavior.on_query(querying_peer_id, queried_id, None,
+                          query_further=True)
         peer_a.send_query.assert_called_once_with(
             queried_id, pending_query(querying_peer_id, queried_id,
                                       [peer_b.peer_id]), ANY)

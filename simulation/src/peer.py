@@ -49,7 +49,7 @@ class PeerBehavior:
                                 sync_peer_info, in_event_id, delay=delay)
 
     def on_query(self, querying_peer_id, queried_id, in_event_id,
-                 query_all=False):
+                 query_further=False, query_sync=False):
         """
         React to a query.
 
@@ -60,8 +60,10 @@ class PeerBehavior:
 
         By default, the peers that will be queried are only ones whose prefix
         has a larger overlap with the queried ID than this peer, i.e. who are
-        closer to the target ID. However, if query_all is True, all known
-        peers, including sync peers, will be queried.
+        closer to the target ID. However, if query_all is True, all query
+        peers, will be queried.
+
+        If query_sync is True, sync peers will also be queried.
         """
         rep = self.peer.expected_min_reputation(querying_peer_id)
         enough_rep = (self.peer.settings['reputation_buffer_factor']
@@ -73,11 +75,15 @@ class PeerBehavior:
                 delay + self.peer.settings['expected_penalty_timeout_buffer'],
                 in_event_id)
             return
-        if query_all:
-            peers_to_query_info = (list(pi for _, pi
-                                        in self.peer.known_query_peers())
-                                   + [i for i in self.peer.sync_peers.values()
-                                      if i.peer_id != self.peer.peer_id])
+        if query_further or query_sync:
+            peers_to_query_info = []
+            if query_further:
+                peers_to_query_info = list(pi for _, pi
+                                           in self.peer.known_query_peers())
+            if query_sync:
+                peers_to_query_info += [i for i
+                                        in self.peer.sync_peers.values()
+                                        if i.peer_id != self.peer.peer_id]
             self.sort_peers_to_query(peers_to_query_info, queried_id)
             peers_to_query = [pi.peer_id for pi in peers_to_query_info]
         else:
@@ -566,16 +572,20 @@ class Peer:
         Find peers to cover prefixes for which there are no known peers.
 
         It's not enough in this case to simply query for a prefix, because
-        there may not be any known peer closer to it. Instead, all peers are
-        queried by calling on_query() directly with query_all set to True.
-        This way, sync peers will be queried as well.
+        there may not be any known peer closer to it. Instead, peers who are
+        further away are also queried by calling on_query() directly with
+        query_further set to True.
+
+        If query_sync_for_subprefixes is set in the settings, sync peers will
+        be queried as well.
         """
         for subprefix in self.uncovered_subprefixes():
             if (self.settings['ignore_non_existent_subprefixes']
                     and not self.subprefix_exists(subprefix)):
                 continue
+            query_sync = self.settings['query_sync_for_subprefixes']
             self.behavior.on_query(self.peer_id, subprefix, None,
-                                   query_all=True)
+                                   query_further=True, query_sync=query_sync)
 
     def introduce(self, peer_info):
         """

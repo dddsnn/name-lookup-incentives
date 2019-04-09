@@ -157,6 +157,9 @@
     #   * 'subprefix_constant': The usefulness increases with each other peer
     #       in the group who needs a subprefix covered this peer covers.
     'usefulness': 'subprefix_constant',
+    # Whether to also send queries to sync peers when finding peers covering
+    # missing subprefixes.
+    'query_sync_for_subprefixes': False,
 
     # The number of time units a message passed between peers takes to arrive.
     'transmission_delay': 0.1
