@@ -158,7 +158,7 @@ def add_peers(time, peer_id_batch, all_peers, env, logger, network,
                     settings['num_random_introductions']):
                 peer.introduce(other_peer.info())
         for peer in added_peers:
-            peer.find_missing_query_peers()
+            peer.start_missing_query_peer_search()
 
 
 if __name__ == '__main__':

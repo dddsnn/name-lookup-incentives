@@ -1020,6 +1020,13 @@ class UncoveredSubprefixes(Event):
         self.subprefixes = subprefixes
 
 
+class UncoveredSubprefixSearch(Event):
+    """Event representing a peer looking for better subprefix coverage."""
+    def __init__(self, time, peer_id, in_event_id):
+        super().__init__(time, in_event_id)
+        self.peer_id = peer_id
+
+
 class ConnectionAdd(Event):
     """Event representing a peer learning about another."""
     def __init__(self, time, peer_a_id, peer_b_id, in_event_id):

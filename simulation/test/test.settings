@@ -160,6 +160,10 @@
     # Whether to also send queries to sync peers when finding peers covering
     # missing subprefixes.
     'query_sync_for_subprefixes': False,
+    # The interval in which peers try to find new peers to cover their
+    # uncovered subprefixes. They will not check if there is a query pending
+    # that matches the subprefix.
+    'uncovered_subprefix_interval': 10,
 
     # The number of time units a message passed between peers takes to arrive.
     'transmission_delay': 0.1

@@ -1,5 +1,6 @@
 import unittest
-from test_utils import TestHelper, set_containing
+from unittest.mock import ANY, call
+from test_utils import TestHelper, set_containing, arg_any_of
 import bitstring as bs
 import peer as p
 
@@ -956,3 +957,67 @@ class TestCalculateReputation(unittest.TestCase):
         self.assertEqual(p.calculate_reputation(ra, 20, 1000), 20)
         self.assertEqual(p.calculate_reputation(ra, 30, 1000), 20)
         self.assertEqual(p.calculate_reputation(ra, 15, -2), 13)
+
+
+class TestFindMissingQueryPeers(unittest.TestCase):
+    @unittest.mock.patch('util.Network.send_query')
+    def setUp(self, mocked_send_query):
+        self.helper = TestHelper()
+        self.helper.network.send_query = mocked_send_query
+        self.mocked_send_query = mocked_send_query
+        self.helper.settings['prefix_length'] = 2
+        self.helper.settings['min_desired_query_peers'] = 1
+        self.helper.settings['ignore_non_existent_subprefixes'] = False
+        self.helper.settings['query_sync_for_subprefixes'] = False
+
+    def test_queries_for_uncovered_subprefixes(self):
+        peer = self.helper.peer_with_prefix('00')
+        peer_a = self.helper.peer_with_prefix('10')
+        self.helper.create_query_group(peer, peer_a)
+        peer.find_missing_query_peers()
+        self.mocked_send_query.assert_called_once_with(
+            peer.peer_id, peer.address, peer_a.address, bs.Bits('0b01'), ANY)
+
+    def test_queries_covered_prefixes_if_less_than_desired(self):
+        self.helper.settings['min_desired_query_peers'] = 2
+        peer = self.helper.peer_with_prefix('00')
+        peer_a = self.helper.peer_with_prefix('10')
+        peer_b = self.helper.peer_with_prefix('10')
+        peer_c = self.helper.peer_with_prefix('01')
+        self.helper.create_query_group(peer, peer_a, peer_b)
+        peer.find_missing_query_peers()
+        self.mocked_send_query.assert_called_once_with(
+            peer.peer_id, peer.address,
+            arg_any_of(peer_a.address, peer_b.address, peer_c.address),
+            bs.Bits('0b01'), ANY)
+
+    def test_doesnt_query_if_query_is_pending(self):
+        peer = self.helper.peer_with_prefix('00')
+        peer_a = self.helper.peer_with_prefix('10')
+        self.helper.create_query_group(peer, peer_a)
+        peer.pending_queries[bs.Bits('0b0100101')] = None
+        peer.find_missing_query_peers()
+        self.mocked_send_query.assert_not_called()
+
+    def test_queries_sync_peers(self):
+        self.helper.settings['query_sync_for_subprefixes'] = True
+        peer = self.helper.peer_with_prefix('00')
+        peer_a = self.helper.peer_with_prefix('00')
+        peer.find_missing_query_peers()
+        self.assertEqual(len(self.mocked_send_query.call_args_list), 2)
+        self.assertTrue(
+            call(peer.peer_id, peer.address, peer_a.address, bs.Bits('0b01'),
+                 ANY)
+            in self.mocked_send_query.call_args_list)
+        self.assertTrue(
+            call(peer.peer_id, peer.address, peer_a.address, bs.Bits('0b1'),
+                 ANY)
+            in self.mocked_send_query.call_args_list)
+
+    def test_ignores_non_existent_subprefixes(self):
+        self.helper.settings['ignore_non_existent_subprefixes'] = True
+        peer = self.helper.peer_with_prefix('00')
+        peer_a = self.helper.peer_with_prefix('10')
+        self.helper.create_query_group(peer, peer_a)
+        peer.find_missing_query_peers()
+        self.mocked_send_query.assert_not_called()

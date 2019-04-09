@@ -23,6 +23,7 @@ class TestHelper:
         self.logger = analyze.Logger(self.settings)
         self.network = util.Network(self.env, self.settings)
         self.all_peer_ids = set()
+        self.all_sync_groups = {}
 
     def id_with_prefix(self, prefix_str):
         while True:
@@ -33,13 +34,19 @@ class TestHelper:
             peer_id = prefix + suffix
             if peer_id not in self.all_peer_ids:
                 self.all_peer_ids.add(peer_id)
+                self.all_prefixes.add(peer_id[:self.settings['prefix_length']])
                 return peer_id
 
     def peer_with_prefix(self, prefix_str, start_processes=False):
         peer_id = self.id_with_prefix(prefix_str)
-        return Peer(self.env, self.logger, self.network, peer_id,
+        peer = Peer(self.env, self.logger, self.network, peer_id,
                     self.all_query_groups, self.all_prefixes, self.settings,
                     start_processes)
+        self.all_sync_groups.setdefault(peer.prefix, set()).add(peer)
+        for sync_peer in self.all_sync_groups[peer.prefix]:
+            sync_peer.introduce(peer.info())
+            peer.introduce(sync_peer.info())
+        return peer
 
     def mock_peer_and_behavior_with_prefix(self, prefix_str,
                                            start_processes=False):
@@ -129,3 +136,19 @@ class SetMatcher:
 
 def set_containing(*args):
     return SetMatcher(*args)
+
+
+class AnyOfMatcher:
+    def __init__(self, *args):
+        self.valid_values = args
+
+    def __eq__(self, other):
+        return any(vv == other for vv in self.valid_values)
+
+    def __repr__(self):
+        return 'any of {{{}}}'.format(', '.join(
+            [str(vv) for vv in self.valid_values]))
+
+
+def arg_any_of(*args):
+    return AnyOfMatcher(*args)

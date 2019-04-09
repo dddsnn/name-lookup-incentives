@@ -567,9 +567,15 @@ class Peer:
                         SortedIterSet(query_peer.uncovered_subprefixes()),
                         None))
 
+    def start_missing_query_peer_search(self):
+        self.find_missing_query_peers()
+        util.do_repeatedly(self.env,
+                           self.settings['uncovered_subprefix_interval'],
+                           Peer.find_missing_query_peers, self)
+
     def find_missing_query_peers(self):
         """
-        Find peers to cover prefixes for which there are no known peers.
+        Find peers to cover subprefixes for which there are no known peers.
 
         It's not enough in this case to simply query for a prefix, because
         there may not be any known peer closer to it. Instead, peers who are
@@ -579,13 +585,25 @@ class Peer:
         If query_sync_for_subprefixes is set in the settings, sync peers will
         be queried as well.
         """
-        for subprefix in self.uncovered_subprefixes():
+        in_event_id = None
+        for subprefix in (sp for sp, c in self.subprefix_coverage().items()
+                          if c < self.settings['min_desired_query_peers']):
             if (self.settings['ignore_non_existent_subprefixes']
                     and not self.subprefix_exists(subprefix)):
                 continue
-            query_sync = self.settings['query_sync_for_subprefixes']
-            self.behavior.on_query(self.peer_id, subprefix, None,
-                                   query_further=True, query_sync=query_sync)
+            for queried_id in self.pending_queries.keys():
+                if queried_id.startswith(subprefix):
+                    # There is a pending query that will satisfy the subprefix
+                    # when successful.
+                    break
+            else:
+                if in_event_id is None:
+                    in_event_id = self.logger.log(an.UncoveredSubprefixSearch(
+                        self.env.now, self.peer_id, None))
+                query_sync = self.settings['query_sync_for_subprefixes']
+                self.behavior.on_query(
+                    self.peer_id, subprefix, in_event_id, query_further=True,
+                    query_sync=query_sync)
 
     def introduce(self, peer_info):
         """
