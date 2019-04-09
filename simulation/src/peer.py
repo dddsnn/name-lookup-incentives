@@ -213,6 +213,8 @@ class PeerBehavior:
 
     def decide_delay(self, querying_peer_id):
         """Decide what penalty delay to impose."""
+        if querying_peer_id == self.peer.peer_id:
+            return 0
         max_rep = self.peer.max_peer_reputation(querying_peer_id,
                                                 querying_peer_id)
         npr = self.peer.settings['no_penalty_reputation']
@@ -220,6 +222,8 @@ class PeerBehavior:
 
     def expect_delay(self, peer_to_query_id):
         """Predict the penalty delay that will be imposed."""
+        if peer_to_query_id == self.peer.peer_id:
+            return 0
         max_rep = self.peer.max_peer_reputation(self.peer.peer_id,
                                                 peer_to_query_id)
         npr = self.peer.settings['no_penalty_reputation']
