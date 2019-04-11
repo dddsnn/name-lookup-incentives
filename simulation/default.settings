@@ -17,6 +17,9 @@
     'initial_reputation': 0,
     # Whether or not the setup should place all peers in one big query group.
     'force_one_group': False,
+    # Whether to make sure that there is at least one peer for each possible
+    # prefix.
+    'ensure_non_empty_sync_groups': True,
 
     # The time the reputation decay process sleeps.
     'decay_timestep': float('inf'),

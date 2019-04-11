@@ -99,8 +99,15 @@ def random_peer_id_batches(settings):
     total_num_peers = sum(n for _, n in peer_batches)
     if total_num_peers > 2 ** settings['id_length']:
         raise Exception('IDs are too short for the number of peers.')
+    if (settings['ensure_non_empty_sync_groups']
+            and total_num_peers < 2 ** settings['prefix_length']):
+        raise Exception('There are not enough peers for non-empty sync groups')
     peer_id_batches = []
     all_peer_ids = []
+    prefixes = []
+    if settings['ensure_non_empty_sync_groups']:
+        prefixes = [bs.Bits(uint=i, length=settings['prefix_length'])
+                    for i in range(2 ** settings['prefix_length'])]
     for time, num_peers in peer_batches:
         peer_ids = []
         for _ in range(num_peers):
@@ -108,9 +115,13 @@ def random_peer_id_batches(settings):
                 peer_id_uint = random.randrange(2 ** settings['id_length'])
                 peer_id = bs.Bits(uint=peer_id_uint,
                                   length=settings['id_length'])
+                if prefixes:
+                    peer_id = prefixes[0] + peer_id[settings['prefix_length']:]
                 if peer_id not in all_peer_ids:
                     all_peer_ids.append(peer_id)
                     peer_ids.append(peer_id)
+                    if prefixes:
+                        prefixes.pop(0)
                     break
         peer_id_batches.append((time, peer_ids))
     return peer_id_batches, all_peer_ids
