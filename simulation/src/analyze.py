@@ -222,27 +222,16 @@ class Logger:
         """Plot response statuses over time until some point."""
         replay = Replay(self.events, {}, response_status_event_processor)
         replay.step_until(until_time)
-        for category in ('success', 'failure_retry', 'failure_ultimate',
-                         'timeout_failure_retry', 'timeout_failure_ultimate',
-                         'late_success', 'late_failure', 'unmatched',
-                         'wrong_responder'):
+        for category in ('success', 'failure', 'timeout', 'unmatched'):
             replay.data.setdefault(category, [])
 
         bins = np.arange(0, replay.current_time + bin_size, bin_size)
         plt.title('Response statuses')
         plt.hist((np.array(replay.data['success']),
-                  np.array(replay.data['failure_retry']),
-                  np.array(replay.data['failure_ultimate']),
-                  np.array(replay.data['timeout_failure_retry']),
-                  np.array(replay.data['timeout_failure_ultimate']),
-                  np.array(replay.data['late_success']),
-                  np.array(replay.data['late_failure']),
-                  np.array(replay.data['unmatched']),
-                  np.array(replay.data['wrong_responder'])),
-                 bins, label=('success', 'retry failure', 'ultimate failure',
-                              'retry timeout', 'ultimate timeout',
-                              'late success', 'late failure', 'unmatched',
-                              'wrong responder'),
+                  np.array(replay.data['failure']),
+                  np.array(replay.data['timeout']),
+                  np.array(replay.data['unmatched'])),
+                 bins, label=('success', 'failure', 'timeout', 'unmatched'),
                  histtype='barstacked')
         plt.xlabel('Time')
         plt.ylabel('Number of responses')
@@ -638,16 +627,14 @@ def response_status_event_processor(data, event):
     The data that is built is a dictionary whose values are lists with the
     timestamps of different categories of responses and timeouts. The keys are
     the allowed keys for the status parameter from
-    :meth:`analyze.ResponseReceived.__init__`, as well as
-    'timeout_failure_ultimate' and 'timeout_failure_retry' with meanings
-    analogous to the status parameter in :meth:`analyze.Timeout.__init__`.
+    :meth:`analyze.ResponseReceived.__init__`, as well as 'timeout'.
 
     The initial value must be an empty dictionary.
     """
     if isinstance(event, ResponseReceived):
         data.setdefault(event.status, []).append(event.time)
     elif isinstance(event, Timeout):
-        data.setdefault('timeout_' + event.status, []).append(event.time)
+        data.setdefault('timeout', []).append(event.time)
 
 
 def queries_received_event_processor(data, event):
@@ -748,11 +735,7 @@ class Event:
         self.out_event_ids = set()
 
     def __repr__(self):
-        excluded = set(EmptyClass.__dict__.keys())
-        attrs = ((attr, value) for (attr, value)
-                 in sorted(self.__dict__.items()) if attr not in excluded)
-        return '{}: {{{}}}'.format(type(self).__name__, ', '.join(
-            '{}: {}'.format(attr, value) for (attr, value) in attrs))
+        return util.generic_repr(self)
 
     def previous_events(self, event_list):
         """
@@ -795,7 +778,6 @@ class Request(Event):
         :param queried_id: ID that is requested to be resolved.
         :param status: The status of the request, indicating what further
             action is taken as a response. Must be one of
-            * 'pending': A query has already been sent matching the queried ID.
             * 'own_id': Request for the ID of the requesting peer, can be
                   answered trivially.
             * 'known': Request for which the answer is known (e.g. because the
@@ -805,11 +787,10 @@ class Request(Event):
         super().__init__(time, None)
         self.requester_id = requester_id
         self.queried_id = queried_id
-        if status not in ('pending', 'own_id', 'known', 'querying'):
-            raise Exception('Status must be one of pending, own_id, known, or'
+        if status not in ('own_id', 'known', 'querying'):
+            raise Exception('Status must be one of own_id, known, or'
                             ' querying.')
         self.status = status
-        self.completed = status in ('own_id', 'known')
 
 
 class QuerySent(Event):
@@ -829,78 +810,65 @@ class QueryReceived(Event):
         :param status: The status of the query. Must be one of
             * 'own_id': Query for the ID of the recipient. Trivial to answer.
             * 'known': Query for an ID known to the recipient.
-            * 'pending': A further query for a relevant ID or prefix is already
-                  pending.
-            * 'querying': A further query must be sent in order to answer this
-                  query.
+            * 'external': Query for an ID that isn't known immediately. A
+                further query must be sent in order to answer this query. This
+                may not happen if the peer e.g. decides he has enough
+                reputation.
         """
         super().__init__(time, in_event_id)
         self.sender_id = sender_id
         self.recipient_id = recipient_id
         self.queried_id = queried_id
-        if status not in ('own_id', 'known', 'pending', 'querying'):
-            raise Exception('Status must be one of own_id, known, pending, or'
-                            ' querying.')
+        if status not in ('own_id', 'known', 'external'):
+            raise Exception('Status must be one of own_id, known, or external')
         self.status = status
 
 
-# TODO Include the queried peer's address.
 class ResponseScheduled(Event):
     """Event representing a response being sent."""
     def __init__(self, time, send_time, sender_id, recipient_id,
-                 queried_peer_id, queried_ids, in_event_id):
+                 queried_peer_info, queried_id, in_event_id):
         """
         :param send_time: The time at which the query will actually be sent (as
             opposed to time, which is when it is scheduled).
-        :param queried_peer_id: The ID of the peer that is the result of the
-            query. May be None if the query was unsuccessful.
-        :param queried_ids: A set containing all IDs or prefixes for which
-            queried_id is a response. I.e., all elements of this set are a
-            prefix of queried_id.
+        :param queried_peer_info: The PeerInfo object containing information
+            about a peer matching the queried IDs. This may be None to indicate
+            that no information could be found for the queried IDs. The fields
+            (ID, prefix and address) may be None to indicate that no peer
+            exists matching any of the queried IDs.
+        :param queried_id: The ID that was queried.
         """
         super().__init__(time, in_event_id)
         self.send_time = send_time
         self.sender_id = sender_id
         self.recipient_id = recipient_id
-        self.queried_peer_id = queried_peer_id
-        self.queried_ids = queried_ids
+        self.queried_peer_info = queried_peer_info
+        self.queried_id = queried_id
 
 
-# TODO Include the queried peer's address.
 class ResponseReceived(Event):
     """Event representing a response being received."""
-    def __init__(self, time, sender_id, recipient_id, queried_peer_id,
-                 queried_ids, status, in_event_id):
+    def __init__(self, time, sender_id, recipient_id, queried_peer_info,
+                 queried_id, status, in_event_id):
         """
-        :param queried_peer_id: See :meth:`analyze.ResponseSent.__init__`.
-        :param queried_ids: See :meth:`analyze.ResponseSent.__init__`.
+        :param queried_peer_info: See
+            :meth:`analyze.ResponseScheduled.__init__`.
+        :param queried_id: See :meth:`analyze.ResponseScheduled.__init__`.
         :param status: Status of the response. Must be one of
             * 'unmatched': There is no known query the peer has sent and still
                   knows about that matches this response.
-            * 'wrong_responder': The response matches a previously sent query,
-                 but the sender isn't the peer that was queried.
-            * 'success': Query successful.
-            * 'failure_ultimate': The responding peer cannot resolve the query,
-                  and there are no other peers to query.
-            * 'failure_retry': The responding peer cannot resolve the query,
-                  but there are other peers that can be queried that may be
-                  able.
-            * 'late_success': The query was successful, but was already
-                  previously successfully resolved (by another peer).
-            * 'late_failure': The query failed, but was already previously
-                  successfully resolved (by another peer).
+            * 'success': Successful response, i.e. the sender claims to provide
+                the correct information about the queried ID.
+            * 'failure': The responding peer cannot resolve the query.
         """
         super().__init__(time, in_event_id)
         self.sender_id = sender_id
         self.recipient_id = recipient_id
-        self.queried_peer_id = queried_peer_id
-        self.queried_ids = queried_ids
-        if status not in ('unmatched', 'wrong_responder', 'success',
-                          'failure_ultimate', 'failure_retry', 'late_success',
-                          'late_failure'):
-            raise Exception('Status must be one of unmatched, wrong_responder,'
-                            ' success, failure_ultimate, failure_retry,'
-                            ' late_success, or late_failure.')
+        self.queried_peer_info = queried_peer_info
+        self.queried_id = queried_id
+        if status not in ('unmatched', 'success', 'failure'):
+            raise Exception('Status must be one of unmatched, success, or'
+                            ' failure.')
         self.status = status
 
 
@@ -928,26 +896,16 @@ class ReputationUpdateReceived(Event):
 
 
 class Timeout(Event):
-    def __init__(self, time, sender_id, recipient_id, queried_id, status,
-                 in_event_id):
+    def __init__(self, time, sender_id, recipient_id, queried_id, in_event_id):
         """
         :param sender_id: ID of the peer that sent the request that timed out.
         :param recipient_id: ID of the peer to which the request, which timed
             out, was sent.
-        :param status: Status of the timeout. Must be one of
-            * 'failure_ultimate': There are no other peers the sender can
-                  query.
-            * 'failure_retry': The sender knows other peers to whom he can send
-                  the query.
         """
         super().__init__(time, in_event_id)
         self.sender_id = sender_id
         self.recipient_id = recipient_id
         self.queried_id = queried_id
-        if status not in ('failure_ultimate', 'failure_retry'):
-            raise Exception('Status must be one of failure_ultimate or'
-                            ' failure_retry.')
-        self.status = status
 
 
 class QueryFinalized(Event):
@@ -964,13 +922,15 @@ class QueryFinalized(Event):
             * 'success': Query was successful
             * 'failure': Query did not return a result.
             * 'timeout': Query timed out.
+            * 'pending': There's already a query going on for the same ID.
             * 'impossible': The peer didn't know any peers to send a query to.
         """
         super().__init__(time, in_event_id)
         self.peer_id = peer_id
-        if status not in ('success', 'failure', 'timeout', 'impossible'):
-            raise Exception('Status must be one of success, failure, timeout'
-                            ' or impossible.')
+        if status not in ('success', 'failure', 'timeout', 'pending',
+                          'impossible'):
+            raise Exception('Status must be one of success, failure, timeout,'
+                            'pending, or impossible.')
         self.status = status
 
 

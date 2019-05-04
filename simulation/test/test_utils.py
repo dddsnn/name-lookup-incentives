@@ -79,23 +79,6 @@ class TestHelper:
         self.env.process(gen())
 
 
-class PendingQueryMatcher:
-    def __init__(self, querying_peer_id, queried_id, peers_to_query):
-        self.querying_peer_id = querying_peer_id
-        self.queried_id = queried_id
-        self.peers_to_query = peers_to_query
-
-    def __eq__(self, other):
-        return (len(other.querying_peers) == 1
-                and other.querying_peers[self.querying_peer_id]
-                == set((self.queried_id,))
-                and self.peers_to_query == other.peers_to_query)
-
-
-def pending_query(querying_peer_id, queried_id, peers_to_query):
-    return PendingQueryMatcher(querying_peer_id, queried_id, peers_to_query)
-
-
 class AttributeMatcher:
     def __init__(self, **kwargs):
         self.attributes = kwargs

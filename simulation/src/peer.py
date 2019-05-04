@@ -6,7 +6,6 @@ import itertools as it
 from copy import deepcopy
 from collections import namedtuple, OrderedDict, deque
 import random
-import operator as op
 import numpy as np
 
 
@@ -29,8 +28,8 @@ class PeerBehavior:
                 delay + self.peer.settings['expected_penalty_timeout_buffer'],
                 in_event_id)
             return
-        self.peer.send_response(querying_peer_id, SortedIterSet((queried_id,)),
-                                self.peer.info(), in_event_id, delay=delay)
+        self.peer.send_response(querying_peer_id, queried_id, self.peer.info(),
+                                in_event_id, delay=delay)
 
     def on_query_sync(self, querying_peer_id, queried_id, sync_peer_info,
                       in_event_id):
@@ -45,155 +44,171 @@ class PeerBehavior:
                 delay + self.peer.settings['expected_penalty_timeout_buffer'],
                 in_event_id)
             return
-        self.peer.send_response(querying_peer_id, SortedIterSet((queried_id,)),
-                                sync_peer_info, in_event_id, delay=delay)
+        self.peer.send_response(querying_peer_id, queried_id, sync_peer_info,
+                                in_event_id, delay=delay)
 
-    def on_query(self, querying_peer_id, queried_id, in_event_id,
-                 query_further=False, query_sync=False):
+    def on_query_external(self, querying_peer_id, queried_id, in_event_id,
+                          query_further=False, query_sync=False):
         """
-        React to a query.
+        React to a query in the case that an external query is necessary.
 
-        This method implements the "good" default behavior. A list of peers is
-        created that will be queried and sorted based on how close they are to
-        the queried ID. A PendingQuery is created with these peers and used to
-        send a query.
+        A peer will only react if he has not enough reputation in one of the
+        query groups shared with the querying peer. How much reputation is
+        enough is governed by the no_penalty_reputation and the
+        reputation_buffer_factor in the settings.
 
-        By default, the peers that will be queried are only ones whose prefix
-        has a larger overlap with the queried ID than this peer, i.e. who are
-        closer to the target ID. However, if query_all is True, all query
-        peers, will be queried.
+        A peer will expect penalties if he misbehaves.
 
-        If query_sync is True, sync peers will also be queried.
+        The recipient of a possible query is chosen using
+        select_peer_to_query().
         """
+        if self.peer.has_in_query(querying_peer_id, queried_id):
+            # The querying peer has already queried for this exact ID. This may
+            # happen when find_missing_query_peers() calls this directly. Don't
+            # record this again.
+            assert querying_peer_id == self.peer_id
+            return
+        if self.peer.has_matching_out_queries(queried_id):
+            # There's a query going on that should provide an answer.
+            self.peer.add_in_query(querying_peer_id, queried_id)
+            return
         rep = self.peer.expected_min_reputation(querying_peer_id)
         enough_rep = (self.peer.settings['reputation_buffer_factor']
                       * self.peer.settings['no_penalty_reputation'])
         delay = self.decide_delay(querying_peer_id)
         if querying_peer_id != self.peer.peer_id and rep >= enough_rep:
+            # We have enough reputation and are not interested in expending
+            # resources into answering the query.
             self.peer.expect_penalty(
                 querying_peer_id, self.peer.settings['timeout_query_penalty'],
                 delay + self.peer.settings['expected_penalty_timeout_buffer'],
                 in_event_id)
             return
-        if query_further or query_sync:
-            peers_to_query_info = []
-            if query_further:
-                peers_to_query_info = list(pi for _, pi
-                                           in self.peer.known_query_peers())
-            if query_sync:
-                peers_to_query_info += [i for i
-                                        in self.peer.sync_peers.values()
-                                        if i.peer_id != self.peer.peer_id]
-            self.sort_peers_to_query(peers_to_query_info, queried_id)
-            peers_to_query = [pi.peer_id for pi in peers_to_query_info]
-        else:
-            peers_to_query = self.select_peers_to_query(queried_id)
-        if len(peers_to_query) == 0:
-            if querying_peer_id == self.peer.peer_id:
-                self.peer.finalize_query('impossible', in_event_id)
-            else:
-                self.peer.expect_penalty(
-                    querying_peer_id,
-                    self.peer.settings['failed_query_penalty'], delay
-                    + self.peer.settings['expected_penalty_timeout_buffer'],
-                    in_event_id)
-                self.peer.send_response(
-                    querying_peer_id, SortedIterSet((queried_id,)), None,
-                    in_event_id, delay=delay)
-            return
-        pending_query = PendingQuery(self.peer.env.now, querying_peer_id,
-                                     queried_id, peers_to_query)
-        self.peer.add_pending_query(queried_id, pending_query)
-        self.peer.send_query(queried_id, pending_query, in_event_id)
         # TODO Send queries to multiple peers at once.
+        peers_already_queried = SortedIterSet()
+        if self.attempt_query(queried_id, peers_already_queried, query_further,
+                              query_sync, in_event_id):
+            self.peer.add_in_query(querying_peer_id, queried_id)
+            return
+        # No known peer, query is impossible.
+        if querying_peer_id == self.peer.peer_id:
+            self.peer.finalize_own_query('impossible', in_event_id)
+        else:
+            self.peer.expect_penalty(
+                querying_peer_id, self.peer.settings['failed_query_penalty'],
+                delay + self.peer.settings['expected_penalty_timeout_buffer'],
+                in_event_id)
+            self.peer.send_response(
+                querying_peer_id, queried_id, None, in_event_id, delay=delay)
 
-    def on_response_success(self, pending_query, responding_peer_id,
+    def on_response_success(self, responding_peer_id, queried_id,
                             queried_peer_info, in_event_id):
         """React to a successful response arriving."""
-        if self.peer.peer_id in pending_query.querying_peers:
-            self.peer.finalize_query('success', in_event_id)
-            del pending_query.querying_peers[self.peer.peer_id]
-        total_time = self.peer.env.now - pending_query.start_time
-        # TODO Update the ID/address mapping, even if we're just passing the
-        # query result through to another peer.
-        for querying_peer_id, queried_ids in (pending_query.querying_peers
-                                              .items()):
-            delay = max(0, self.decide_delay(querying_peer_id) - total_time)
-            self.peer.send_response(querying_peer_id, queried_ids,
-                                    queried_peer_info, in_event_id,
-                                    delay=delay)
         self.do_rep_success(responding_peer_id, in_event_id)
+        matching_in_queries = self.peer.matching_in_queries(queried_id)
+        self.respond_to_in_queries(matching_in_queries, queried_peer_info,
+                                   in_event_id)
+        self.peer.finalize_in_queries(matching_in_queries, 'success',
+                                      in_event_id)
 
-    def on_response_failure(self, pending_query, responding_peer_id,
+    def on_response_failure(self, responding_peer_id, queried_id,
+                            peers_already_queried, query_further, query_sync,
                             in_event_id):
         """
-        React to an ultimately failed response arriving.
+        React to a failed response arriving.
 
-        A response has failed ultimately if the query cannot be retried because
-        there are no further peers to query.
+        A response has failed if the responding peer is unable to either
+        provide the correct record or to say that there doesn't exist one.
+
+        Attempts to retry the query, while not querying any of the peers in
+        peers_already_queried.
         """
-        if self.peer.peer_id in pending_query.querying_peers:
-            self.peer.finalize_query('failure', in_event_id)
-            del pending_query.querying_peers[self.peer.peer_id]
-        total_time = self.peer.env.now - pending_query.start_time
-        for querying_peer_id, queried_ids in (pending_query.querying_peers
-                                              .items()):
-            delay = max(0, self.decide_delay(querying_peer_id) - total_time)
-            self.peer.send_response(querying_peer_id, queried_ids, None,
-                                    in_event_id, delay=delay)
         self.do_rep_failure(responding_peer_id, in_event_id)
+        matching_in_queries = self.peer.matching_in_queries(queried_id)
+        if len(matching_in_queries) == 0:
+            # No incoming queries could be answered by this, don't retry.
+            return
+        if self.attempt_query(queried_id, peers_already_queried, query_further,
+                              query_sync, in_event_id):
+            return
+        self.respond_to_in_queries(
+            matching_in_queries, None, in_event_id,
+            expected_penalty=self.peer.settings['failed_query_penalty'])
+        self.peer.finalize_in_queries(matching_in_queries, 'failure',
+                                      in_event_id)
 
-    def on_response_retry(self, pending_query, responding_peer_id, queried_id,
-                          in_event_id):
-        """React to a failed response that can be retried."""
-        self.peer.send_query(queried_id, pending_query, in_event_id)
-        self.do_rep_failure(responding_peer_id, in_event_id)
-
-    def on_timeout_failure(self, pending_query, recipient_id, in_event_id):
+    def on_timeout(self, queried_peer_id, queried_id, peers_already_queried,
+                   query_further, query_sync, in_event_id):
         """
-        React to a query timing out and failing ultimately.
+        React to a query timing out.
 
-        A query has failed ultimately if it can't be retried because there are
-        no further peers to query.
+        Attempts to retry the query, while not querying any of the peers in
+        peers_already_queried.
         """
-        if self.peer.peer_id in pending_query.querying_peers:
-            self.peer.finalize_query('timeout', in_event_id)
-            del pending_query.querying_peers[self.peer.peer_id]
-        total_time = self.peer.env.now - pending_query.start_time
-        for querying_peer_id, queried_ids in (pending_query.querying_peers
-                                              .items()):
-            delay = max(0, self.decide_delay(querying_peer_id) - total_time)
-            self.peer.send_response(querying_peer_id, queried_ids, None,
-                                    in_event_id, delay=delay)
-        self.do_rep_timeout(recipient_id, in_event_id)
+        self.do_rep_timeout(queried_peer_id, in_event_id)
+        matching_in_queries = self.peer.matching_in_queries(queried_id)
+        if len(matching_in_queries) == 0:
+            # No incoming queries could be answered by this, don't retry.
+            return
+        if self.attempt_query(queried_id, peers_already_queried, query_further,
+                              query_sync, in_event_id):
+            return
+        self.respond_to_in_queries(
+            matching_in_queries, None, in_event_id,
+            expected_penalty=self.peer.settings['failed_query_penalty'])
+        self.peer.finalize_in_queries(matching_in_queries, 'timeout',
+                                      in_event_id)
 
-    def on_timeout_retry(self, pending_query, recipient_id, queried_id,
-                         in_event_id):
-        """React to a query timing out that can be retried."""
-        self.peer.send_query(queried_id, pending_query, in_event_id)
-        self.do_rep_timeout(recipient_id, in_event_id)
-
-    def on_response_late_success(self, responding_peer_id):
+    def attempt_query(self, queried_id, peers_already_queried, query_further,
+                      query_sync, in_event_id):
         """
-        React to a successful response arriving late.
+        Attempt to send a query to the next best peer.
 
-        A response is late if the query has already been successfully answered
-        by another peer.
+        Return whether a query was sent.
         """
-        # TODO Using None as in_event_id because we're not storing the ID of
-        # the event leading to this.
-        self.do_rep_success(responding_peer_id, None)
+        recipient_id = self.select_peer_to_query(
+            queried_id, peers_already_queried, query_further, query_sync)
+        if recipient_id is not None:
+            self.peer.send_query(
+                recipient_id, queried_id, peers_already_queried, query_further,
+                query_sync, in_event_id)
+            return True
+        return False
 
-    def on_response_late_failure(self, responding_peer_id):
+    def respond_to_in_queries(self, in_queries_map, queried_peer_info,
+                              in_event_id, expected_penalty=None):
         """
-        React to a failed response arriving late.
+        Respond to incoming queries.
 
-        A response is late if the query has already been successfully answered
-        by another peer.
+        Chooses an appropriate delay.
+
+        :param in_queries_map: A map mapping queried ID to maps mapping
+            querying peer ID to IncomingQuery objects (as returned by
+            Peer.matching_in_queries()).
         """
-        # Don't apply a penalty here, as one has already been applied for the
-        # timeout.
-        pass
+        for in_queried_id, in_queries in in_queries_map.items():
+            for querying_peer_id, in_query in in_queries.items():
+                # TODO Make it possible for on_response_failure() and
+                # on_timeout() to not send a fail response in case there are
+                # some outgoing queries that would answer this query. But they
+                # should only do so if the response is not likely going to be
+                # late.
+                time_taken = self.peer.env.now - in_query.time
+                delay = max(
+                    0, self.decide_delay(querying_peer_id) - time_taken)
+                if expected_penalty is not None:
+                    self.peer.expect_penalty(
+                        querying_peer_id, expected_penalty,
+                        self.peer.settings['expected_penalty_timeout_buffer']
+                        + delay, in_event_id)
+                self.peer.send_response(querying_peer_id, in_queried_id,
+                                        queried_peer_info, in_event_id,
+                                        delay=delay)
+
+    # TODO Add a way to react to a query this peer is supposed to answer being
+    # about to time out. The peer should respond with a fail response and incur
+    # the penalty for that rather than one for a timeout (which should be
+    # higher).
 
     def do_rep_success(self, peer_id, in_event_id):
         """Do the reputation update after a successful query."""
@@ -229,46 +244,71 @@ class PeerBehavior:
         npr = self.peer.settings['no_penalty_reputation']
         return min(max(npr - max_rep, 0), npr)
 
-    def select_peers_to_query(self, queried_id):
+    def select_peer_to_query(self, queried_id, peers_already_queried,
+                             query_further, query_sync):
         """
-        List peers to send a query to.
+        Select the next peer to query.
 
-        Creates a list containing all peers that should be queried for the
-        given ID. These are all known peers who are closer to that ID, i.e.
-        whose bit_overlap() is larger than for this peer.
+        Considers peers that could be queried to resolve queried_id and returns
+        the ID of the best one according to sort_peers_to_query(). Does not
+        consider peers whose IDs are in peers_already_queried.
+
+        Returns None if there is no peer that could be queried.
+
+        :param query_further: If True, also considers peers whose overlap with
+            the queried ID is less than or equal than for this peer, otherwise
+            only those where it is greater.
+        :param query_sync: If True, also considers sync peers.
         """
-        own_overlap = util.bit_overlap(self.peer.prefix, queried_id)
         peers_to_query_info = []
-        for _, query_peer_info in self.peer.known_query_peers():
-            # TODO Range queries for performance.
-            if (util.bit_overlap(query_peer_info.prefix, queried_id)
-                    > own_overlap):
-                peers_to_query_info.append(query_peer_info)
+        if query_sync:
+            peers_to_query_info += [
+                (True, pi) for pi in self.peer.sync_peers.values()
+                if pi.peer_id != self.peer.peer_id
+                and pi.peer_id not in peers_already_queried]
+        if query_further:
+            peers_to_query_info += [
+                (False, pi) for _, pi in self.peer.known_query_peers()
+                if pi.peer_id not in peers_already_queried]
+        else:
+            own_overlap = util.bit_overlap(self.peer.prefix, queried_id)
+            for _, query_peer_info in self.peer.known_query_peers():
+                # OPTI Range queries for performance.
+                if (util.bit_overlap(query_peer_info.prefix, queried_id)
+                        > own_overlap
+                        and query_peer_info.peer_id
+                        not in peers_already_queried):
+                    peers_to_query_info.append((False, query_peer_info))
         self.sort_peers_to_query(peers_to_query_info, queried_id)
-        return [pi.peer_id for pi in peers_to_query_info]
+        if len(peers_to_query_info) == 0:
+            return None
+        return peers_to_query_info[0][1].peer_id
 
-    def sort_peers_to_query(self, peer_infos, queried_id):
+    def sort_peers_to_query(self, sync_peer_infos, queried_id):
         """
         Sort a list of PeerInfos according to the peer selection strategy.
 
-        Also removes duplicates.
-
         The order of the list depends on the query_peer_selection value in the
-            settings. Possible values are:
-            * 'overlap': Create a list of all query peers whose prefix has a
-                higher overlap with the queried ID than one's own. Sort this
-                list by the length of that overlap, greatest first. No tie
-                breaker.
+        settings. Possible values are:
+            * 'overlap': Peers are sorted by the length of the overlap of their
+            prefix with the queried ID, greatest first. No tie breaker.
             * 'overlap_high_rep_last': As 'overlap', but all peers with enough
                 reputation (i.e. whose minimum reputation in all shared query
                 groups is greater than or equal 'no_penalty_reputation' times
                 'reputation_buffer_factor' are taken from the front and added
                 to the back.
-            * 'shuffled': Like 'overlap', except the list is shuffled instead
-                of sorted.
+            * 'shuffled': The list is shuffled randomly.
             * 'overlap_rep_sorted': As 'overlap' but within groups of equal
                 overlap, peers are sorted by reputation in ascending order.
             * 'rep_sorted': Peers are sorted by reputation in ascending_order.
+
+        For all strategies except 'shuffled', sync peers are sorted to the
+        back. Since none of the strategies affect sync peers, they appear at
+        the end of the result list in the same order they were passed in.
+
+        :param sync_peer_infos: A list of tuples (sp, pi) describing peers,
+            where sp is a boolean that is True if the peer is a sync peer and
+            pi is the peer's PeerInfo.
         """
         if (self.peer.settings['query_peer_selection']
                 not in ('overlap', 'overlap_high_rep_last', 'shuffled',
@@ -276,37 +316,41 @@ class PeerBehavior:
             raise Exception(
                 'Invalid query peer selection strategy {}.'
                 .format(self.peer.settings['query_peer_selection']))
-        util.remove_duplicates(peer_infos, key=op.attrgetter('peer_id'))
         if (self.peer.settings['query_peer_selection']
                 in ('overlap', 'overlap_high_rep_last')):
-            peer_infos.sort(key=lambda pi: util.bit_overlap(pi.prefix,
-                                                            queried_id),
-                            reverse=True)
+            def key(sync_peer_info):
+                sync_peer, peer_info = sync_peer_info
+                overlap = util.bit_overlap(peer_info.prefix, queried_id)
+                return (-int(sync_peer), overlap)
+            sync_peer_infos.sort(key=key, reverse=True)
         elif self.peer.settings['query_peer_selection'] == 'shuffled':
-            random.shuffle(peer_infos)
+            random.shuffle(sync_peer_infos)
         elif (self.peer.settings['query_peer_selection']
                 == 'overlap_rep_sorted'):
-            def key(peer_info):
+            def key(sync_peer_info):
+                sync_peer, peer_info = sync_peer_info
                 overlap = util.bit_overlap(peer_info.prefix, queried_id)
                 min_rep = self.peer.min_peer_reputation(peer_info.peer_id)
-                return (overlap, -min_rep)
-            peer_infos.sort(key=key, reverse=True)
+                return (-int(sync_peer), overlap, -min_rep)
+            sync_peer_infos.sort(key=key, reverse=True)
         elif self.peer.settings['query_peer_selection'] == 'rep_sorted':
-            def key(peer_info):
-                return self.peer.min_peer_reputation(peer_info.peer_id)
-            peer_infos.sort(key=key)
+            def key(sync_peer_info):
+                sync_peer, peer_info = sync_peer_info
+                min_rep = self.peer.min_peer_reputation(peer_info.peer_id)
+                return (int(sync_peer), min_rep)
+            sync_peer_infos.sort(key=key)
         if (self.peer.settings['query_peer_selection']
                 == 'overlap_high_rep_last'):
             enough_rep = (self.peer.settings['reputation_buffer_factor']
                           * self.peer.settings['no_penalty_reputation'])
             swap_back_idxs = []
-            for i, peer_info in enumerate(peer_infos):
+            for i, (_, peer_info) in enumerate(sync_peer_infos):
                 min_rep = self.peer.min_peer_reputation(peer_info.peer_id)
                 if min_rep >= enough_rep:
                     swap_back_idxs.append(i - len(swap_back_idxs))
             for idx in swap_back_idxs:
-                peer_info = peer_infos.pop(idx)
-                peer_infos.append(peer_info)
+                peer_info = sync_peer_infos.pop(idx)
+                sync_peer_infos.append(peer_info)
 
     def query_group_performs(self, query_group_id):
         """
@@ -404,8 +448,8 @@ class Peer:
         self.prefix = self.peer_id[:self.settings['prefix_length']]
         self.query_groups = OrderedDict()
         self.sync_peers = OrderedDict()
-        self.pending_queries = OrderedDict()
-        self.completed_queries = OrderedDict()
+        self.in_queries_map = util.SortedBitsTrie()
+        self.out_queries_map = util.SortedBitsTrie()
         self.address = self.network.register(self)
         self.behavior = PeerBehavior(self)
         self.query_group_history = OrderedDict()
@@ -452,22 +496,6 @@ class Peer:
         # OPTI Do the check for query peers more efficiently (one set).
         return (peer_id in (p.peer_id for _, p in self.known_query_peers())
                 or peer_id in self.sync_peers)
-
-    def pending_query_has_known_query_peer(self, pending_query):
-        """
-        Return whether one of the possible recipients is a known query peer.
-
-        Removes all peers from the front of the peers_to_query list that are
-        not.
-        """
-        # TODO Should sync peers also be considered? Shouldn't normally send
-        # queries to them.
-        # OPTI Do the check for query peers more efficiently (one set).
-        while (pending_query.peers_to_query
-               and pending_query.peers_to_query[0]
-               not in (p.peer_id for _, p in self.known_query_peers())):
-            pending_query.peers_to_query.pop(0)
-        return len(pending_query.peers_to_query) > 0
 
     def add_to_query_group(self, query_group, peer):
         """
@@ -583,31 +611,30 @@ class Peer:
 
         It's not enough in this case to simply query for a prefix, because
         there may not be any known peer closer to it. Instead, peers who are
-        further away are also queried by calling on_query() directly with
-        query_further set to True.
+        further away are also queried by calling on_query_external() directly
+        with query_further set to True.
 
         If query_sync_for_subprefixes is set in the settings, sync peers will
         be queried as well.
         """
-        in_event_id = None
         for subprefix in (sp for sp, c in self.subprefix_coverage().items()
                           if c < self.settings['min_desired_query_peers']):
             if (self.settings['ignore_non_existent_subprefixes']
                     and not self.subprefix_exists(subprefix)):
                 continue
-            for queried_id in self.pending_queries.keys():
-                if queried_id.startswith(subprefix):
-                    # There is a pending query that will satisfy the subprefix
-                    # when successful.
-                    break
-            else:
-                if in_event_id is None:
-                    in_event_id = self.logger.log(an.UncoveredSubprefixSearch(
-                        self.env.now, self.peer_id, None))
-                query_sync = self.settings['query_sync_for_subprefixes']
-                self.behavior.on_query(
-                    self.peer_id, subprefix, in_event_id, query_further=True,
-                    query_sync=query_sync)
+            try:
+                next(self.out_queries_map.iterkeys(subprefix))
+                # There is a pending query that will satisfy the subprefix
+                # when successful.
+                continue
+            except StopIteration:
+                pass
+            in_event_id = self.logger.log(an.UncoveredSubprefixSearch(
+                self.env.now, self.peer_id, None))
+            query_sync = self.settings['query_sync_for_subprefixes']
+            self.behavior.on_query_external(
+                self.peer_id, subprefix, in_event_id, query_further=True,
+                query_sync=query_sync)
 
     def introduce(self, peer_info):
         """
@@ -774,10 +801,6 @@ class Peer:
 
     def handle_request(self, queried_id):
         try:
-            for pending_queried_id in self.pending_queries:
-                if pending_queried_id.startswith(queried_id):
-                    status = 'pending'
-                    return
             if queried_id == self.peer_id:
                 status = 'own_id'
                 return
@@ -797,35 +820,40 @@ class Peer:
                                                      status))
         self.recv_query(self.peer_id, queried_id, in_event_id, skip_log=True)
 
-    def send_query(self, queried_id, pending_query, in_event_id):
+    def send_query(self, recipient_id, queried_id, peers_already_queried,
+                   query_further, query_sync, in_event_id):
         """
         Send a query for an ID.
 
-        Takes the first element of pending_query.peers_to_query as recipient,
-        therefore this list must not be empty. Also starts a timeout process
-        and stores it in pending_query.timeout_proc.
+        Adds the recipient ID to peers_already_queried.
+
+        :param peers_already_queried: A set of peer IDs that should not be
+            queried.
         """
-        peer_to_query_id = pending_query.peers_to_query.pop(0)
-        in_event_id = self.logger.log(an.QuerySent(self.env.now, self.peer_id,
-                                                   peer_to_query_id,
-                                                   queried_id, in_event_id))
-        timeout_proc = self.env.process(self.query_timeout(peer_to_query_id,
-                                                           queried_id,
-                                                           in_event_id))
-        pending_query.timeout_proc = timeout_proc
-        pending_query.queries_sent[peer_to_query_id] = self.env.now
-        peer_to_query_address = self.lookup_address_local(peer_to_query_id)
+        peers_already_queried.add(recipient_id)
+        out_query = OutgoingQuery(self.env.now, peers_already_queried,
+                                  query_further, query_sync)
+        self.out_queries_map.setdefault(
+            queried_id, OrderedDict())[recipient_id] = out_query
+        in_event_id = self.logger.log(an.QuerySent(
+            self.env.now, self.peer_id, recipient_id, queried_id, in_event_id))
+        timeout_proc = self.env.process(self.query_timeout(
+            recipient_id, queried_id, in_event_id))
+        out_query.timeout_proc = timeout_proc
+        peer_to_query_address = self.lookup_address_local(recipient_id)
         if peer_to_query_address is None:
             # TODO
             raise NotImplementedError('Recipient address not locally known.')
         self.network.send_query(self.peer_id, self.address,
                                 peer_to_query_address, queried_id, in_event_id)
 
-    def send_response(self, recipient_id, queried_ids, queried_peer_info,
+    def send_response(self, recipient_id, queried_id, queried_peer_info,
                       in_event_id, delay=0):
         """
         :param queried_peer_info: PeerInfo object describing the peer that was
-            queried. May be None to indicate no information could be found.
+            queried. May be None to indicate no information could be found. The
+            fields (peer_id, prefix and address) may be None to indicate that
+            there does not exist a peer matching queried_id.
         """
         if not self.peer_is_known(recipient_id):
             # Don't send responses to peers we don't know. These calls can
@@ -833,27 +861,21 @@ class Peer:
             # either this or the other peer leaves the query group.
             return
         assert recipient_id != self.peer_id
-        if queried_peer_info is None:
-            queried_peer_id = None
-        else:
-            queried_peer_id = queried_peer_info.peer_id
         in_event_id = self.logger.log(
             an.ResponseScheduled(self.env.now, self.env.now + delay,
-                                 self.peer_id, recipient_id, queried_peer_id,
-                                 queried_ids, in_event_id))
+                                 self.peer_id, recipient_id, queried_peer_info,
+                                 queried_id, in_event_id))
         recipient_address = self.lookup_address_local(recipient_id)
         if recipient_address is None:
             # TODO
             raise NotImplementedError('Recipient address not locally known.')
         util.do_delayed(self.env, delay, self.network.send_response,
                         self.peer_id, self.address, recipient_address,
-                        queried_ids, queried_peer_info, in_event_id)
+                        queried_id, queried_peer_info, in_event_id)
 
     def recv_query(self, querying_peer_id, queried_id, in_event_id,
                    skip_log=False):
         """
-        :param in_event_id: The ID of the log event that caused this query to
-            be received.
         :param skip_log: Whether to skip receiving this query in logging. If
             true, in_event_id will be used as the in_event_id for the query
             sending event that possibly follows.
@@ -862,9 +884,28 @@ class Peer:
         # would be available). Decide whether to introduce the peer (would also
         # require the prefix).
         def event(status):
-            return an.QueryReceived(self.env.now,
-                                    querying_peer_id, self.peer_id, queried_id,
-                                    status, in_event_id)
+            return an.QueryReceived(self.env.now, querying_peer_id,
+                                    self.peer_id, queried_id, status,
+                                    in_event_id)
+        if self.has_in_query(querying_peer_id, queried_id):
+            if querying_peer_id == self.peer_id:
+                # Peers may "send" a query to themselves again before receiving
+                # an answer as part of handling the request. Just log this and
+                # ignore.
+                self.finalize_own_query('pending', in_event_id)
+                return
+            else:
+                # Another peer may send a query for the exact same ID again
+                # before receiving an answer if it timed out at the other peer
+                # and fails ultimately (i.e. the other peer knows no other
+                # peer to send the query to). In that case, the peer forgets
+                # that he sent a query and is free to send it again for another
+                # request or query that he receives. Update the arrival time of
+                # the existing incoming query so that a response will be sent
+                # with a delay appropriate to the later query.
+                self.in_queries_map[queried_id][querying_peer_id].time\
+                    = self.env.now
+                return
         # TODO In case of a query for a partial ID, randomize which peer is
         # returned.
         if self.peer_id.startswith(queried_id):
@@ -874,106 +915,63 @@ class Peer:
                                         in_event_id)
             return
         for sync_peer_id, sync_peer_info in self.sync_peers.items():
+            # TODO Signal that a peer doesn't exist.
             if sync_peer_id.startswith(queried_id):
                 if not skip_log:
                     in_event_id = self.logger.log(event('known'))
                 self.behavior.on_query_sync(querying_peer_id, queried_id,
                                             sync_peer_info, in_event_id)
                 return
-        for pending_query_id, pending_query in self.pending_queries.items():
-            if pending_query_id.startswith(queried_id):
-                if not skip_log:
-                    in_event_id = self.logger.log(event('pending'))
-                # There already is a query for a fitting ID in progress, just
-                # note to also send a response to this querying peer.
-                pending_query.querying_peers.setdefault(
-                    querying_peer_id, SortedIterSet()).add(queried_id)
-                return
+        # TODO Don't query if peer is known as a query peer.
         if not skip_log:
-            in_event_id = self.logger.log(event('querying'))
-        self.behavior.on_query(querying_peer_id, queried_id, in_event_id)
+            in_event_id = self.logger.log(event('external'))
+        self.behavior.on_query_external(querying_peer_id, queried_id,
+                                        in_event_id)
 
-    def recv_response(self, responding_peer_id, queried_ids, queried_peer_info,
+    def recv_response(self, responding_peer_id, queried_id, queried_peer_info,
                       in_event_id):
         """
+        :param queried_id: The IDs or prefix that was queried and for which
+            this is the response.
         :param queried_peer_info: PeerInfo object describing the peer that was
-            queried. May be None to indicate no information could be found.
+            queried. May be None to indicate failure, i.e. the responding peer
+            doesn't know the answer. The ID, prefix and the address field may
+            be None to indicate that there doesn't exist a peer whose ID
+            matches any of the queried IDs.
         """
-        def event(status):
-            if queried_peer_info is None:
-                queried_peer_id = None
-            else:
-                queried_peer_id = queried_peer_info.peer_id
-            return an.ResponseReceived(self.env.now,
-                                       responding_peer_id, self.peer_id,
-                                       queried_peer_id, queried_ids,
-                                       status, in_event_id)
-        # Tuples of queried ID and associated pending query.
-        qid_pqs = []
-        for queried_id in queried_ids:
-            pending_query = self.pending_queries.get(queried_id)
-            if pending_query is not None:
-                qid_pqs.append((queried_id, pending_query))
-        for qid1, qid2 in it.product((qid for qid, _ in qid_pqs), repeat=2):
-            if qid1 == qid2:
-                continue
-            assert qid1.startswith(qid2) or qid2.startswith(qid1)
-            assert len(qid1) != len(qid2)
-        if not qid_pqs:
-            # This is not a response to a currently pending query.
-            statuses = [self.check_completed_queries(responding_peer_id,
-                                                     qid, queried_peer_info)
-                        for qid in queried_ids]
-            not_none_statuses = [s for s in statuses if s is not None]
-            if not not_none_statuses:
-                in_event_id = self.logger.log(event('unmatched'))
-            else:
-                for status in not_none_statuses:
-                    in_event_id = self.logger.log(event(status))
-            return
-        retry_qid_pqs = []
-        for queried_id, pending_query in qid_pqs:
-            if responding_peer_id not in pending_query.queries_sent:
-                status = self.check_completed_queries(
-                    responding_peer_id, queried_id, queried_peer_info)
-                if status is None:
-                    status = 'wrong_responder'
-                in_event_id = self.logger.log(event(status))
-                continue
-            pending_query.timeout_proc.interrupt()
+        try:
+            out_query = self.out_queries_map[queried_id].pop(
+                responding_peer_id)
             if queried_peer_info is not None:
-                in_event_id = self.logger.log(event('success'))
-                self.behavior.on_response_success(
-                    pending_query, responding_peer_id, queried_peer_info,
-                    in_event_id)
-                self.pending_queries.pop(queried_id, None)
-                self.archive_completed_query(pending_query, queried_id)
+                status = 'success'
+            else:
+                status = 'failure'
+        except KeyError:
+            status = 'unmatched'
+            return
+        finally:
+            in_event_id = self.logger.log(an.ResponseReceived(
+                self.env.now, responding_peer_id, self.peer_id,
+                queried_peer_info, queried_id, status, in_event_id))
+        if len(self.out_queries_map[queried_id]) == 0:
+            del self.out_queries_map[queried_id]
+        out_query.timeout_proc.interrupt()
+        if queried_peer_info is not None:
+            self.behavior.on_response_success(
+                responding_peer_id, queried_id, queried_peer_info, in_event_id)
+            if queried_peer_info.peer_id is not None:
+                assert queried_peer_info.prefix is not None
+                assert queried_peer_info.address is not None
                 self.introduce(queried_peer_info)
-                continue
-            if not self.pending_query_has_known_query_peer(pending_query):
-                in_event_id = self.logger.log(event('failure_ultimate'))
-                self.behavior.on_response_failure(
-                    pending_query, responding_peer_id, in_event_id)
-                self.pending_queries.pop(queried_id, None)
-                self.archive_completed_query(pending_query, queried_id)
-                continue
-            retry_qid_pqs.append((queried_id, pending_query))
-        if retry_qid_pqs:
-            in_event_id = self.logger.log(event('failure_retry'))
-            # Only retry the longest of the queried IDs, but add the others to
-            # the pending query.
-            queried_id, pending_query = max(retry_qid_pqs,
-                                            key=lambda t: len(t[0]))
-            for qid, pq in retry_qid_pqs:
-                if qid == queried_id:
-                    continue
-                for qpid, qids in pq.querying_peers.items():
-                    pending_query.querying_peers.setdefault(
-                        qpid, SortedIterSet()).update(qids)
-                self.pending_queries.pop(qid, None)
-                self.archive_completed_query(pq, qid)
-            self.behavior.on_response_retry(pending_query, responding_peer_id,
-                                            queried_id, in_event_id)
+            else:
+                # TODO The responding peer claims that there doesn't exist a
+                # peer with the ID we queried. Decide if we trust him or want
+                # to query someone else to confirm.
+                pass
+            return
+        self.behavior.on_response_failure(
+            responding_peer_id, queried_id, out_query.peers_already_queried,
+            out_query.query_further, out_query.query_sync, in_event_id)
 
     def send_reputation_update(self, peer_id, reputation_diff, in_event_id):
         """
@@ -1062,104 +1060,28 @@ class Peer:
                             - self.settings['update_retention_time']), 0)
             del query_peer_info.reputation_updates[:del_idx]
 
-    def finalize_query(self, status, in_event_id):
-        self.logger.log(an.QueryFinalized(self.env.now, self.peer_id, status,
-                                          in_event_id))
-
-    def check_completed_queries(self, responding_peer_id, queried_id,
-                                queried_peer_info):
+    def query_timeout(self, peer_id, queried_id, in_event_id):
         """
-        Check the list of already completed queries for a match.
-
-        Checks whether responding_peer has previously been queried for
-        queried_id but that query has already been answered by someone else.
-        This is done by checking the completed_queries dictionary, into which
-        PendingQuery objects are placed once a query is answered. Also removes
-        that entry.
-
-        Return None if there was no matching entry, 'late_success' if there was
-        and the query was a success, and 'late_failure' if the response reports
-        failure.
+        :param peer_id: ID of the peer who failed to respond in time.
         """
-        completed_queries = self.completed_queries.get(queried_id)
-        if completed_queries is None:
-            return
-        for i, pending_query in enumerate(completed_queries):
-            sent_query = pending_query.queries_sent.pop(responding_peer_id,
-                                                        None)
-            if sent_query is None:
-                # This particular pending query was not sent toresponding_peer.
-                continue
-            if queried_peer_info is not None:
-                status = 'late_success'
-                self.behavior.on_response_late_success(responding_peer_id)
-            else:
-                status = 'late_failure'
-                self.behavior.on_response_late_failure(responding_peer_id)
-            break
-        else:
-            return None
-        if len(pending_query.queries_sent) == 0:
-            completed_queries.pop(i)
-        if len(completed_queries) == 0:
-            self.completed_queries.pop(queried_id, None)
-        return status
-
-    def archive_completed_query(self, pending_query, queried_id):
-        if len(pending_query.queries_sent) == 0:
-            return
-        completed_queries = self.completed_queries.get(queried_id)
-        if completed_queries is not None:
-            completed_queries.append(pending_query)
-        else:
-            self.completed_queries[queried_id] = [pending_query]
-        util.do_delayed(
-            self.env, self.settings['completed_query_retention_time'],
-            self.remove_completed_query, pending_query, queried_id)
-
-    def remove_completed_query(self, pending_query, queried_id):
-        completed_queries = self.completed_queries.get(queried_id)
-        if completed_queries is None:
-            return
-        try:
-            completed_queries.remove(pending_query)
-        except ValueError:
-            pass
-        if len(completed_queries) == 0:
-            self.completed_queries.pop(queried_id, None)
-
-    def query_timeout(self, recipient_id, queried_id, in_event_id):
-        def event(status):
-            return an.Timeout(self.env.now, self.peer_id, recipient_id,
-                              queried_id, status, in_event_id)
         timeout = (self.settings['query_timeout']
-                   + self.behavior.expect_delay(recipient_id))
+                   + self.behavior.expect_delay(peer_id))
         try:
             yield self.env.timeout(timeout)
         except simpy.Interrupt:
             return
-        pending_query = self.pending_queries.get(queried_id)
-        # pending_query shouldn't be None here. When the timeout is started, it
-        # must be added to the pending queries, and is only removed once a
-        # response has been received and the timeout is interrupted.
-        assert pending_query is not None
-        if not self.pending_query_has_known_query_peer(pending_query):
-            in_event_id = self.logger.log(event('failure_ultimate'))
-            self.behavior.on_timeout_failure(pending_query, recipient_id,
-                                             in_event_id)
-            self.pending_queries.pop(queried_id, None)
-            self.archive_completed_query(pending_query, queried_id)
-            return
-        in_event_id = self.logger.log(event('failure_retry'))
-        self.behavior.on_timeout_retry(pending_query, recipient_id,
-                                       queried_id, in_event_id)
-
-    def add_pending_query(self, queried_id, pending_query):
-        for pending_queried_id in self.pending_queries.keys():
-            # A pending query must not be added if there is already a pending
-            # query for a more specific ID.
-            assert not pending_queried_id.startswith(queried_id)
-        self.pending_queries[queried_id] = pending_query
+        in_event_id = self.logger.log(an.Timeout(
+            self.env.now, self.peer_id, peer_id, queried_id, in_event_id))
+        # TODO Do timed out queries need to be archived in order to give
+        # rewards for correct but late responses?
+        assert queried_id in self.out_queries_map
+        assert peer_id in self.out_queries_map[queried_id]
+        out_query = self.out_queries_map[queried_id].pop(peer_id)
+        if len(self.out_queries_map[queried_id]) == 0:
+            del self.out_queries_map[queried_id]
+        self.behavior.on_timeout(
+            peer_id, queried_id, out_query.peers_already_queried,
+            out_query.query_further, out_query.query_sync, in_event_id)
 
     def peer_query_groups(self, peer_id):
         """Iterate query groups that contain a peer."""
@@ -1311,6 +1233,71 @@ class Peer:
                 return True
             i += 1
         return False
+
+    def add_in_query(self, querying_peer_id, queried_id):
+        assert not self.has_in_query(querying_peer_id, queried_id)
+        in_query = IncomingQuery(self.env.now)
+        self.in_queries_map.setdefault(queried_id, OrderedDict())[
+            querying_peer_id] = in_query
+
+    def has_in_query(self, querying_peer_id, queried_id):
+        if queried_id in self.in_queries_map:
+            return querying_peer_id in self.in_queries_map[queried_id]
+        return False
+
+    def has_matching_out_queries(self, queried_id):
+        """
+        Return whether there are ongoing queries matching an ID.
+
+        This is true if queries have been sent, but no response yet received,
+        whose responses could answer queries for queried_id. This is the case
+        if queried_id is a prefix of the queried ID of the ongoing query, i.e.
+        the queried ID of the ongoing query is equal to or more specific than
+        queried_id.
+        """
+        try:
+            next(self.out_queries_map.iterkeys(queried_id))
+        except StopIteration:
+            return False
+        return True
+
+    def matching_in_queries(self, queried_id):
+        """
+        Find incoming queries matching an ID.
+
+        Returns a map mapping an ID that matches queried_id to maps in which
+        each item describes an incoming query, i.e. one that this peer was
+        asked to answer. Each such item maps the ID of the querying peer to an
+        IncomingQuery object.
+
+        An ID matches queried_id if it is a prefix of queried_id, i.e. it is
+        equal to or more general than queried_id.
+
+        Creates a copy of this peer's relevant in_queries_map, and doesn't
+        delete anything.
+        """
+        res = OrderedDict()
+        for in_queried_id, in_queries in self.in_queries_map.iter_prefix_items(
+                queried_id):
+            res[in_queried_id] = deepcopy(in_queries)
+        return res
+
+    def finalize_own_query(self, status, in_event_id):
+        self.logger.log(an.QueryFinalized(self.env.now, self.peer_id, status,
+                                          in_event_id))
+
+    def finalize_in_queries(self, in_queries_map, status, in_event_id):
+        """
+        Delete incoming queries and finalize own queries.
+
+        :param in_queries_map: A map mapping queried ID to maps mapping
+            querying peer ID to IncomingQuery objects (as returned by
+            matching_in_queries()).
+        """
+        for queried_id, in_queries in in_queries_map.items():
+            if self.peer_id in in_queries:
+                self.finalize_own_query(status, in_event_id)
+            del self.in_queries_map[queried_id]
 
 
 def calculate_reputation(reward_attenuation_strategy, current_reputation,
@@ -1468,13 +1455,15 @@ class QueryPeerInfo(PeerInfo):
         self.reputation_updates = []
 
 
-class PendingQuery:
-    def __init__(self, start_time, querying_peer_id, queried_id,
-                 peers_to_query, timeout_proc=None):
-        self.start_time = start_time
-        self.querying_peers = OrderedDict(((querying_peer_id,
-                                           SortedIterSet((queried_id,))),))
-        self.timeout_proc = timeout_proc
-        self.peers_to_query = peers_to_query
-        # Maps ID of recipient of a query to the time the query was sent.
-        self.queries_sent = OrderedDict()
+class OutgoingQuery:
+    def __init__(self, time, peers_already_queried, query_further, query_sync):
+        self.time = time
+        self.peers_already_queried = peers_already_queried
+        self.query_further = query_further
+        self.query_sync = query_sync
+        self.timeout_proc = None
+
+
+class IncomingQuery:
+    def __init__(self, time):
+        self.time = time

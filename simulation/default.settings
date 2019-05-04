@@ -100,9 +100,6 @@
     # to network delay. In the calculation of penalty delay, this will be
     # added on top.
     'query_timeout': 2,
-    # The number of time units completed queries are archived to be able to
-    # match them to incoming late responses.
-    'completed_query_retention_time': 100,
     # The number of time units reputation updates are archived to be able to
     # roll back and reapply them in case of updates arriving out of order.
     'update_retention_time': 100,

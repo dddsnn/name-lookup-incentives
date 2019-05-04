@@ -1,6 +1,8 @@
 import simpy
 from itertools import count
 from collections import OrderedDict
+import pytrie
+import bitstring
 
 
 class Network:
@@ -39,9 +41,9 @@ class Network:
                                           in_event_id))
 
     def send_response(self, sender_id, sender_address, recipient_address,
-                      queried_ids, queried_peer_info, in_event_id):
+                      queried_id, queried_peer_info, in_event_id):
         self.send(sender_id, sender_address, recipient_address,
-                  lambda si, r: SendResponse(self.env, si, r, queried_ids,
+                  lambda si, r: SendResponse(self.env, si, r, queried_id,
                                              queried_peer_info, in_event_id))
 
     def send_reputation_update(self, sender_id, sender_address,
@@ -69,19 +71,19 @@ class SendQuery(simpy.events.Event):
 
 
 class SendResponse(simpy.events.Event):
-    def __init__(self, env, sender_id, recipient, queried_ids,
+    def __init__(self, env, sender_id, recipient, queried_id,
                  queried_peer_info, in_event_id):
         super().__init__(env)
         self.ok = True
         self.sender_id = sender_id
         self.recipient = recipient
-        self.queried_ids = queried_ids
+        self.queried_id = queried_id
         self.queried_peer_info = queried_peer_info
         self.in_event_id = in_event_id
         self.callbacks.append(SendResponse.action)
 
     def action(self):
-        self.recipient.recv_response(self.sender_id, self.queried_ids,
+        self.recipient.recv_response(self.sender_id, self.queried_id,
                                      self.queried_peer_info, self.in_event_id)
 
 
@@ -117,6 +119,10 @@ class SortedIterSet(set):
     def __iter__(self):
         li = list(super().__iter__())
         return iter(sorted(li))
+
+
+class SortedBitsTrie(pytrie.SortedTrie):
+    KeyFactory = bitstring.Bits
 
 
 def bit_overlap(a, b):
@@ -184,3 +190,15 @@ def remove_duplicates(ls, key=None):
         else:
             items.add(item)
             i += 1
+
+
+class EmptyClass:
+    pass
+
+
+def generic_repr(self):
+    excluded = set(EmptyClass.__dict__.keys())
+    attrs = ((attr, value) for (attr, value)
+             in sorted(self.__dict__.items()) if attr not in excluded)
+    return '{}: {{{}}}'.format(type(self).__name__, ', '.join(
+        '{}: {}'.format(attr, value) for (attr, value) in attrs))
