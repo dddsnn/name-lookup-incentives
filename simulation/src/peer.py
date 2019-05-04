@@ -249,10 +249,11 @@ class PeerBehavior:
         Select the next peer to query.
 
         Considers peers that could be queried to resolve queried_id and returns
-        the ID of the best one according to sort_peers_to_query(). Does not
+        the ID of the best one according to best_peer_to_query(). Does not
         consider peers whose IDs are in peers_already_queried.
 
-        Returns None if there is no peer that could be queried.
+        Returns the ID of the peer that should be queried, or None if there is
+        no peer that could be queried.
 
         :param query_further: If True, also considers peers whose overlap with
             the queried ID is less than or equal than for this peer, otherwise
@@ -278,78 +279,78 @@ class PeerBehavior:
                         and query_peer_info.peer_id
                         not in peers_already_queried):
                     peers_to_query_info.append((False, query_peer_info))
-        self.sort_peers_to_query(peers_to_query_info, queried_id)
         if len(peers_to_query_info) == 0:
             return None
-        return peers_to_query_info[0][1].peer_id
+        return self.best_peer_to_query(peers_to_query_info, queried_id)
 
-    def sort_peers_to_query(self, sync_peer_infos, queried_id):
+    def best_peer_to_query(self, sync_peer_infos, queried_id):
         """
-        Sort a list of PeerInfos according to the peer selection strategy.
+        Get the best out of a list of PeerInfos.
 
-        The order of the list depends on the query_peer_selection value in the
+        The selected peer depends on the query_peer_selection value in the
         settings. Possible values are:
-            * 'overlap': Peers are sorted by the length of the overlap of their
-            prefix with the queried ID, greatest first. No tie breaker.
-            * 'overlap_high_rep_last': As 'overlap', but all peers with enough
+            * 'overlap': Choose the peer whose prefix has the highest overlap
+                with queried_id. No tie breaker.
+            * 'overlap_high_rep_last': As 'overlap', but peers with enough
                 reputation (i.e. whose minimum reputation in all shared query
                 groups is greater than or equal 'no_penalty_reputation' times
-                'reputation_buffer_factor' are taken from the front and added
-                to the back.
-            * 'shuffled': The list is shuffled randomly.
-            * 'overlap_rep_sorted': As 'overlap' but within groups of equal
-                overlap, peers are sorted by reputation in ascending order.
-            * 'rep_sorted': Peers are sorted by reputation in ascending_order.
+                'reputation_buffer_factor') are given lower priority than all
+                others.
+            * 'random': Choose a peer at random.
+            * 'overlap_rep_sorted': As 'overlap' but within the group of the
+                highest overlap, choose the peer with the lowest reputation.
+            * 'rep_sorted': Choose the peer with the lowest reputation.
 
-        For all strategies except 'shuffled', sync peers are sorted to the
-        back. Since none of the strategies affect sync peers, they appear at
-        the end of the result list in the same order they were passed in.
+        For all strategies except 'random', sync peers are given lower priority
+        than query peers.
+
+        Returns just the peer ID.
 
         :param sync_peer_infos: A list of tuples (sp, pi) describing peers,
             where sp is a boolean that is True if the peer is a sync peer and
-            pi is the peer's PeerInfo.
+            pi is the peer's PeerInfo. Must not be empty.
         """
         if (self.peer.settings['query_peer_selection']
-                not in ('overlap', 'overlap_high_rep_last', 'shuffled',
+                not in ('overlap', 'overlap_high_rep_last', 'random',
                         'overlap_rep_sorted', 'rep_sorted')):
             raise Exception(
                 'Invalid query peer selection strategy {}.'
                 .format(self.peer.settings['query_peer_selection']))
         if (self.peer.settings['query_peer_selection']
-                in ('overlap', 'overlap_high_rep_last')):
-            def key(sync_peer_info):
+                in ('overlap', 'overlap_high_rep_last', 'overlap_rep_sorted')):
+            def overlap_key(sync_peer_info):
                 sync_peer, peer_info = sync_peer_info
                 overlap = util.bit_overlap(peer_info.prefix, queried_id)
                 return (-int(sync_peer), overlap)
-            sync_peer_infos.sort(key=key, reverse=True)
-        elif self.peer.settings['query_peer_selection'] == 'shuffled':
-            random.shuffle(sync_peer_infos)
-        elif (self.peer.settings['query_peer_selection']
-                == 'overlap_rep_sorted'):
-            def key(sync_peer_info):
-                sync_peer, peer_info = sync_peer_info
-                overlap = util.bit_overlap(peer_info.prefix, queried_id)
-                min_rep = self.peer.min_peer_reputation(peer_info.peer_id)
-                return (-int(sync_peer), overlap, -min_rep)
-            sync_peer_infos.sort(key=key, reverse=True)
+            if self.peer.settings['query_peer_selection'] == 'overlap':
+                return max(sync_peer_infos, key=overlap_key)[1].peer_id
+            elif (self.peer.settings['query_peer_selection']
+                  == 'overlap_high_rep_last'):
+                def high_rep_key(sync_peer_info):
+                    ok = overlap_key(sync_peer_info)
+                    enough_rep\
+                        = (self.peer.settings['reputation_buffer_factor']
+                           * self.peer.settings['no_penalty_reputation'])
+                    min_rep = self.peer.min_peer_reputation(
+                        sync_peer_info[1].peer_id)
+                    if min_rep >= enough_rep:
+                        return (ok[0], 0, ok[1])
+                    return (ok[0], 1, ok[1])
+                return max(sync_peer_infos, key=high_rep_key)[1].peer_id
+            else:
+                def rep_sorted_key(sync_peer_info):
+                    min_rep = self.peer.min_peer_reputation(
+                        sync_peer_info[1].peer_id)
+                    return (*overlap_key(sync_peer_info), -min_rep)
+                return max(sync_peer_infos, key=rep_sorted_key)[1].peer_id
+        elif self.peer.settings['query_peer_selection'] == 'random':
+            return random.choice(sync_peer_infos)[1].peer_id
         elif self.peer.settings['query_peer_selection'] == 'rep_sorted':
             def key(sync_peer_info):
                 sync_peer, peer_info = sync_peer_info
                 min_rep = self.peer.min_peer_reputation(peer_info.peer_id)
                 return (int(sync_peer), min_rep)
-            sync_peer_infos.sort(key=key)
-        if (self.peer.settings['query_peer_selection']
-                == 'overlap_high_rep_last'):
-            enough_rep = (self.peer.settings['reputation_buffer_factor']
-                          * self.peer.settings['no_penalty_reputation'])
-            swap_back_idxs = []
-            for i, (_, peer_info) in enumerate(sync_peer_infos):
-                min_rep = self.peer.min_peer_reputation(peer_info.peer_id)
-                if min_rep >= enough_rep:
-                    swap_back_idxs.append(i - len(swap_back_idxs))
-            for idx in swap_back_idxs:
-                peer_info = sync_peer_infos.pop(idx)
-                sync_peer_infos.append(peer_info)
+            return min(sync_peer_infos, key=key)[1].peer_id
 
     def query_group_performs(self, query_group_id):
         """

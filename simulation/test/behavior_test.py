@@ -700,15 +700,18 @@ class TestSelectPeerToQuery(unittest.TestCase):
             self.helper.id_with_prefix('1111'), set(), False, False)
         self.assertEqual(selected, peer_b.peer_id)
 
-    @unittest.mock.patch('random.shuffle')
-    def test_shuffles(self, mocked_shuffle):
-        self.helper.settings['query_peer_selection'] = 'shuffled'
+    @unittest.mock.patch('random.choice')
+    def test_chooses_randomly(self, mocked_choice):
+        self.helper.settings['query_peer_selection'] = 'random'
         peer_a = self.helper.peer_with_prefix('0000')
-        peer_b = self.helper.peer_with_prefix('1000')
-        self.helper.create_query_group(peer_a, peer_b)
-        peer_a.behavior.select_peer_to_query(
+        query_peers = [self.helper.peer_with_prefix('1000') for _ in range(99)]
+        query_peer_infos = [(False, p.info()) for p in query_peers]
+        self.helper.create_query_group(peer_a, *query_peers)
+        mocked_choice.return_value = query_peer_infos[29]
+        selected = peer_a.behavior.select_peer_to_query(
             self.helper.id_with_prefix('1111'), set(), False, False)
-        mocked_shuffle.assert_called_once()
+        self.assertEqual(selected, query_peers[29].peer_id)
+        mocked_choice.assert_called_once_with(query_peer_infos)
 
     def test_sorts_by_overlap_and_reputation(self):
         self.helper.settings['query_peer_selection'] = 'overlap_rep_sorted'

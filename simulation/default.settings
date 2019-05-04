@@ -121,21 +121,19 @@
     # The multiple of the no_penalty_reputation at or above which a peer will
     # stop responding to queries.
     'reputation_buffer_factor': 1.4,
-    # The strategy to use when selecting and sorting the list of query peers
-    # to send a query to. Possible values are:
-    # * 'overlap': Create a list of all query peers whose prefix has a higher
-    #     overlap with the queried ID than one's own. Sort this list by the
-    #     length of that overlap, greatest first. No tie breaker.
-    # * 'overlap_high_rep_last': As 'overlap', but all peers with enough
+    # The strategy to use when selecting the next peer to send a query to.
+    # Possible values are:
+    # * 'overlap': Choose the peer whose prefix has the highest overlap with
+    #     the queried ID. No tie breaker.
+    # * 'overlap_high_rep_last': As 'overlap', but peers with enough
     #     reputation (i.e. whose minimum reputation in all shared query groups
     #     is greater than or equal 'no_penalty_reputation' times
-    #     'reputation_buffer_factor' are taken from the front and added to the
-    #     back.
-    # * 'shuffled': Like 'overlap', except the list is shuffled instead of
-    #     sorted.
-    # * 'overlap_rep_sorted': As 'overlap' but within groups of equal overlap,
-    #     peers are sorted by reputation in ascending order.
-    # * 'rep_sorted': Peers are sorted by reputation in ascending_order.
+    #     'reputation_buffer_factor') are given lower priority than all
+    #     others.
+    # * 'random': Choose a peer at random.
+    # * 'overlap_rep_sorted': As 'overlap' but within the group of the highest
+    #     overlap, choose the peer with the lowest reputation.
+    # * 'rep_sorted': Choose the peer with the lowest reputation.
     'query_peer_selection': 'overlap_rep_sorted',
     # The minimum number of history entries to decide whether a query group
     # performs well for a peer.
