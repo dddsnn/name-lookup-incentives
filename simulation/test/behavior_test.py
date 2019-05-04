@@ -415,7 +415,7 @@ class TestOnTimeout(unittest.TestCase):
         behavior.on_timeout(responding_peer_id, queried_id, set(), False,
                             False, None)
         peer_a.send_reputation_update.assert_called_once_with(
-            responding_peer_id, self.helper.settings['failed_query_penalty'],
+            responding_peer_id, self.helper.settings['timeout_query_penalty'],
             ANY)
 
     def test_attempts_retry(self):

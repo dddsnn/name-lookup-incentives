@@ -32,7 +32,7 @@
     'successful_query_reward': 1,
     # The reputation decrease imposed for answering a query, but failing to
     # present the proper record.
-    'failed_query_penalty': -2,
+    'failed_query_penalty': -1,
     # The reputation decrease imposed for failing to respond to a query within
     # the timeout chosen by the querying peer.
     'timeout_query_penalty': -2,
