@@ -1,10 +1,9 @@
 import analyze as an
 import util
-from util import SortedIterSet
 import simpy
 import itertools as it
-from copy import deepcopy
-from collections import namedtuple, OrderedDict, deque
+import copy
+import collections as cl
 import random
 import numpy as np
 
@@ -85,7 +84,7 @@ class PeerBehavior:
                 in_event_id)
             return
         # TODO Send queries to multiple peers at once.
-        peers_already_queried = SortedIterSet()
+        peers_already_queried = util.SortedIterSet()
         if self.attempt_query(queried_id, peers_already_queried, query_further,
                               query_sync, in_event_id):
             self.peer.add_in_query(querying_peer_id, queried_id)
@@ -412,7 +411,7 @@ class PeerBehavior:
             can_be_removed = True
             coverage = group_coverage[query_group_id]
             for subprefix in (sp for sp, ps in coverage.items() if ps):
-                covering_peer_ids = SortedIterSet(it.chain(*(
+                covering_peer_ids = util.SortedIterSet(it.chain(*(
                     pc[subprefix] for gid, pc in group_coverage.items()
                     if gid != query_group_id)))
                 num_missing_peers\
@@ -446,14 +445,14 @@ class Peer:
         self.all_prefixes = all_prefixes
         self.settings = settings
         self.prefix = self.peer_id[:self.settings['prefix_length']]
-        self.query_groups = OrderedDict()
-        self.sync_peers = OrderedDict()
+        self.query_groups = cl.OrderedDict()
+        self.sync_peers = cl.OrderedDict()
         self.in_queries_map = util.SortedBitsTrie()
         self.out_queries_map = util.SortedBitsTrie()
         self.address = self.network.register(self)
         self.behavior = PeerBehavior(self)
-        self.query_group_history = OrderedDict()
-        self.expected_penalties = OrderedDict()
+        self.query_group_history = cl.OrderedDict()
+        self.expected_penalties = cl.OrderedDict()
 
         # Add self-loop to the peer graph so that networkx considers the node
         # for this peer a component.
@@ -544,13 +543,13 @@ class Peer:
                         < self.settings['max_desired_group_size']
                         and self.peer_id not in query_group):
                     self.add_to_query_group(query_group, self)
-                    query_group_copy = deepcopy(query_group)
+                    query_group_copy = copy.deepcopy(query_group)
                     query_group_copy[self.peer_id] = QueryPeerInfo(
                         self.info(), self.settings['initial_reputation'])
                     self.query_groups[query_group.query_group_id]\
                         = query_group_copy
                     self.all_query_groups[query_group.query_group_id]\
-                        = deepcopy(query_group_copy)
+                        = copy.deepcopy(query_group_copy)
                     self.logger.log(
                         an.QueryGroupAdd(self.env.now, self.peer_id,
                                          query_group.query_group_id, None))
@@ -563,11 +562,11 @@ class Peer:
                     self.add_to_query_group(query_group, peer)
                     query_group[peer_info.peer_id] = QueryPeerInfo(
                         peer_info, self.settings['initial_reputation'])
-                    query_group_copy = deepcopy(query_group)
+                    query_group_copy = copy.deepcopy(query_group)
                     peer.query_groups[query_group.query_group_id]\
                         = query_group_copy
                     self.all_query_groups[query_group.query_group_id]\
-                        = deepcopy(query_group_copy)
+                        = copy.deepcopy(query_group_copy)
                     self.logger.log(
                         an.QueryGroupAdd(self.env.now, peer_info.peer_id,
                                          query_group.query_group_id, None))
@@ -578,9 +577,9 @@ class Peer:
                                      self.settings['initial_reputation'])
             self.all_query_groups[query_group.query_group_id] = query_group
             self.query_groups[query_group.query_group_id]\
-                = deepcopy(query_group)
+                = copy.deepcopy(query_group)
             peer.query_groups[query_group.query_group_id]\
-                = deepcopy(query_group)
+                = copy.deepcopy(query_group)
             self.logger.log(an.QueryGroupAdd(self.env.now, self.peer_id,
                                              query_group.query_group_id, None))
             self.logger.log(an.QueryGroupAdd(self.env.now, peer_info.peer_id,
@@ -596,7 +595,7 @@ class Peer:
                 self.logger.log(
                     an.UncoveredSubprefixes(
                         self.env.now, query_peer.peer_id,
-                        SortedIterSet(query_peer.uncovered_subprefixes()),
+                        util.SortedIterSet(query_peer.uncovered_subprefixes()),
                         None))
 
     def start_missing_query_peer_search(self):
@@ -681,14 +680,14 @@ class Peer:
         len(self.prefix) subprefixes to the number of peers this peer knows who
         can serve it.
         """
-        coverage = OrderedDict((sp, SortedIterSet())
-                               for sp in self.subprefixes())
+        coverage = cl.OrderedDict((sp, util.SortedIterSet())
+                                  for sp in self.subprefixes())
         for _, query_peer_info in self.known_query_peers():
             for sp in self.subprefixes():
                 if query_peer_info.prefix.startswith(sp):
                     coverage[sp].add(query_peer_info.peer_id)
                     break
-        return OrderedDict((sp, len(qps)) for (sp, qps) in coverage.items())
+        return cl.OrderedDict((sp, len(qps)) for (sp, qps) in coverage.items())
 
     def uncovered_subprefixes(self):
         """Return subprefixes for which no peer is known."""
@@ -709,10 +708,10 @@ class Peer:
         to the set of IDs of the peers in the query group that serve that
         subprefix.
         """
-        coverage = OrderedDict((sp, SortedIterSet())
-                               for sp in self.subprefixes())
-        query_group_coverage = OrderedDict((gid, deepcopy(coverage))
-                                           for gid in self.query_groups.keys())
+        coverage = cl.OrderedDict((sp, util.SortedIterSet())
+                                  for sp in self.subprefixes())
+        query_group_coverage = cl.OrderedDict(
+            (gid, copy.deepcopy(coverage)) for gid in self.query_groups.keys())
         for query_group_id, query_peer_info in self.known_query_peers():
             coverage = query_group_coverage[query_group_id]
             for sp in coverage.keys():
@@ -763,13 +762,13 @@ class Peer:
                                      and qpi.peer_id not in covering_peer_ids)
             if num_covering_peers:
                 # TODO Factor out.
-                self.query_groups[query_group_id] = deepcopy(
+                self.query_groups[query_group_id] = copy.deepcopy(
                     self.all_query_groups[query_group_id])
                 qpi = QueryPeerInfo(self.info(),
                                     self.settings['initial_reputation'])
                 self.query_groups[query_group_id][self.peer_id] = qpi
                 self.all_query_groups[query_group_id][self.peer_id]\
-                    = deepcopy(qpi)
+                    = copy.deepcopy(qpi)
                 self.add_to_query_group(self.query_groups[query_group_id],
                                         self)
                 self.logger.log(an.QueryGroupAdd(self.env.now, self.peer_id,
@@ -795,7 +794,7 @@ class Peer:
 
     def update_query_group_history(self):
         for query_group_id, query_group in self.query_groups.items():
-            self.query_group_history.setdefault(query_group_id, deque(
+            self.query_group_history.setdefault(query_group_id, cl.deque(
                 (), self.settings['query_group_history_length'])).append(
                     query_group[self.peer_id].reputation)
 
@@ -834,7 +833,7 @@ class Peer:
         out_query = OutgoingQuery(self.env.now, peers_already_queried,
                                   query_further, query_sync)
         self.out_queries_map.setdefault(
-            queried_id, OrderedDict())[recipient_id] = out_query
+            queried_id, cl.OrderedDict())[recipient_id] = out_query
         in_event_id = self.logger.log(an.QuerySent(
             self.env.now, self.peer_id, recipient_id, queried_id, in_event_id))
         timeout_proc = self.env.process(self.query_timeout(
@@ -984,9 +983,10 @@ class Peer:
             self.logger.log(an.QueryPeerVanished(
                 self.env.now, self.peer_id, peer_id, in_event_id))
             return
-        query_group_ids = SortedIterSet(qg.query_group_id
-                                        for qg in query_groups)
-        query_peer_ids = SortedIterSet(pi for qg in query_groups for pi in qg)
+        query_group_ids = util.SortedIterSet(qg.query_group_id
+                                             for qg in query_groups)
+        query_peer_ids = util.SortedIterSet(
+            pi for qg in query_groups for pi in qg)
 
         # Update the reputation in the shared all_query_groups. This needs to
         # be kept current since it's taken as the initial value whenever
@@ -1022,10 +1022,9 @@ class Peer:
         if peer_id == self.peer_id and reputation_diff < 0 and not expected:
             self.logger.log(an.UnexpectedPenaltyApplied(
                 self.env.now, self.peer_id, sender_id, in_event_id))
-        query_groups = SortedIterSet(self.query_groups[gid]
-                                     for gid in query_group_ids
-                                     if gid in self.query_groups
-                                     and peer_id in self.query_groups[gid])
+        query_groups = util.SortedIterSet(
+            self.query_groups[gid] for gid in query_group_ids
+            if gid in self.query_groups and peer_id in self.query_groups[gid])
         for query_group in query_groups:
             query_peer_info = query_group[peer_id]
             # Roll back younger updates.
@@ -1237,7 +1236,7 @@ class Peer:
     def add_in_query(self, querying_peer_id, queried_id):
         assert not self.has_in_query(querying_peer_id, queried_id)
         in_query = IncomingQuery(self.env.now)
-        self.in_queries_map.setdefault(queried_id, OrderedDict())[
+        self.in_queries_map.setdefault(queried_id, cl.OrderedDict())[
             querying_peer_id] = in_query
 
     def has_in_query(self, querying_peer_id, queried_id):
@@ -1276,10 +1275,10 @@ class Peer:
         Creates a copy of this peer's relevant in_queries_map, and doesn't
         delete anything.
         """
-        res = OrderedDict()
+        res = cl.OrderedDict()
         for in_queried_id, in_queries in self.in_queries_map.iter_prefix_items(
                 queried_id):
-            res[in_queried_id] = deepcopy(in_queries)
+            res[in_queried_id] = copy.deepcopy(in_queries)
         return res
 
     def finalize_own_query(self, status, in_event_id):
@@ -1393,9 +1392,9 @@ class QueryGroup:
         :param members: An iterable of PeerInfo objects.
         """
         self.query_group_id = query_group_id
-        self._members = OrderedDict((info.peer_id,
-                                     QueryPeerInfo(info, initial_reputation))
-                                    for info in members)
+        self._members = cl.OrderedDict(
+            (info.peer_id, QueryPeerInfo(info, initial_reputation))
+            for info in members)
 
     def __len__(self):
         return self._members.__len__()
@@ -1444,8 +1443,8 @@ class PeerInfo:
         return self.peer_id < other.peer_id
 
 
-ReputationUpdate = namedtuple('ReputationUpdate', ['time', 'old_reputation',
-                                                   'reputation_diff'])
+ReputationUpdate = cl.namedtuple('ReputationUpdate',
+                                 ['time', 'old_reputation', 'reputation_diff'])
 
 
 class QueryPeerInfo(PeerInfo):

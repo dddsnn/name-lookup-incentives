@@ -1,9 +1,9 @@
 import util
-from peer import QueryGroup, query_group_id_iter, Peer, PeerBehavior
+import peer as p
 import sys
 import os
 import bitstring as bs
-from copy import deepcopy
+import copy
 import simpy
 import analyze
 import random
@@ -39,9 +39,9 @@ class TestHelper:
 
     def peer_with_prefix(self, prefix_str, start_processes=False):
         peer_id = self.id_with_prefix(prefix_str)
-        peer = Peer(self.env, self.logger, self.network, peer_id,
-                    self.all_query_groups, self.all_prefixes, self.settings,
-                    start_processes)
+        peer = p.Peer(self.env, self.logger, self.network, peer_id,
+                      self.all_query_groups, self.all_prefixes, self.settings,
+                      start_processes)
         self.all_sync_groups.setdefault(peer.prefix, set()).add(peer)
         for sync_peer in self.all_sync_groups[peer.prefix]:
             sync_peer.introduce(peer.info())
@@ -51,7 +51,7 @@ class TestHelper:
     def mock_peer_and_behavior_with_prefix(self, prefix_str,
                                            start_processes=False):
         peer = self.peer_with_prefix(prefix_str, start_processes)
-        mock_peer = unittest.mock.Mock(spec=Peer, wraps=peer)
+        mock_peer = unittest.mock.Mock(spec=p.Peer, wraps=peer)
         mock_peer.env = peer.env
         mock_peer.sync_peers = peer.sync_peers
         mock_peer.query_groups = peer.query_groups
@@ -59,17 +59,17 @@ class TestHelper:
         mock_peer.peer_id = peer.peer_id
         mock_peer.prefix = peer.prefix
         mock_peer.settings = peer.settings
-        behavior = PeerBehavior(mock_peer)
+        behavior = p.PeerBehavior(mock_peer)
         return mock_peer, behavior
 
     def create_query_group(self, *peers):
-        query_group = QueryGroup(next(query_group_id_iter),
-                                 (p.info() for p in peers),
-                                 self.settings['initial_reputation'])
+        query_group = p.QueryGroup(next(p.query_group_id_iter),
+                                   (p.info() for p in peers),
+                                   self.settings['initial_reputation'])
         self.all_query_groups[query_group.query_group_id] = query_group
         for peer in peers:
             peer.query_groups[query_group.query_group_id]\
-                = deepcopy(query_group)
+                = copy.deepcopy(query_group)
         return query_group.query_group_id
 
     def schedule_in(self, time, f, *args):

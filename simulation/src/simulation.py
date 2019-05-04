@@ -1,15 +1,14 @@
 import peer as p
 import analyze as an
 import util
-from util import SortedIterSet
 import simpy
 import bitstring as bs
 import random
 import signal
 import sys
-from collections import OrderedDict
-from math import log2
-from copy import deepcopy
+import collections as cl
+import math
+import copy
 import itertools as it
 
 
@@ -68,7 +67,7 @@ def even_sync_groups_peer_id_batches(settings):
     total_num_peers = sum(n for _, n in peer_batches)
     if total_num_peers > 2 ** settings['id_length']:
         raise Exception('IDs are too short for the number of peers.')
-    if (log2(total_num_peers) % 1
+    if (math.log2(total_num_peers) % 1
             or total_num_peers < 2 ** settings['prefix_length']):
         raise Exception('For even sync groups, the number of peers must be a'
                         ' power of 2 and greater or equal the number of sync'
@@ -137,13 +136,13 @@ def add_peers(time, peer_id_batch, all_peers, env, logger, network,
         all_peers[peer_id] = peer
         added_peers.append(peer)
         prefix = peer_id[:settings['prefix_length']]
-        sync_groups.setdefault(prefix, SortedIterSet()).add(peer)
+        sync_groups.setdefault(prefix, util.SortedIterSet()).add(peer)
         all_prefixes.add(prefix)
         env.process(request_generator(env, all_peers, peer))
         logger.log(an.PeerAdd(env.now, peer.peer_id, peer.prefix, None))
         logger.log(an.UncoveredSubprefixes(
-            env.now, peer.peer_id, SortedIterSet(peer.uncovered_subprefixes()),
-            None))
+            env.now, peer.peer_id,
+            util.SortedIterSet(peer.uncovered_subprefixes()), None))
         for sync_peer in sync_groups[prefix]:
             peer.introduce(sync_peer.info())
             sync_peer.introduce(peer.info())
@@ -153,7 +152,7 @@ def add_peers(time, peer_id_batch, all_peers, env, logger, network,
             query_group = all_query_groups[query_group_id]
             query_group[peer.peer_id] = p.QueryPeerInfo(
                 peer.info(), settings['initial_reputation'])
-            peer.query_groups[query_group_id] = deepcopy(query_group)
+            peer.query_groups[query_group_id] = copy.deepcopy(query_group)
             for qpi in query_group.infos():
                 all_peers[qpi.peer_id]\
                     .query_groups[query_group_id][peer.peer_id]\
@@ -180,10 +179,10 @@ if __name__ == '__main__':
     random.seed(a=settings['rng_seed'], version=2)
     env = simpy.Environment()
     logger = an.Logger(settings)
-    peers = OrderedDict()
-    sync_groups = OrderedDict()
-    all_query_groups = OrderedDict()
-    all_prefixes = SortedIterSet()
+    peers = cl.OrderedDict()
+    sync_groups = cl.OrderedDict()
+    all_query_groups = cl.OrderedDict()
+    all_prefixes = util.SortedIterSet()
     network = util.Network(env, settings)
 
     if settings['force_one_group']:

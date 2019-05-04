@@ -3,8 +3,8 @@ import networkx as nx
 import pickle
 import matplotlib.pyplot as plt
 import numpy as np
-from math import sqrt, ceil
-from itertools import takewhile, chain, product
+import math
+import itertools as it
 import operator as op
 import bitstring
 import peer
@@ -298,8 +298,8 @@ class Logger:
             return peer_id[:self.settings['prefix_length']]
 
         def query_peers(peer_id):
-            query_peer_ids = set(chain(*(g for g in query_groups.values()
-                                         if peer_id in g)))
+            query_peer_ids = set(it.chain(*(g for g in query_groups.values()
+                                            if peer_id in g)))
             query_peer_ids.discard(peer_id)
             return list(query_peer_ids)
 
@@ -329,9 +329,9 @@ class Logger:
                 # Peer is  closer to the queried ID than any query peer, won't
                 # send a query at all.
                 return set()
-            return set(takewhile(lambda p:
-                                 util.bit_overlap(peer_prefix(p), queried_id)
-                                 == first_overlap,
+            return set(it.takewhile(
+                lambda p: util.bit_overlap(peer_prefix(p), queried_id)
+                == first_overlap,
                        query_peer_ids))
 
         peer_ids = set(p for g in query_groups.values() for p in g)
@@ -343,7 +343,7 @@ class Logger:
         selection_probabilities = {}
         for query_group_id, query_group in query_groups.items():
             sp = selection_probabilities.setdefault(query_group_id, {})
-            for peer_id, querying_peer_id in product(query_group, repeat=2):
+            for peer_id, querying_peer_id in it.product(query_group, repeat=2):
                 # Compute the probability that when a request occurs at a peer
                 # in the query group, a query is sent to the peer (with ID
                 # peer_id).
@@ -547,11 +547,11 @@ def plot_grid(title, xlabel, ylabel, data_sets, plotter, max_edge_length=3,
     :param axes_modifier: A function taking one parameter to which each axes
         object is passed.
     """
-    edge_length = ceil(sqrt(len(data_sets)))
+    edge_length = math.ceil(math.sqrt(len(data_sets)))
     if edge_length > max_edge_length:
         edge_length = max_edge_length
     edge_length = max(1, edge_length)
-    num_figures = ceil(len(data_sets) / edge_length ** 2)
+    num_figures = math.ceil(len(data_sets) / edge_length ** 2)
     for figure_idx in range(num_figures):
         figure, axess = plt.subplots(edge_length, edge_length, sharex=True,
                                      sharey=True, squeeze=False)

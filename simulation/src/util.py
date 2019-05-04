@@ -1,6 +1,6 @@
 import simpy
-from itertools import count
-from collections import OrderedDict
+import itertools as it
+import collections as cl
 import pytrie
 import bitstring
 
@@ -9,8 +9,8 @@ class Network:
     def __init__(self, env, settings):
         self.env = env
         self.settings = settings
-        self.peers = OrderedDict()
-        self.address_iter = count()
+        self.peers = cl.OrderedDict()
+        self.address_iter = it.count()
 
     def register(self, peer):
         # TODO Reuse addresses.

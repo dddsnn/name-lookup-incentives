@@ -5,7 +5,7 @@ import bitstring as bs
 import peer as p
 import util
 import simpy
-from copy import deepcopy
+import copy
 
 
 class TestSendQuery(unittest.TestCase):
@@ -1554,7 +1554,7 @@ class TestFinalizeInQueries(unittest.TestCase):
         in_queries_map = {
             self.id_1: {self.id_2: 0, self.id_4: 0}
         }
-        self.mock_peer.in_queries_map = deepcopy(in_queries_map)
+        self.mock_peer.in_queries_map = copy.deepcopy(in_queries_map)
         self.mock_peer.in_queries_map.setdefault(
             self.id_1[:-3], {}).setdefault(self.id_5, 0)
         p.Peer.finalize_in_queries(self.mock_peer, in_queries_map, 'status',
@@ -1566,7 +1566,7 @@ class TestFinalizeInQueries(unittest.TestCase):
         in_queries_map = {
             self.id_1: {self.id_2: 0, self.id_4: 0}
         }
-        self.mock_peer.in_queries_map = deepcopy(in_queries_map)
+        self.mock_peer.in_queries_map = copy.deepcopy(in_queries_map)
         with unittest.mock.patch.object(
                 self.mock_peer, 'finalize_own_query') as mocked_finalize:
             p.Peer.finalize_in_queries(self.mock_peer, in_queries_map,
