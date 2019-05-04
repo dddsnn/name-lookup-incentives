@@ -168,30 +168,6 @@ def read_settings(file_name):
     return eval(settings_str)
 
 
-def remove_duplicates(ls, key=None):
-    """
-    Removes duplicate entries from a list.
-
-    Removes all but the first occurrence of duplicate entries and leaves the
-    order of the list intact.
-
-    If key is None (default), checks for duplicates by comparing the list
-    entries themselves, if key is a function, invokes it on each of the list
-    entries and compares based on the result.
-    """
-    items = set()
-    i = 0
-    while i < len(ls):
-        item = ls[i]
-        if key:
-            item = key(item)
-        if item in items:
-            ls.pop(i)
-        else:
-            items.add(item)
-            i += 1
-
-
 class EmptyClass:
     pass
 

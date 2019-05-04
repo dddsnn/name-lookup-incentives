@@ -88,21 +88,3 @@ class TestNetwork(unittest.TestCase):
         with self.assertRaises(util.UnassignedAddressError):
             self.network.send_query(self.peer_a_id, self.peer_a_address,
                                     unassigned_address, queried_id, 0)
-
-
-class TestRemoveDuplicates(unittest.TestCase):
-    def test_empty(self):
-        ls = []
-        util.remove_duplicates(ls)
-        self.assertEqual(ls, [])
-
-    def test_removes_duplicates(self):
-        ls = [1, 1, 2, 2, 1, 2, 3, 3, 2, 3, 2, 4, 1]
-        util.remove_duplicates(ls)
-        self.assertEqual(ls, [1, 2, 3, 4])
-
-    def test_uses_key(self):
-        ls = [(1, 1), (2, 1), (3, 2), (4, 2), (5, 1), (6, 2), (7, 3), (8, 3),
-              (9, 2), (10, 3), (11, 2), (12, 4), (13, 1)]
-        util.remove_duplicates(ls, key=lambda t: t[1])
-        self.assertEqual(ls, [(1, 1), (3, 2), (7, 3), (12, 4)])
