@@ -618,10 +618,14 @@ class Peer:
         be queried as well.
         """
         # TODO Specify peers that are already known to get new ones.
-        for subprefix in (sp for sp, c in self.subprefix_coverage().items()
-                          if c < self.settings['min_desired_query_peers']):
+        for subprefix, num_known_peers in self.subprefix_coverage().items():
+            if num_known_peers >= self.settings['min_desired_query_peers']:
+                continue
             if (self.settings['ignore_non_existent_subprefixes']
-                    and not self.subprefix_exists(subprefix)):
+                    and num_known_peers
+                    >= self.num_known_peers_for_subprefix(subprefix)):
+                assert (num_known_peers
+                        == self.num_known_peers_for_subprefix(subprefix))
                 continue
             try:
                 next(self.out_queries_map.iterkeys(subprefix))
@@ -695,11 +699,14 @@ class Peer:
         """Return subprefixes for which no peer is known."""
         return (sp for sp, c in self.subprefix_coverage().items() if c == 0)
 
-    def subprefix_exists(self, subprefix):
-        for prefix in self.all_prefixes:
-            if prefix.startswith(subprefix):
-                return True
-        return False
+    def num_known_peers_for_subprefix(self, subprefix):
+        """
+        Return the number of known peers whose prefix starts with subprefix.
+
+        Uses the all_prefixes trie, which is global information given to the
+        peer by the simulation that wouldn't be available in a real system.
+        """
+        return sum(1 for _ in self.all_prefixes.iterkeys(subprefix))
 
     def query_group_subprefix_coverage(self):
         """

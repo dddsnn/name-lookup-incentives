@@ -137,7 +137,8 @@ def add_peers(time, peer_id_batch, all_peers, env, logger, network,
         added_peers.append(peer)
         prefix = peer_id[:settings['prefix_length']]
         sync_groups.setdefault(prefix, util.SortedIterSet()).add(peer)
-        all_prefixes.add(prefix)
+        all_prefixes.setdefault(prefix, 0)
+        all_prefixes[prefix] += 1
         env.process(request_generator(env, all_peers, peer))
         logger.log(an.PeerAdd(env.now, peer.peer_id, peer.prefix, None))
         logger.log(an.UncoveredSubprefixes(
@@ -182,7 +183,7 @@ if __name__ == '__main__':
     peers = cl.OrderedDict()
     sync_groups = cl.OrderedDict()
     all_query_groups = cl.OrderedDict()
-    all_prefixes = util.SortedIterSet()
+    all_prefixes = util.SortedBitsTrie()
     network = util.Network(env, settings)
 
     if settings['force_one_group']:

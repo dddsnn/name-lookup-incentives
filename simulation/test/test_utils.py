@@ -18,7 +18,7 @@ class TestHelper:
         settings_file_name = os.path.join(sys.path[0], 'test.settings')
         self.settings = util.read_settings(settings_file_name)
         self.all_query_groups = {}
-        self.all_prefixes = set()
+        self.all_prefixes = util.SortedBitsTrie()
         self.env = simpy.Environment()
         self.logger = analyze.Logger(self.settings)
         self.network = util.Network(self.env, self.settings)
@@ -34,7 +34,9 @@ class TestHelper:
             peer_id = prefix + suffix
             if peer_id not in self.all_peer_ids:
                 self.all_peer_ids.add(peer_id)
-                self.all_prefixes.add(peer_id[:self.settings['prefix_length']])
+                peer_prefix = peer_id[:self.settings['prefix_length']]
+                self.all_prefixes.setdefault(peer_prefix, 0)
+                self.all_prefixes[peer_prefix] += 1
                 return peer_id
 
     def peer_with_prefix(self, prefix_str, start_processes=False):

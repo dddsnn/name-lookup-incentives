@@ -1455,6 +1455,15 @@ class TestFindMissingQueryPeers(unittest.TestCase):
         peer.find_missing_query_peers()
         self.mocked_send_query.assert_not_called()
 
+    def test_doesnt_query_for_more_if_there_is_none(self):
+        self.helper.settings['ignore_non_existent_subprefixes'] = True
+        self.helper.settings['min_desired_query_peers'] = 2
+        peer = self.helper.peer_with_prefix('00')
+        peer_a = self.helper.peer_with_prefix('10')
+        self.helper.create_query_group(peer, peer_a)
+        peer.find_missing_query_peers()
+        self.mocked_send_query.assert_not_called()
+
 
 class TestHasMatchingOutQueries(unittest.TestCase):
     def setUp(self):
