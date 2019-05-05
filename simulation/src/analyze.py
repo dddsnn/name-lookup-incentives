@@ -16,7 +16,7 @@ bitstring.Bits.__lt__ = util.bits_lt
 
 
 class Logger:
-    # TODO Make snapshots of the data occasionally so the entire event list
+    # OPTI Make snapshots of the data occasionally so the entire event list
     # doesn't have to be processed when querying global information.
     def __init__(self, settings):
         self.settings = settings

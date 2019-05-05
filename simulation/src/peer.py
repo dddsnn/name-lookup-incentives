@@ -617,6 +617,7 @@ class Peer:
         If query_sync_for_subprefixes is set in the settings, sync peers will
         be queried as well.
         """
+        # TODO Specify peers that are already known to get new ones.
         for subprefix in (sp for sp, c in self.subprefix_coverage().items()
                           if c < self.settings['min_desired_query_peers']):
             if (self.settings['ignore_non_existent_subprefixes']
@@ -906,8 +907,6 @@ class Peer:
                 self.in_queries_map[queried_id][querying_peer_id].time\
                     = self.env.now
                 return
-        # TODO In case of a query for a partial ID, randomize which peer is
-        # returned.
         if self.peer_id.startswith(queried_id):
             if not skip_log:
                 in_event_id = self.logger.log(event('own_id'))
@@ -916,6 +915,7 @@ class Peer:
             return
         for sync_peer_id, sync_peer_info in self.sync_peers.items():
             # TODO Signal that a peer doesn't exist.
+            # OPTI Use a trie instead of iterating.
             if sync_peer_id.startswith(queried_id):
                 if not skip_log:
                     in_event_id = self.logger.log(event('known'))
@@ -1085,7 +1085,7 @@ class Peer:
 
     def peer_query_groups(self, peer_id):
         """Iterate query groups that contain a peer."""
-        # TODO Maintain a map of all peers so we don't have to iterate over all
+        # OPTI Maintain a map of all peers so we don't have to iterate over all
         # groups.
         return (g for g in self.query_groups.values()
                 if peer_id in g.members())
@@ -1144,7 +1144,7 @@ class Peer:
         # peers  as though they are to be maximally penalized. Obviously, there
         # needs to be a reputation mechanism for sync peers that this method
         # honors once the sync group management is actually handled by the
-        # peers via  messages.
+        # peers via messages.
         return max((g[rep_peer_id].reputation
                     for g in self.peer_query_groups(group_peer_id)), default=0)
 
