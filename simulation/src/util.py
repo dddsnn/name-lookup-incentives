@@ -35,10 +35,10 @@ class Network:
         self.env.schedule(event_factory(sender_id, recipient), delay=delay)
 
     def send_query(self, sender_id, sender_address, recipient_address,
-                   queried_id, in_event_id):
+                   queried_id, excluded_peer_ids, in_event_id):
         self.send(sender_id, sender_address, recipient_address,
                   lambda si, r: SendQuery(self.env, si, r, queried_id,
-                                          in_event_id))
+                                          excluded_peer_ids, in_event_id))
 
     def send_response(self, sender_id, sender_address, recipient_address,
                       queried_id, queried_peer_info, in_event_id):
@@ -56,18 +56,21 @@ class Network:
 
 
 class SendQuery(simpy.events.Event):
-    def __init__(self, env, sender_id, recipient, queried_id, in_event_id):
+    def __init__(self, env, sender_id, recipient, queried_id,
+                 excluded_peer_ids, in_event_id):
         super().__init__(env)
         self.ok = True
         self.sender_id = sender_id
         self.recipient = recipient
         self.queried_id = queried_id
+        self.excluded_peer_ids = excluded_peer_ids
         self.in_event_id = in_event_id
         self.callbacks.append(SendQuery.action)
 
     def action(self):
         self.recipient.recv_query(self.sender_id, self.queried_id,
-                                  self.in_event_id)
+                                  self.in_event_id,
+                                  excluded_peer_ids=self.excluded_peer_ids)
 
 
 class SendResponse(simpy.events.Event):

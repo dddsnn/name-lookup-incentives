@@ -108,12 +108,15 @@ class TestOnQueryExternal(unittest.TestCase):
         self.helper.create_query_group(peer_a, peer_b)
         querying_peer_id = self.helper.id_with_prefix('0000')
         queried_id = self.helper.id_with_prefix('1111')
+        excluded_id = self.helper.id_with_prefix('1111')
         peer_a.send_query.return_value = None
-        behavior.on_query_external(querying_peer_id, queried_id, None)
-        peer_a.add_in_query.assert_called_once_with(querying_peer_id,
-                                                    queried_id)
+        behavior.on_query_external(querying_peer_id, queried_id, None,
+                                   excluded_peer_ids=set((excluded_id,)))
+        peer_a.add_in_query.assert_called_once_with(
+            querying_peer_id, queried_id, set((excluded_id,)))
         peer_a.send_query.assert_called_once_with(
-            peer_b.peer_id, queried_id, set(), False, False, ANY)
+            peer_b.peer_id, queried_id, set(), False, False,
+            set((excluded_id,)), ANY)
 
     def test_passes_on_query_further(self):
         peer_a, behavior\
@@ -126,7 +129,7 @@ class TestOnQueryExternal(unittest.TestCase):
         behavior.on_query_external(querying_peer_id, queried_id, None,
                                    query_further=True)
         peer_a.send_query.assert_called_once_with(
-            peer_b.peer_id, queried_id, set(), True, False, ANY)
+            peer_b.peer_id, queried_id, set(), True, False, set(), ANY)
 
     def test_passes_on_query_sync(self):
         peer_a, behavior\
@@ -139,7 +142,22 @@ class TestOnQueryExternal(unittest.TestCase):
         behavior.on_query_external(querying_peer_id, queried_id, None,
                                    query_sync=True)
         peer_a.send_query.assert_called_once_with(
-            peer_b.peer_id, queried_id, set(), False, True, ANY)
+            peer_b.peer_id, queried_id, set(), False, True, set(), ANY)
+
+    def test_passes_on_excluded_peer_ids(self):
+        peer_a, behavior\
+            = self.helper.mock_peer_and_behavior_with_prefix('1000')
+        peer_b, _ = self.helper.mock_peer_and_behavior_with_prefix('1111')
+        self.helper.create_query_group(peer_a, peer_b)
+        querying_peer_id = self.helper.id_with_prefix('0000')
+        queried_id = self.helper.id_with_prefix('1111')
+        excluded_id = self.helper.id_with_prefix('1111')
+        peer_a.send_query.return_value = None
+        behavior.on_query_external(querying_peer_id, queried_id, None,
+                                   excluded_peer_ids=set((excluded_id,)))
+        peer_a.send_query.assert_called_once_with(
+            peer_b.peer_id, queried_id, set(), False, False,
+            set((excluded_id,)), ANY)
 
     def test_just_finalizes_if_query_from_self_and_no_known_peers(self):
         peer_a, behavior = self.helper.mock_peer_and_behavior_with_prefix('')
@@ -197,7 +215,7 @@ class TestOnQueryExternal(unittest.TestCase):
         peer_a.has_matching_out_queries.return_value = True
         behavior.on_query_external(querying_peer_id, queried_id, None)
         peer_a.add_in_query.assert_called_once_with(querying_peer_id,
-                                                    queried_id)
+                                                    queried_id, set())
         peer_a.send_response.assert_not_called()
         peer_a.send_query.assert_not_called()
 
@@ -212,7 +230,7 @@ class TestOnResponseSuccess(unittest.TestCase):
         responding_peer_id = self.helper.id_with_prefix('1111')
         queried_peer = self.helper.peer_with_prefix('1111')
         behavior.on_response_success(responding_peer_id, queried_peer.peer_id,
-                                     queried_peer.info(), None)
+                                     queried_peer.info(), set(), None)
         peer_a.send_reputation_update.assert_called_once_with(
             responding_peer_id,
             self.helper.settings['successful_query_reward'], ANY)
@@ -224,18 +242,24 @@ class TestOnResponseSuccess(unittest.TestCase):
         peer_c, _ = self.helper.mock_peer_and_behavior_with_prefix('0000')
         responding_peer_id = self.helper.id_with_prefix('1111')
         queried_peer = self.helper.peer_with_prefix('1111')
+        excluded_id = self.helper.id_with_prefix('1111')
         queried_peer_info = queried_peer.info()
         matching_in_queries = {
-            queried_peer.peer_id: {peer_b.peer_id: p.IncomingQuery(0),
-                                   peer_c.peer_id: p.IncomingQuery(0)},
-            queried_peer.peer_id[:-4]: {peer_b.peer_id: p.IncomingQuery(0)}
+            queried_peer.peer_id: {
+                peer_b.peer_id: p.IncomingQuery(0, set((excluded_id,))),
+                peer_c.peer_id: p.IncomingQuery(0, set((excluded_id,)))
+            },
+            queried_peer.peer_id[:-4]: {
+                peer_b.peer_id: p.IncomingQuery(0, set((excluded_id,)))
+            }
         }
         peer_a.matching_in_queries.return_value = matching_in_queries
         peer_a.finalize_in_queries.return_value = None
         behavior.on_response_success(responding_peer_id, queried_peer.peer_id,
-                                     queried_peer_info, None)
+                                     queried_peer_info, set((excluded_id,)),
+                                     None)
         peer_a.matching_in_queries.assert_called_once_with(
-            queried_peer.peer_id)
+            queried_peer.peer_id, set((excluded_id,)))
         self.assertEqual(len(peer_a.send_response.call_args_list), 3)
         self.assertTrue(call(peer_b.peer_id, queried_peer.peer_id,
                              queried_peer_info, ANY, delay=ANY)
@@ -254,12 +278,12 @@ class TestOnResponseSuccess(unittest.TestCase):
         responding_peer_id = self.helper.id_with_prefix('1111')
         queried_peer = self.helper.peer_with_prefix('1111')
         matching_in_queries = {
-            queried_peer.peer_id: {peer_b.peer_id: p.IncomingQuery(0)}
+            queried_peer.peer_id: {peer_b.peer_id: p.IncomingQuery(0, set())}
         }
         peer_a.matching_in_queries.return_value = matching_in_queries
         peer_a.finalize_in_queries.return_value = None
         behavior.on_response_success(responding_peer_id, queried_peer.peer_id,
-                                     queried_peer.info(), None)
+                                     queried_peer.info(), set(), None)
         peer_a.finalize_in_queries.assert_called_once_with(matching_in_queries,
                                                            'success', ANY)
 
@@ -274,10 +298,30 @@ class TestOnResponseFailure(unittest.TestCase):
         responding_peer_id = self.helper.id_with_prefix('1111')
         queried_id = self.helper.id_with_prefix('1111')
         behavior.on_response_failure(responding_peer_id, queried_id, set(),
-                                     False, False, None)
+                                     False, False, set(), None)
         peer_a.send_reputation_update.assert_called_once_with(
             responding_peer_id, self.helper.settings['failed_query_penalty'],
             ANY)
+
+    def test_gets_matching_in_queries_for_excluded_ids(self):
+        peer_a, behavior\
+            = self.helper.mock_peer_and_behavior_with_prefix('0000')
+        peer_b = self.helper.peer_with_prefix('0001')
+        peer_c = self.helper.peer_with_prefix('1000')
+        self.helper.create_query_group(peer_a, peer_c)
+        responding_peer_id = self.helper.id_with_prefix('1111')
+        queried_id = self.helper.id_with_prefix('1111')
+        excluded_id = self.helper.id_with_prefix('1111')
+        peer_a.matching_in_queries.return_value = {
+            queried_id: {
+                peer_b.peer_id: p.IncomingQuery(0, set((excluded_id,)))
+            }
+        }
+        behavior.on_response_failure(responding_peer_id, queried_id,
+                                     set(), False, False, set((excluded_id,)),
+                                     None)
+        peer_a.matching_in_queries.assert_called_once_with(queried_id,
+                                                           set((excluded_id,)))
 
     def test_attempts_retry(self):
         peer_a, behavior\
@@ -288,13 +332,13 @@ class TestOnResponseFailure(unittest.TestCase):
         responding_peer_id = self.helper.id_with_prefix('1111')
         queried_id = self.helper.id_with_prefix('1111')
         peer_a.matching_in_queries.return_value = {
-            queried_id: {peer_b.peer_id: p.IncomingQuery(0)}
+            queried_id: {peer_b.peer_id: p.IncomingQuery(0, set())}
         }
         behavior.on_response_failure(responding_peer_id, queried_id,
-                                     set(), False, False, None)
+                                     set(), False, False, set(), None)
         peer_a.send_query.assert_called_once_with(
             peer_c.peer_id, queried_id, set((peer_c.peer_id,)), False, False,
-            None)
+            set(), None)
 
     def test_doesnt_retry_if_no_queries_could_be_answered(self):
         peer_a, behavior\
@@ -304,7 +348,7 @@ class TestOnResponseFailure(unittest.TestCase):
         responding_peer_id = self.helper.id_with_prefix('1111')
         queried_id = self.helper.id_with_prefix('1111')
         behavior.on_response_failure(responding_peer_id, queried_id,
-                                     set(), False, False, None)
+                                     set(), False, False, set(), None)
         peer_a.send_query.assert_not_called()
 
     def test_doesnt_retry_if_all_peers_have_been_tried(self):
@@ -316,12 +360,12 @@ class TestOnResponseFailure(unittest.TestCase):
         responding_peer_id = self.helper.id_with_prefix('1111')
         queried_id = self.helper.id_with_prefix('1111')
         peer_a.matching_in_queries.return_value = {
-            queried_id: {peer_b.peer_id: p.IncomingQuery(0)}
+            queried_id: {peer_b.peer_id: p.IncomingQuery(0, set())}
         }
         peer_a.finalize_in_queries.return_value = None
         behavior.on_response_failure(
             responding_peer_id, queried_id, set((peer_c.peer_id,)), False,
-            False, None)
+            False, set(), None)
         peer_a.send_query.assert_not_called()
 
     def test_uses_query_further(self):
@@ -333,14 +377,14 @@ class TestOnResponseFailure(unittest.TestCase):
         responding_peer_id = self.helper.id_with_prefix('1111')
         queried_id = self.helper.id_with_prefix('1111')
         peer_a.matching_in_queries.return_value = {
-            queried_id: {peer_b.peer_id: p.IncomingQuery(0)}
+            queried_id: {peer_b.peer_id: p.IncomingQuery(0, set())}
         }
         peer_a.finalize_in_queries.return_value = None
         behavior.on_response_failure(
-            responding_peer_id, queried_id, set(), True, False, None)
+            responding_peer_id, queried_id, set(), True, False, set(), None)
         peer_a.send_query.assert_called_once_with(
             peer_c.peer_id, queried_id, set((peer_c.peer_id,)), True, False,
-            None)
+            set(), None)
 
     def test_uses_query_sync(self):
         peer_a, behavior\
@@ -350,14 +394,33 @@ class TestOnResponseFailure(unittest.TestCase):
         responding_peer_id = self.helper.id_with_prefix('1111')
         queried_id = self.helper.id_with_prefix('1111')
         peer_a.matching_in_queries.return_value = {
-            queried_id: {peer_b.peer_id: p.IncomingQuery(0)}
+            queried_id: {peer_b.peer_id: p.IncomingQuery(0, set())}
         }
         peer_a.finalize_in_queries.return_value = None
         behavior.on_response_failure(
-            responding_peer_id, queried_id, set(), False, True, None)
+            responding_peer_id, queried_id, set(), False, True, set(), None)
         peer_a.send_query.assert_called_once_with(
             peer_c.peer_id, queried_id, set((peer_c.peer_id,)), False, True,
-            None)
+            set(), None)
+
+    def test_uses_excluded_peer_ids(self):
+        peer_a, behavior\
+            = self.helper.mock_peer_and_behavior_with_prefix('1000')
+        peer_b = self.helper.peer_with_prefix('0001')
+        peer_c = self.helper.peer_with_prefix('1000')
+        responding_peer_id = self.helper.id_with_prefix('1111')
+        queried_id = self.helper.id_with_prefix('1111')
+        excluded_id = self.helper.id_with_prefix('1111')
+        peer_a.matching_in_queries.return_value = {
+            queried_id: {peer_b.peer_id: p.IncomingQuery(0, set())}
+        }
+        peer_a.finalize_in_queries.return_value = None
+        behavior.on_response_failure(
+            responding_peer_id, queried_id, set(), False, True,
+            set((excluded_id,)), None)
+        peer_a.send_query.assert_called_once_with(
+            peer_c.peer_id, queried_id, set((peer_c.peer_id,)), False, True,
+            set((excluded_id,)), None)
 
     def test_responds_to_peers_if_no_retry_possible(self):
         peer_a, behavior\
@@ -367,16 +430,16 @@ class TestOnResponseFailure(unittest.TestCase):
         responding_peer_id = self.helper.id_with_prefix('1111')
         queried_id = self.helper.id_with_prefix('1111')
         matching_in_queries = {
-            queried_id: {peer_b.peer_id: p.IncomingQuery(0),
-                         peer_c.peer_id: p.IncomingQuery(0)},
-            queried_id[:-4]: {peer_b.peer_id: p.IncomingQuery(0)}
+            queried_id: {peer_b.peer_id: p.IncomingQuery(0, set()),
+                         peer_c.peer_id: p.IncomingQuery(0, set())},
+            queried_id[:-4]: {peer_b.peer_id: p.IncomingQuery(0, set())}
         }
         peer_a.matching_in_queries.return_value = matching_in_queries
         peer_a.finalize_in_queries.return_value = None
         behavior.on_response_failure(
-            responding_peer_id, queried_id, set(), False, False, None)
+            responding_peer_id, queried_id, set(), False, False, set(), None)
         peer_a.matching_in_queries.assert_called_once_with(
-            queried_id)
+            queried_id, set())
         self.assertEqual(len(peer_a.send_response.call_args_list), 3)
         self.assertTrue(call(peer_b.peer_id, queried_id, None, ANY, delay=ANY)
                         in peer_a.send_response.call_args_list)
@@ -393,12 +456,12 @@ class TestOnResponseFailure(unittest.TestCase):
         responding_peer_id = self.helper.id_with_prefix('1111')
         queried_id = self.helper.id_with_prefix('1111')
         matching_in_queries = {
-            queried_id: {peer_b.peer_id: p.IncomingQuery(0)}
+            queried_id: {peer_b.peer_id: p.IncomingQuery(0, set())}
         }
         peer_a.matching_in_queries.return_value = matching_in_queries
         peer_a.finalize_in_queries.return_value = None
         behavior.on_response_failure(responding_peer_id, queried_id, set(),
-                                     False, False, None)
+                                     False, False, set(), None)
         peer_a.finalize_in_queries.assert_called_once_with(matching_in_queries,
                                                            'failure', ANY)
 
@@ -413,7 +476,7 @@ class TestOnTimeout(unittest.TestCase):
         responding_peer_id = self.helper.id_with_prefix('1111')
         queried_id = self.helper.id_with_prefix('1111')
         behavior.on_timeout(responding_peer_id, queried_id, set(), False,
-                            False, None)
+                            False, set(), None)
         peer_a.send_reputation_update.assert_called_once_with(
             responding_peer_id, self.helper.settings['timeout_query_penalty'],
             ANY)
@@ -427,13 +490,32 @@ class TestOnTimeout(unittest.TestCase):
         responding_peer_id = self.helper.id_with_prefix('1111')
         queried_id = self.helper.id_with_prefix('1111')
         peer_a.matching_in_queries.return_value = {
-            queried_id: {peer_b.peer_id: p.IncomingQuery(0)}
+            queried_id: {peer_b.peer_id: p.IncomingQuery(0, set())}
         }
         behavior.on_timeout(responding_peer_id, queried_id, set(), False,
-                            False, None)
+                            False, set(), None)
         peer_a.send_query.assert_called_once_with(
             peer_c.peer_id, queried_id, set((peer_c.peer_id,)), False, False,
-            None)
+            set(), None)
+
+    def test_gets_matching_in_queries_for_excluded_ids(self):
+        peer_a, behavior\
+            = self.helper.mock_peer_and_behavior_with_prefix('0000')
+        peer_b = self.helper.peer_with_prefix('0001')
+        peer_c = self.helper.peer_with_prefix('1000')
+        self.helper.create_query_group(peer_a, peer_c)
+        responding_peer_id = self.helper.id_with_prefix('1111')
+        queried_id = self.helper.id_with_prefix('1111')
+        excluded_id = self.helper.id_with_prefix('1111')
+        peer_a.matching_in_queries.return_value = {
+            queried_id: {
+                peer_b.peer_id: p.IncomingQuery(0, set((excluded_id,)))
+            }
+        }
+        behavior.on_timeout(responding_peer_id, queried_id, set(), False,
+                            False, set((excluded_id,)), None)
+        peer_a.matching_in_queries.assert_called_once_with(queried_id,
+                                                           set((excluded_id,)))
 
     def test_doesnt_retry_if_no_queries_could_be_answered(self):
         peer_a, behavior\
@@ -443,7 +525,7 @@ class TestOnTimeout(unittest.TestCase):
         responding_peer_id = self.helper.id_with_prefix('1111')
         queried_id = self.helper.id_with_prefix('1111')
         behavior.on_timeout(responding_peer_id, queried_id, set(), False,
-                            False, None)
+                            False, set(), None)
         peer_a.send_query.assert_not_called()
 
     def test_doesnt_retry_if_all_peers_have_been_tried(self):
@@ -455,12 +537,12 @@ class TestOnTimeout(unittest.TestCase):
         responding_peer_id = self.helper.id_with_prefix('1111')
         queried_id = self.helper.id_with_prefix('1111')
         peer_a.matching_in_queries.return_value = {
-            queried_id: {peer_b.peer_id: p.IncomingQuery(0)}
+            queried_id: {peer_b.peer_id: p.IncomingQuery(0, set())}
         }
         peer_a.finalize_in_queries.return_value = None
         behavior.on_timeout(
             responding_peer_id, queried_id, set((peer_c.peer_id,)), False,
-            False, None)
+            False, set(), None)
         peer_a.send_query.assert_not_called()
 
     def test_uses_query_further(self):
@@ -472,14 +554,14 @@ class TestOnTimeout(unittest.TestCase):
         responding_peer_id = self.helper.id_with_prefix('1111')
         queried_id = self.helper.id_with_prefix('1111')
         peer_a.matching_in_queries.return_value = {
-            queried_id: {peer_b.peer_id: p.IncomingQuery(0)}
+            queried_id: {peer_b.peer_id: p.IncomingQuery(0, set())}
         }
         peer_a.finalize_in_queries.return_value = None
         behavior.on_timeout(
-            responding_peer_id, queried_id, set(), True, False, None)
+            responding_peer_id, queried_id, set(), True, False, set(), None)
         peer_a.send_query.assert_called_once_with(
             peer_c.peer_id, queried_id, set((peer_c.peer_id,)), True, False,
-            None)
+            set(), None)
 
     def test_uses_query_sync(self):
         peer_a, behavior\
@@ -489,14 +571,34 @@ class TestOnTimeout(unittest.TestCase):
         responding_peer_id = self.helper.id_with_prefix('1111')
         queried_id = self.helper.id_with_prefix('1111')
         peer_a.matching_in_queries.return_value = {
-            queried_id: {peer_b.peer_id: p.IncomingQuery(0)}
+            queried_id: {peer_b.peer_id: p.IncomingQuery(0, set())}
         }
         peer_a.finalize_in_queries.return_value = None
         behavior.on_timeout(
-            responding_peer_id, queried_id, set(), False, True, None)
+            responding_peer_id, queried_id, set(), False, True, set(), None)
         peer_a.send_query.assert_called_once_with(
             peer_c.peer_id, queried_id, set((peer_c.peer_id,)), False, True,
-            None)
+            set(), None)
+
+    def test_uses_excluded_peer_ids(self):
+        peer_a, behavior\
+            = self.helper.mock_peer_and_behavior_with_prefix('1000')
+        peer_b = self.helper.peer_with_prefix('0001')
+        peer_c = self.helper.peer_with_prefix('1100')
+        self.helper.create_query_group(peer_a, peer_c)
+        responding_peer_id = self.helper.id_with_prefix('1111')
+        queried_id = self.helper.id_with_prefix('1111')
+        excluded_id = self.helper.id_with_prefix('1111')
+        peer_a.matching_in_queries.return_value = {
+            queried_id: {peer_b.peer_id: p.IncomingQuery(0, set())}
+        }
+        peer_a.finalize_in_queries.return_value = None
+        behavior.on_timeout(
+            responding_peer_id, queried_id, set(), False, False,
+            set((excluded_id,)), None)
+        peer_a.send_query.assert_called_once_with(
+            peer_c.peer_id, queried_id, set((peer_c.peer_id,)), False, False,
+            set((excluded_id,)), None)
 
     def test_responds_to_peers_if_no_retry_possible(self):
         peer_a, behavior\
@@ -506,16 +608,16 @@ class TestOnTimeout(unittest.TestCase):
         responding_peer_id = self.helper.id_with_prefix('1111')
         queried_id = self.helper.id_with_prefix('1111')
         matching_in_queries = {
-            queried_id: {peer_b.peer_id: p.IncomingQuery(0),
-                         peer_c.peer_id: p.IncomingQuery(0)},
-            queried_id[:-4]: {peer_b.peer_id: p.IncomingQuery(0)}
+            queried_id: {peer_b.peer_id: p.IncomingQuery(0, set()),
+                         peer_c.peer_id: p.IncomingQuery(0, set())},
+            queried_id[:-4]: {peer_b.peer_id: p.IncomingQuery(0, set())}
         }
         peer_a.matching_in_queries.return_value = matching_in_queries
         peer_a.finalize_in_queries.return_value = None
         behavior.on_timeout(
-            responding_peer_id, queried_id, set(), False, False, None)
+            responding_peer_id, queried_id, set(), False, False, set(), None)
         peer_a.matching_in_queries.assert_called_once_with(
-            queried_id)
+            queried_id, set())
         self.assertEqual(len(peer_a.send_response.call_args_list), 3)
         self.assertTrue(call(peer_b.peer_id, queried_id, None, ANY, delay=ANY)
                         in peer_a.send_response.call_args_list)
@@ -532,12 +634,12 @@ class TestOnTimeout(unittest.TestCase):
         responding_peer_id = self.helper.id_with_prefix('1111')
         queried_id = self.helper.id_with_prefix('1111')
         matching_in_queries = {
-            queried_id: {peer_b.peer_id: p.IncomingQuery(0)}
+            queried_id: {peer_b.peer_id: p.IncomingQuery(0, set())}
         }
         peer_a.matching_in_queries.return_value = matching_in_queries
         peer_a.finalize_in_queries.return_value = None
         behavior.on_timeout(responding_peer_id, queried_id, set(), False,
-                            False, None)
+                            False, set(), None)
         peer_a.finalize_in_queries.assert_called_once_with(matching_in_queries,
                                                            'timeout', ANY)
 
@@ -553,8 +655,8 @@ class TestRespondToInQueries(unittest.TestCase):
         querying_peer_id_b = self.helper.id_with_prefix('')
         queried_id = self.helper.id_with_prefix('1111')
         in_queries_map = {
-            queried_id: {querying_peer_id_a: p.IncomingQuery(0),
-                         querying_peer_id_b: p.IncomingQuery(0)}
+            queried_id: {querying_peer_id_a: p.IncomingQuery(0, set()),
+                         querying_peer_id_b: p.IncomingQuery(0, set())}
         }
         queried_peer_info = 'info'
         behavior.respond_to_in_queries(in_queries_map, queried_peer_info, None)
@@ -572,8 +674,8 @@ class TestRespondToInQueries(unittest.TestCase):
         querying_peer_id = self.helper.id_with_prefix('')
         queried_id = self.helper.id_with_prefix('1111')
         in_queries_map = {
-            queried_id: {querying_peer_id: p.IncomingQuery(0)},
-            queried_id[:-4]: {querying_peer_id: p.IncomingQuery(0)}
+            queried_id: {querying_peer_id: p.IncomingQuery(0, set())},
+            queried_id[:-4]: {querying_peer_id: p.IncomingQuery(0, set())}
         }
         queried_peer_info = 'info'
         behavior.respond_to_in_queries(in_queries_map, queried_peer_info, None)
@@ -593,8 +695,8 @@ class TestRespondToInQueries(unittest.TestCase):
         query_group_id = self.helper.create_query_group(peer_a, query_peer)
         queried_id = self.helper.id_with_prefix('1111')
         in_queries_map = {
-            queried_id: {sync_peer_id: p.IncomingQuery(0),
-                         query_peer.peer_id: p.IncomingQuery(0)}
+            queried_id: {sync_peer_id: p.IncomingQuery(0, set()),
+                         query_peer.peer_id: p.IncomingQuery(0, set())}
         }
         queried_peer_info = 'info'
         peer_a.query_groups[query_group_id][query_peer.peer_id].reputation = 4
@@ -616,7 +718,7 @@ class TestRespondToInQueries(unittest.TestCase):
         query_group_id = self.helper.create_query_group(peer_a, query_peer)
         queried_id = self.helper.id_with_prefix('1111')
         in_queries_map = {
-            queried_id: {query_peer.peer_id: p.IncomingQuery(0)}
+            queried_id: {query_peer.peer_id: p.IncomingQuery(0, set())}
         }
         queried_peer_info = 'info'
         peer_a.query_groups[query_group_id][query_peer.peer_id].reputation = 4

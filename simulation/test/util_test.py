@@ -52,11 +52,14 @@ class TestNetwork(unittest.TestCase):
 
     def test_sends_queries(self):
         queried_id = bs.Bits(uint=10, length=16)
+        excluded_id = bs.Bits(uint=111, length=16)
         self.network.send_query(self.peer_a_id, self.peer_a_address,
-                                self.peer_b_address, queried_id, 0)
+                                self.peer_b_address, queried_id,
+                                set((excluded_id,)), 0)
         self.env.run()
-        self.peer_b.recv_query.assert_called_with(self.peer_a_id, queried_id,
-                                                  0)
+        self.peer_b.recv_query.assert_called_with(
+            self.peer_a_id, queried_id, 0,
+            excluded_peer_ids=set((excluded_id,)))
 
     def test_sends_responses(self):
         self.network.send_response(self.peer_a_id, self.peer_a_address,
@@ -70,14 +73,14 @@ class TestNetwork(unittest.TestCase):
     def test_adds_transmission_delay(self):
         queried_id = bs.Bits(uint=10, length=16)
         self.network.send_query(self.peer_a_id, self.peer_a_address,
-                                self.peer_b_address, queried_id, 0)
+                                self.peer_b_address, queried_id, set(), 0)
         self.assertEqual(self.env.peek(),
                          self.helper.settings['transmission_delay'])
 
     def test_doesnt_add_transmission_delay_for_messages_to_oneself(self):
         queried_id = bs.Bits(uint=10, length=16)
         self.network.send_query(self.peer_a_id, self.peer_a_address,
-                                self.peer_a_address, queried_id, 0)
+                                self.peer_a_address, queried_id, set(), 0)
         self.assertEqual(self.env.peek(), 0)
 
     def test_raises_for_unassigned_addresses(self):
@@ -87,4 +90,4 @@ class TestNetwork(unittest.TestCase):
         self.assertNotEqual(unassigned_address, self.peer_b_address)
         with self.assertRaises(util.UnassignedAddressError):
             self.network.send_query(self.peer_a_id, self.peer_a_address,
-                                    unassigned_address, queried_id, 0)
+                                    unassigned_address, queried_id, set(), 0)

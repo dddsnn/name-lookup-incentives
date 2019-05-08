@@ -47,7 +47,8 @@ class PeerBehavior:
                                 in_event_id, delay=delay)
 
     def on_query_external(self, querying_peer_id, queried_id, in_event_id,
-                          query_further=False, query_sync=False):
+                          query_further=False, query_sync=False,
+                          excluded_peer_ids=util.SortedIterSet()):
         """
         React to a query in the case that an external query is necessary.
 
@@ -60,16 +61,22 @@ class PeerBehavior:
 
         The recipient of a possible query is chosen using
         select_peer_to_query().
+
+        :param excluded_peer_ids: A set of peer IDs (not prefixes) that should
+            not be returned. Useful for finding new peers with a certain prefix
+            while avoiding learning about peers that are already known.
         """
-        if self.peer.has_in_query(querying_peer_id, queried_id):
+        if self.peer.has_in_query(querying_peer_id, queried_id,
+                                  excluded_peer_ids):
             # The querying peer has already queried for this exact ID. This may
             # happen when find_missing_query_peers() calls this directly. Don't
             # record this again.
             assert querying_peer_id == self.peer_id
             return
-        if self.peer.has_matching_out_queries(queried_id):
+        if self.peer.has_matching_out_queries(queried_id, excluded_peer_ids):
             # There's a query going on that should provide an answer.
-            self.peer.add_in_query(querying_peer_id, queried_id)
+            self.peer.add_in_query(querying_peer_id, queried_id,
+                                   excluded_peer_ids)
             return
         rep = self.peer.expected_min_reputation(querying_peer_id)
         enough_rep = (self.peer.settings['reputation_buffer_factor']
@@ -86,8 +93,9 @@ class PeerBehavior:
         # TODO Send queries to multiple peers at once.
         peers_already_queried = util.SortedIterSet()
         if self.attempt_query(queried_id, peers_already_queried, query_further,
-                              query_sync, in_event_id):
-            self.peer.add_in_query(querying_peer_id, queried_id)
+                              query_sync, excluded_peer_ids, in_event_id):
+            self.peer.add_in_query(querying_peer_id, queried_id,
+                                   excluded_peer_ids)
             return
         # No known peer, query is impossible.
         if querying_peer_id == self.peer.peer_id:
@@ -101,10 +109,11 @@ class PeerBehavior:
                 querying_peer_id, queried_id, None, in_event_id, delay=delay)
 
     def on_response_success(self, responding_peer_id, queried_id,
-                            queried_peer_info, in_event_id):
+                            queried_peer_info, excluded_peer_ids, in_event_id):
         """React to a successful response arriving."""
         self.do_rep_success(responding_peer_id, in_event_id)
-        matching_in_queries = self.peer.matching_in_queries(queried_id)
+        matching_in_queries = self.peer.matching_in_queries(queried_id,
+                                                            excluded_peer_ids)
         self.respond_to_in_queries(matching_in_queries, queried_peer_info,
                                    in_event_id)
         self.peer.finalize_in_queries(matching_in_queries, 'success',
@@ -112,7 +121,7 @@ class PeerBehavior:
 
     def on_response_failure(self, responding_peer_id, queried_id,
                             peers_already_queried, query_further, query_sync,
-                            in_event_id):
+                            excluded_peer_ids, in_event_id):
         """
         React to a failed response arriving.
 
@@ -123,12 +132,13 @@ class PeerBehavior:
         peers_already_queried.
         """
         self.do_rep_failure(responding_peer_id, in_event_id)
-        matching_in_queries = self.peer.matching_in_queries(queried_id)
+        matching_in_queries = self.peer.matching_in_queries(queried_id,
+                                                            excluded_peer_ids)
         if len(matching_in_queries) == 0:
             # No incoming queries could be answered by this, don't retry.
             return
         if self.attempt_query(queried_id, peers_already_queried, query_further,
-                              query_sync, in_event_id):
+                              query_sync, excluded_peer_ids, in_event_id):
             return
         self.respond_to_in_queries(
             matching_in_queries, None, in_event_id,
@@ -137,7 +147,7 @@ class PeerBehavior:
                                       in_event_id)
 
     def on_timeout(self, queried_peer_id, queried_id, peers_already_queried,
-                   query_further, query_sync, in_event_id):
+                   query_further, query_sync, excluded_peer_ids, in_event_id):
         """
         React to a query timing out.
 
@@ -145,12 +155,13 @@ class PeerBehavior:
         peers_already_queried.
         """
         self.do_rep_timeout(queried_peer_id, in_event_id)
-        matching_in_queries = self.peer.matching_in_queries(queried_id)
+        matching_in_queries = self.peer.matching_in_queries(queried_id,
+                                                            excluded_peer_ids)
         if len(matching_in_queries) == 0:
             # No incoming queries could be answered by this, don't retry.
             return
         if self.attempt_query(queried_id, peers_already_queried, query_further,
-                              query_sync, in_event_id):
+                              query_sync, excluded_peer_ids, in_event_id):
             return
         self.respond_to_in_queries(
             matching_in_queries, None, in_event_id,
@@ -159,7 +170,7 @@ class PeerBehavior:
                                       in_event_id)
 
     def attempt_query(self, queried_id, peers_already_queried, query_further,
-                      query_sync, in_event_id):
+                      query_sync, excluded_peer_ids, in_event_id):
         """
         Attempt to send a query to the next best peer.
 
@@ -170,7 +181,7 @@ class PeerBehavior:
         if recipient_id is not None:
             self.peer.send_query(
                 recipient_id, queried_id, peers_already_queried, query_further,
-                query_sync, in_event_id)
+                query_sync, excluded_peer_ids, in_event_id)
             return True
         return False
 
@@ -617,14 +628,13 @@ class Peer:
         If query_sync_for_subprefixes is set in the settings, sync peers will
         be queried as well.
         """
-        # TODO Specify peers that are already known to get new ones.
-        for subprefix, num_known_peers in self.subprefix_coverage().items():
-            if num_known_peers >= self.settings['min_desired_query_peers']:
+        for subprefix, known_peers in self.subprefix_coverage().items():
+            if len(known_peers) >= self.settings['min_desired_query_peers']:
                 continue
             if (self.settings['ignore_non_existent_subprefixes']
-                    and num_known_peers
+                    and len(known_peers)
                     >= self.num_known_peers_for_subprefix(subprefix)):
-                assert (num_known_peers
+                assert (len(known_peers)
                         == self.num_known_peers_for_subprefix(subprefix))
                 continue
             try:
@@ -639,7 +649,7 @@ class Peer:
             query_sync = self.settings['query_sync_for_subprefixes']
             self.behavior.on_query_external(
                 self.peer_id, subprefix, in_event_id, query_further=True,
-                query_sync=query_sync)
+                query_sync=query_sync, excluded_peer_ids=known_peers)
 
     def introduce(self, peer_info):
         """
@@ -662,9 +672,10 @@ class Peer:
             is_known = True
             query_group[peer_info.peer_id].address = peer_info.address
         if not is_known:
-            for sp, count in self.subprefix_coverage().items():
+            for sp, peers in self.subprefix_coverage().items():
                 if (peer_info.prefix.startswith(sp)
-                        and count < self.settings['min_desired_query_peers']):
+                        and len(peers)
+                        < self.settings['min_desired_query_peers']):
                     self.join_group_with(peer_info)
                     self.logger.log(an.ConnectionAdd(self.env.now,
                                                      self.peer_id,
@@ -680,10 +691,10 @@ class Peer:
 
     def subprefix_coverage(self):
         """
-        Map each subprefix to the number of known peers serving it.
+        Map each subprefix to the known peers serving it.
 
         The dictionary that is returned maps each of the possible
-        len(self.prefix) subprefixes to the number of peers this peer knows who
+        len(self.prefix) subprefixes to a set of peer IDs this peer knows who
         can serve it.
         """
         coverage = cl.OrderedDict((sp, util.SortedIterSet())
@@ -693,11 +704,12 @@ class Peer:
                 if query_peer_info.prefix.startswith(sp):
                     coverage[sp].add(query_peer_info.peer_id)
                     break
-        return cl.OrderedDict((sp, len(qps)) for (sp, qps) in coverage.items())
+        return cl.OrderedDict((sp, qps) for (sp, qps) in coverage.items())
 
     def uncovered_subprefixes(self):
         """Return subprefixes for which no peer is known."""
-        return (sp for sp, c in self.subprefix_coverage().items() if c == 0)
+        return (sp for sp, qps in self.subprefix_coverage().items()
+                if len(qps) == 0)
 
     def num_known_peers_for_subprefix(self, subprefix):
         """
@@ -829,7 +841,7 @@ class Peer:
         self.recv_query(self.peer_id, queried_id, in_event_id, skip_log=True)
 
     def send_query(self, recipient_id, queried_id, peers_already_queried,
-                   query_further, query_sync, in_event_id):
+                   query_further, query_sync, excluded_peer_ids, in_event_id):
         """
         Send a query for an ID.
 
@@ -840,7 +852,7 @@ class Peer:
         """
         peers_already_queried.add(recipient_id)
         out_query = OutgoingQuery(self.env.now, peers_already_queried,
-                                  query_further, query_sync)
+                                  query_further, query_sync, excluded_peer_ids)
         self.out_queries_map.setdefault(
             queried_id, cl.OrderedDict())[recipient_id] = out_query
         in_event_id = self.logger.log(an.QuerySent(
@@ -853,7 +865,8 @@ class Peer:
             # TODO
             raise NotImplementedError('Recipient address not locally known.')
         self.network.send_query(self.peer_id, self.address,
-                                peer_to_query_address, queried_id, in_event_id)
+                                peer_to_query_address, queried_id,
+                                excluded_peer_ids, in_event_id)
 
     def send_response(self, recipient_id, queried_id, queried_peer_info,
                       in_event_id, delay=0):
@@ -882,7 +895,7 @@ class Peer:
                         queried_id, queried_peer_info, in_event_id)
 
     def recv_query(self, querying_peer_id, queried_id, in_event_id,
-                   skip_log=False):
+                   excluded_peer_ids=util.SortedIterSet(), skip_log=False):
         """
         :param skip_log: Whether to skip receiving this query in logging. If
             true, in_event_id will be used as the in_event_id for the query
@@ -895,7 +908,7 @@ class Peer:
             return an.QueryReceived(self.env.now, querying_peer_id,
                                     self.peer_id, queried_id, status,
                                     in_event_id)
-        if self.has_in_query(querying_peer_id, queried_id):
+        if self.has_in_query(querying_peer_id, queried_id, excluded_peer_ids):
             if querying_peer_id == self.peer_id:
                 # Peers may "send" a query to themselves again before receiving
                 # an answer as part of handling the request. Just log this and
@@ -911,29 +924,56 @@ class Peer:
                 # request or query that he receives. Update the arrival time of
                 # the existing incoming query so that a response will be sent
                 # with a delay appropriate to the later query.
-                self.in_queries_map[queried_id][querying_peer_id].time\
-                    = self.env.now
+                in_query = self.in_queries_map[queried_id][querying_peer_id]
+                in_query.time = self.env.now
                 return
-        if self.peer_id.startswith(queried_id):
+        if (self.peer_id.startswith(queried_id)
+                and self.peer_id not in excluded_peer_ids):
             if not skip_log:
                 in_event_id = self.logger.log(event('own_id'))
             self.behavior.on_query_self(querying_peer_id, queried_id,
                                         in_event_id)
             return
-        for sync_peer_id, sync_peer_info in self.sync_peers.items():
-            # TODO Signal that a peer doesn't exist.
-            # OPTI Use a trie instead of iterating.
-            if sync_peer_id.startswith(queried_id):
-                if not skip_log:
-                    in_event_id = self.logger.log(event('known'))
-                self.behavior.on_query_sync(querying_peer_id, queried_id,
-                                            sync_peer_info, in_event_id)
-                return
+        if queried_id.startswith(self.prefix):
+            # Query for a sync peer.
+            for sync_peer_id, sync_peer_info in self.sync_peers.items():
+                # TODO Signal that a peer doesn't exist.
+                # OPTI Use a trie instead of iterating.
+                if (sync_peer_id.startswith(queried_id)
+                        and sync_peer_id not in excluded_peer_ids):
+                    if not skip_log:
+                        in_event_id = self.logger.log(event('known'))
+                    self.behavior.on_query_sync(querying_peer_id, queried_id,
+                                                sync_peer_info, in_event_id)
+                    return
+        if self.prefix.startswith(queried_id):
+            assert len(queried_id) < len(self.prefix)
+            # TODO The queried ID is shorter than the prefix, so any sync peer
+            # would satisfy the query, but only if they are not excluded. If
+            # they all are, we can't say for sure that there doesn't exist a
+            # peer, since there may be a peer in a different sync group whose
+            # ID matches the prefix that isn't excluded. If we send on the
+            # query to a peer in such a sync group, he would have the same
+            # problem and might just send the query back (livelock). To address
+            # this, we need to be able to add prefixes to the excluded set (in
+            # this case adding our prefix, so the next peer we send the query
+            # to knows not to send it back).
+            for sync_peer_id, sync_peer_info in self.sync_peers.items():
+                # TODO Signal that a peer doesn't exist.
+                # OPTI Use a trie instead of iterating.
+                if sync_peer_id not in excluded_peer_ids:
+                    if not skip_log:
+                        in_event_id = self.logger.log(event('known'))
+                    self.behavior.on_query_sync(querying_peer_id, queried_id,
+                                                sync_peer_info, in_event_id)
+                    return
+            raise Exception('Not implemented')
         # TODO Don't query if peer is known as a query peer.
         if not skip_log:
             in_event_id = self.logger.log(event('external'))
         self.behavior.on_query_external(querying_peer_id, queried_id,
-                                        in_event_id)
+                                        in_event_id,
+                                        excluded_peer_ids=excluded_peer_ids)
 
     def recv_response(self, responding_peer_id, queried_id, queried_peer_info,
                       in_event_id):
@@ -950,6 +990,8 @@ class Peer:
             out_query = self.out_queries_map[queried_id].pop(
                 responding_peer_id)
             if queried_peer_info is not None:
+                assert (queried_peer_info.peer_id
+                        not in out_query.excluded_peer_ids)
                 status = 'success'
             else:
                 status = 'failure'
@@ -965,7 +1007,8 @@ class Peer:
         out_query.timeout_proc.interrupt()
         if queried_peer_info is not None:
             self.behavior.on_response_success(
-                responding_peer_id, queried_id, queried_peer_info, in_event_id)
+                responding_peer_id, queried_id, queried_peer_info,
+                out_query.excluded_peer_ids, in_event_id)
             if queried_peer_info.peer_id is not None:
                 assert queried_peer_info.prefix is not None
                 assert queried_peer_info.address is not None
@@ -978,7 +1021,8 @@ class Peer:
             return
         self.behavior.on_response_failure(
             responding_peer_id, queried_id, out_query.peers_already_queried,
-            out_query.query_further, out_query.query_sync, in_event_id)
+            out_query.query_further, out_query.query_sync,
+            out_query.excluded_peer_ids, in_event_id)
 
     def send_reputation_update(self, peer_id, reputation_diff, in_event_id):
         """
@@ -1088,7 +1132,8 @@ class Peer:
             del self.out_queries_map[queried_id]
         self.behavior.on_timeout(
             peer_id, queried_id, out_query.peers_already_queried,
-            out_query.query_further, out_query.query_sync, in_event_id)
+            out_query.query_further, out_query.query_sync,
+            out_query.excluded_peer_ids, in_event_id)
 
     def peer_query_groups(self, peer_id):
         """Iterate query groups that contain a peer."""
@@ -1241,18 +1286,27 @@ class Peer:
             i += 1
         return False
 
-    def add_in_query(self, querying_peer_id, queried_id):
-        assert not self.has_in_query(querying_peer_id, queried_id)
-        in_query = IncomingQuery(self.env.now)
+    def add_in_query(self, querying_peer_id, queried_id, excluded_peer_ids):
+        assert not self.has_in_query(querying_peer_id, queried_id,
+                                     util.SortedIterSet())
+        in_query = IncomingQuery(self.env.now, excluded_peer_ids)
         self.in_queries_map.setdefault(queried_id, cl.OrderedDict())[
             querying_peer_id] = in_query
 
-    def has_in_query(self, querying_peer_id, queried_id):
-        if queried_id in self.in_queries_map:
-            return querying_peer_id in self.in_queries_map[queried_id]
-        return False
+    def has_in_query(self, querying_peer_id, queried_id, excluded_peer_ids):
+        """
+        Return whether this peer has an unfinished incoming query.
 
-    def has_matching_out_queries(self, queried_id):
+        :param excluded_peer_ids: A set of peer IDs that must be a subset of
+            the incoming query's.
+        """
+        try:
+            in_query = self.in_queries_map[queried_id][querying_peer_id]
+        except KeyError:
+            return False
+        return excluded_peer_ids <= in_query.excluded_peer_ids
+
+    def has_matching_out_queries(self, queried_id, excluded_peer_ids):
         """
         Return whether there are ongoing queries matching an ID.
 
@@ -1260,15 +1314,17 @@ class Peer:
         whose responses could answer queries for queried_id. This is the case
         if queried_id is a prefix of the queried ID of the ongoing query, i.e.
         the queried ID of the ongoing query is equal to or more specific than
-        queried_id.
+        queried_id. The excluded peer IDs must also match, i.e. the
+        excluded_peer_ids set of the ongoing query must be a superset of the
+        set passed in as a parameter.
         """
-        try:
-            next(self.out_queries_map.iterkeys(queried_id))
-        except StopIteration:
-            return False
-        return True
+        for out_queries in self.out_queries_map.itervalues(queried_id):
+            for out_query in out_queries.values():
+                if excluded_peer_ids <= out_query.excluded_peer_ids:
+                    return True
+        return False
 
-    def matching_in_queries(self, queried_id):
+    def matching_in_queries(self, queried_id, excluded_peer_ids):
         """
         Find incoming queries matching an ID.
 
@@ -1278,7 +1334,10 @@ class Peer:
         IncomingQuery object.
 
         An ID matches queried_id if it is a prefix of queried_id, i.e. it is
-        equal to or more general than queried_id.
+        equal to or more general than queried_id. Additionally, the sets of
+        excluded peer IDs must match, i.e. the excluded_peer_ids set of the
+        ongoing incoming query must be a subset of the excluded_peer_ids
+        parameter.
 
         Creates a copy of this peer's relevant in_queries_map, and doesn't
         delete anything.
@@ -1286,7 +1345,10 @@ class Peer:
         res = cl.OrderedDict()
         for in_queried_id, in_queries in self.in_queries_map.iter_prefix_items(
                 queried_id):
-            res[in_queried_id] = copy.deepcopy(in_queries)
+            for querying_peer_id, in_query in in_queries.items():
+                if in_query.excluded_peer_ids <= excluded_peer_ids:
+                    res.setdefault(in_queried_id, cl.OrderedDict()).setdefault(
+                        querying_peer_id, copy.deepcopy(in_query))
         return res
 
     def finalize_own_query(self, status, in_event_id):
@@ -1463,14 +1525,17 @@ class QueryPeerInfo(PeerInfo):
 
 
 class OutgoingQuery:
-    def __init__(self, time, peers_already_queried, query_further, query_sync):
+    def __init__(self, time, peers_already_queried, query_further, query_sync,
+                 excluded_peer_ids):
         self.time = time
         self.peers_already_queried = peers_already_queried
         self.query_further = query_further
         self.query_sync = query_sync
+        self.excluded_peer_ids = excluded_peer_ids
         self.timeout_proc = None
 
 
 class IncomingQuery:
-    def __init__(self, time):
+    def __init__(self, time, excluded_peer_ids):
         self.time = time
+        self.excluded_peer_ids = excluded_peer_ids
