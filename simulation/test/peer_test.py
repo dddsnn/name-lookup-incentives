@@ -4,6 +4,7 @@ from test_utils import TestHelper, set_containing, arg_any_of
 import bitstring as bs
 import peer as p
 import util
+from util import SortedBitsTrie as SBT
 import simpy
 import copy
 
@@ -29,9 +30,9 @@ class TestSendQuery(unittest.TestCase):
         self.helper.create_query_group(peer_a, peer_b)
         queried_id = self.helper.id_with_prefix('')
         peer_a.send_query(peer_b.peer_id, queried_id, set(), False, False,
-                          set(), None)
+                          SBT(), None)
         mocked_send.assert_called_once_with(
-            peer_a.peer_id, peer_a.address, peer_b.address, queried_id, set(),
+            peer_a.peer_id, peer_a.address, peer_b.address, queried_id, SBT(),
             ANY)
 
     @unittest.mock.patch('util.Network.send_query')
@@ -42,10 +43,10 @@ class TestSendQuery(unittest.TestCase):
         queried_id = self.helper.id_with_prefix('')
         excluded_id = self.helper.id_with_prefix('')
         peer_a.send_query(peer_b.peer_id, queried_id, set(), False, False,
-                          set((excluded_id,)), None)
+                          SBT({excluded_id: None}), None)
         mocked_send.assert_called_once_with(
             peer_a.peer_id, peer_a.address, peer_b.address, queried_id,
-            set((excluded_id,)),  ANY)
+            SBT({excluded_id: ANY}),  ANY)
 
     def test_adds_out_query(self):
         peer_a = self.helper.peer_with_prefix('')
@@ -53,10 +54,10 @@ class TestSendQuery(unittest.TestCase):
         self.helper.create_query_group(peer_a, peer_b)
         queried_id = self.helper.id_with_prefix('')
         peer_a.send_query(peer_b.peer_id, queried_id, set(), False, False,
-                          set(), None)
+                          SBT(), None)
         self.assertEqual(peer_a.out_queries_map[queried_id],
                          {peer_b.peer_id: p.OutgoingQuery(
-                             0, set((peer_b.peer_id,)), False, False, set())})
+                             0, set((peer_b.peer_id,)), False, False, SBT())})
 
     def test_saves_peers_already_queried(self):
         peer_a = self.helper.peer_with_prefix('')
@@ -65,11 +66,11 @@ class TestSendQuery(unittest.TestCase):
         self.helper.create_query_group(peer_a, peer_b)
         queried_id = self.helper.id_with_prefix('')
         peer_a.send_query(peer_b.peer_id, queried_id, peers_already_queried,
-                          False, False, set(), None)
+                          False, False, SBT(), None)
         peers_already_queried.add(peer_b.peer_id)
         self.assertEqual(peer_a.out_queries_map[queried_id],
                          {peer_b.peer_id: p.OutgoingQuery(
-                             0, peers_already_queried, False, False, set())})
+                             0, peers_already_queried, False, False, SBT())})
 
     def test_saves_query_further(self):
         peer_a = self.helper.peer_with_prefix('')
@@ -77,10 +78,10 @@ class TestSendQuery(unittest.TestCase):
         self.helper.create_query_group(peer_a, peer_b)
         queried_id = self.helper.id_with_prefix('')
         peer_a.send_query(peer_b.peer_id, queried_id, set(), True, False,
-                          set(), None)
+                          SBT(), None)
         self.assertEqual(peer_a.out_queries_map[queried_id],
                          {peer_b.peer_id: p.OutgoingQuery(
-                             0, set((peer_b.peer_id,)), True, False, set())})
+                             0, set((peer_b.peer_id,)), True, False, SBT())})
 
     def test_saves_query_sync(self):
         peer_a = self.helper.peer_with_prefix('')
@@ -88,10 +89,10 @@ class TestSendQuery(unittest.TestCase):
         self.helper.create_query_group(peer_a, peer_b)
         queried_id = self.helper.id_with_prefix('')
         peer_a.send_query(peer_b.peer_id, queried_id, set(), False, True,
-                          set(), None)
+                          SBT(), None)
         self.assertEqual(peer_a.out_queries_map[queried_id],
                          {peer_b.peer_id: p.OutgoingQuery(
-                             0, set((peer_b.peer_id,)), False, True, set())})
+                             0, set((peer_b.peer_id,)), False, True, SBT())})
 
     def test_saves_excluded_peer_ids(self):
         peer_a = self.helper.peer_with_prefix('')
@@ -100,11 +101,11 @@ class TestSendQuery(unittest.TestCase):
         queried_id = self.helper.id_with_prefix('')
         excluded_id = self.helper.id_with_prefix('')
         peer_a.send_query(peer_b.peer_id, queried_id, set(), False, False,
-                          set((excluded_id,)), None)
+                          SBT({excluded_id: None}), None)
         self.assertEqual(peer_a.out_queries_map[queried_id],
                          {peer_b.peer_id: p.OutgoingQuery(
                              0, set((peer_b.peer_id,)), False, False,
-                             set((excluded_id,)))})
+                             SBT({excluded_id: ANY}))})
 
     def test_starts_timeout(self):
         peer_a = self.helper.peer_with_prefix('')
@@ -114,7 +115,7 @@ class TestSendQuery(unittest.TestCase):
         with unittest.mock.patch.object(peer_a.env, 'process') as process,\
                 unittest.mock.patch.object(peer_a, 'query_timeout') as timeout:
             peer_a.send_query(peer_b.peer_id, queried_id, set(), False, True,
-                              set(), None)
+                              SBT(), None)
             process.assert_called_once()
             timeout.assert_called_once_with(peer_b.peer_id, queried_id, ANY)
 
@@ -207,13 +208,13 @@ class TestRecvQuery(unittest.TestCase):
         with unittest.mock.patch.object(peer_a, 'behavior') as mocked_behavior:
             peer_a.recv_query(querying_peer_id, queried_id, None)
             mocked_behavior.on_query_external.assert_called_once_with(
-                querying_peer_id, queried_id, ANY, excluded_peer_ids=set())
+                querying_peer_id, queried_id, ANY, excluded_peer_ids=SBT())
 
     def test_doesnt_react_to_repeated_query_from_self(self):
         peer_a = self.helper.peer_with_prefix('0000')
         queried_id = self.helper.id_with_prefix('1111')
         peer_a.in_queries_map.setdefault(queried_id, {}).setdefault(
-            peer_a.peer_id, p.IncomingQuery(5, set()))
+            peer_a.peer_id, p.IncomingQuery(5, SBT()))
         with unittest.mock.patch.object(peer_a, 'behavior') as mocked_behavior:
             peer_a.recv_query(peer_a.peer_id, queried_id, None)
             mocked_behavior.on_query_self.assert_not_called()
@@ -227,7 +228,7 @@ class TestRecvQuery(unittest.TestCase):
         querying_peer_id = self.helper.id_with_prefix('')
         queried_id = self.helper.id_with_prefix('1111')
         peer_a.in_queries_map.setdefault(queried_id, {}).setdefault(
-            querying_peer_id, p.IncomingQuery(5, set()))
+            querying_peer_id, p.IncomingQuery(5, SBT()))
         with unittest.mock.patch.object(peer_a, 'behavior') as mocked_behavior:
             peer_a.recv_query(querying_peer_id, queried_id, None)
             mocked_behavior.on_query_self.assert_not_called()
@@ -241,7 +242,12 @@ class TestRecvQuery(unittest.TestCase):
         querying_peer_id = self.helper.id_with_prefix('')
         with unittest.mock.patch.object(peer_a, 'behavior') as mocked_behavior:
             peer_a.recv_query(querying_peer_id, peer_a.peer_id, None,
-                              excluded_peer_ids=set((peer_a.peer_id,)))
+                              excluded_peer_ids=SBT({peer_a.peer_id: None}))
+            mocked_behavior.on_query_self.assert_not_called()
+        with unittest.mock.patch.object(peer_a, 'behavior') as mocked_behavior:
+            peer_a.recv_query(querying_peer_id, peer_a.peer_id, None,
+                              excluded_peer_ids=SBT(
+                                  {peer_a.peer_id[:4]: None}))
             mocked_behavior.on_query_self.assert_not_called()
 
     def test_doesnt_return_sync_peer_if_excluded(self):
@@ -250,7 +256,12 @@ class TestRecvQuery(unittest.TestCase):
         querying_peer_id = self.helper.id_with_prefix('')
         with unittest.mock.patch.object(peer_a, 'behavior') as mocked_behavior:
             peer_a.recv_query(querying_peer_id, peer_b.peer_id, None,
-                              excluded_peer_ids=set((peer_b.peer_id,)))
+                              excluded_peer_ids=SBT({peer_b.peer_id: None}))
+            mocked_behavior.on_query_sync.assert_not_called()
+        with unittest.mock.patch.object(peer_a, 'behavior') as mocked_behavior:
+            peer_a.recv_query(querying_peer_id, peer_b.peer_id, None,
+                              excluded_peer_ids=SBT(
+                                  {peer_b.peer_id[:2]: None}))
             mocked_behavior.on_query_sync.assert_not_called()
 
     def test_passes_on_excluded_peer_ids(self):
@@ -260,10 +271,26 @@ class TestRecvQuery(unittest.TestCase):
         excluded_id = self.helper.id_with_prefix('1111')
         with unittest.mock.patch.object(peer_a, 'behavior') as mocked_behavior:
             peer_a.recv_query(querying_peer_id, queried_id, None,
-                              excluded_peer_ids=set((excluded_id,)))
+                              excluded_peer_ids=SBT({excluded_id: None}))
             mocked_behavior.on_query_external.assert_called_once_with(
                 querying_peer_id, queried_id, ANY,
-                excluded_peer_ids=set((excluded_id,)))
+                excluded_peer_ids=SBT({excluded_id: None}))
+
+    def test_excludes_own_prefix_if_all_sync_peers_are_excluded(self):
+        peer_a = self.helper.peer_with_prefix('0000')
+        peer_b = self.helper.peer_with_prefix('0000')
+        peer_c = self.helper.peer_with_prefix('0000')
+        querying_peer_id = self.helper.id_with_prefix('')
+        queried_id = bs.Bits('0b0')
+        with unittest.mock.patch.object(peer_a, 'behavior') as mocked_behavior:
+            peer_a.recv_query(querying_peer_id, queried_id, None,
+                              excluded_peer_ids=SBT({peer_a.peer_id: None,
+                                                     peer_b.peer_id: None,
+                                                     peer_c.peer_id: None}))
+            mocked_behavior.on_query_external.assert_called_once_with(
+                querying_peer_id, queried_id, ANY, excluded_peer_ids=SBT({
+                    peer_a.prefix: None, peer_a.peer_id: None,
+                    peer_b.peer_id: None, peer_c.peer_id: None}))
 
 
 class TestRecvResponse(unittest.TestCase):
@@ -277,7 +304,7 @@ class TestRecvResponse(unittest.TestCase):
         excluded_id = self.helper.id_with_prefix('')
         queried_peer_info = self.helper.peer_with_prefix('').info()
         out_query = p.OutgoingQuery(0, set(), False, False,
-                                    set((excluded_id,)))
+                                    SBT({excluded_id: None}))
         out_query.timeout_proc = unittest.mock.Mock()
         peer_a.out_queries_map.setdefault(queried_id, {}).setdefault(
             responding_peer_id, out_query)
@@ -286,20 +313,20 @@ class TestRecvResponse(unittest.TestCase):
                                  queried_peer_info, None)
             mocked_behavior.on_response_success.assert_called_once_with(
                 responding_peer_id, queried_id, queried_peer_info,
-                set((excluded_id,)), ANY)
+                SBT({excluded_id: None}), ANY)
 
     def test_reacts_to_failure(self):
         peer_a = self.helper.peer_with_prefix('')
         responding_peer_id = self.helper.id_with_prefix('')
         queried_id = self.helper.id_with_prefix('')
-        out_query = p.OutgoingQuery(0, set(), False, False, set())
+        out_query = p.OutgoingQuery(0, set(), False, False, SBT())
         out_query.timeout_proc = unittest.mock.Mock()
         peer_a.out_queries_map.setdefault(queried_id, {}).setdefault(
             responding_peer_id, out_query)
         with unittest.mock.patch.object(peer_a, 'behavior') as mocked_behavior:
             peer_a.recv_response(responding_peer_id, queried_id, None, None)
             mocked_behavior.on_response_failure.assert_called_once_with(
-                responding_peer_id, queried_id, set(), False, False, set(),
+                responding_peer_id, queried_id, set(), False, False, SBT(),
                 ANY)
 
     def test_passes_on_peers_already_queried_on_failure(self):
@@ -309,7 +336,7 @@ class TestRecvResponse(unittest.TestCase):
         peers_already_queried = set(self.helper.peer_with_prefix('').peer_id
                                     for _ in range(5))
         out_query = p.OutgoingQuery(0, peers_already_queried, False, False,
-                                    set())
+                                    SBT())
         out_query.timeout_proc = unittest.mock.Mock()
         peer_a.out_queries_map.setdefault(queried_id, {}).setdefault(
             responding_peer_id, out_query)
@@ -317,40 +344,41 @@ class TestRecvResponse(unittest.TestCase):
             peer_a.recv_response(responding_peer_id, queried_id, None, None)
             mocked_behavior.on_response_failure.assert_called_once_with(
                 responding_peer_id, queried_id, peers_already_queried, False,
-                False, set(), ANY)
+                False, SBT(), ANY)
 
     def test_passes_on_query_further_on_failure(self):
         peer_a = self.helper.peer_with_prefix('')
         responding_peer_id = self.helper.id_with_prefix('')
         queried_id = self.helper.id_with_prefix('')
-        out_query = p.OutgoingQuery(0, set(), True, False, set())
+        out_query = p.OutgoingQuery(0, set(), True, False, SBT())
         out_query.timeout_proc = unittest.mock.Mock()
         peer_a.out_queries_map.setdefault(queried_id, {}).setdefault(
             responding_peer_id, out_query)
         with unittest.mock.patch.object(peer_a, 'behavior') as mocked_behavior:
             peer_a.recv_response(responding_peer_id, queried_id, None, None)
             mocked_behavior.on_response_failure.assert_called_once_with(
-                responding_peer_id, queried_id, set(), True, False, set(), ANY)
+                responding_peer_id, queried_id, set(), True, False, SBT(), ANY)
 
     def test_passes_on_query_sync_on_failure(self):
         peer_a = self.helper.peer_with_prefix('')
         responding_peer_id = self.helper.id_with_prefix('')
         queried_id = self.helper.id_with_prefix('')
-        out_query = p.OutgoingQuery(0, set(), False, True, set())
+        out_query = p.OutgoingQuery(0, set(), False, True, SBT())
         out_query.timeout_proc = unittest.mock.Mock()
         peer_a.out_queries_map.setdefault(queried_id, {}).setdefault(
             responding_peer_id, out_query)
         with unittest.mock.patch.object(peer_a, 'behavior') as mocked_behavior:
             peer_a.recv_response(responding_peer_id, queried_id, None, None)
             mocked_behavior.on_response_failure.assert_called_once_with(
-                responding_peer_id, queried_id, set(), False, True, set(), ANY)
+                responding_peer_id, queried_id, set(), False, True, SBT(), ANY)
 
     def test_passes_on_excluded_peer_ids_on_failure(self):
         peer_a = self.helper.peer_with_prefix('')
         responding_peer_id = self.helper.id_with_prefix('')
         queried_id = self.helper.id_with_prefix('')
         excluded_id = self.helper.id_with_prefix('')
-        out_query = p.OutgoingQuery(0, set(), False, True, set((excluded_id,)))
+        out_query = p.OutgoingQuery(0, set(), False, True,
+                                    SBT({excluded_id: None}))
         out_query.timeout_proc = unittest.mock.Mock()
         peer_a.out_queries_map.setdefault(queried_id, {}).setdefault(
             responding_peer_id, out_query)
@@ -358,7 +386,7 @@ class TestRecvResponse(unittest.TestCase):
             peer_a.recv_response(responding_peer_id, queried_id, None, None)
             mocked_behavior.on_response_failure.assert_called_once_with(
                 responding_peer_id, queried_id, set(), False, True,
-                set((excluded_id,)), ANY)
+                SBT({excluded_id: ANY}), ANY)
 
     def test_doesnt_react_if_unmatched(self):
         peer_a = self.helper.peer_with_prefix('')
@@ -374,7 +402,7 @@ class TestRecvResponse(unittest.TestCase):
         responding_peer_id = self.helper.id_with_prefix('')
         queried_id = self.helper.id_with_prefix('')
         queried_peer_info = self.helper.peer_with_prefix('').info()
-        out_query = p.OutgoingQuery(0, set(), False, False, set())
+        out_query = p.OutgoingQuery(0, set(), False, False, SBT())
         out_query.timeout_proc = unittest.mock.Mock()
         peer_a.out_queries_map.setdefault(queried_id, {}).setdefault(
             responding_peer_id, out_query)
@@ -388,7 +416,7 @@ class TestRecvResponse(unittest.TestCase):
         responding_peer_id = self.helper.id_with_prefix('')
         queried_id = self.helper.id_with_prefix('')
         queried_peer_info = self.helper.peer_with_prefix('').info()
-        out_query = p.OutgoingQuery(0, set(), False, False, set())
+        out_query = p.OutgoingQuery(0, set(), False, False, SBT())
         out_query.timeout_proc = unittest.mock.Mock()
         peer_a.out_queries_map.setdefault(queried_id, {}).setdefault(
             responding_peer_id, out_query)
@@ -401,7 +429,7 @@ class TestRecvResponse(unittest.TestCase):
         responding_peer_id = self.helper.id_with_prefix('')
         queried_id = self.helper.id_with_prefix('')
         queried_peer_info = self.helper.peer_with_prefix('').info()
-        out_query = p.OutgoingQuery(0, set(), False, False, set())
+        out_query = p.OutgoingQuery(0, set(), False, False, SBT())
         out_query.timeout_proc = unittest.mock.Mock()
         peer_a.out_queries_map.setdefault(queried_id, {}).setdefault(
             responding_peer_id, out_query)
@@ -415,7 +443,7 @@ class TestRecvResponse(unittest.TestCase):
         responding_peer_id = self.helper.id_with_prefix('')
         queried_id = self.helper.id_with_prefix('')
         queried_peer_info = self.helper.peer_with_prefix('').info()
-        out_query = p.OutgoingQuery(0, set(), False, False, set())
+        out_query = p.OutgoingQuery(0, set(), False, False, SBT())
         out_query.timeout_proc = unittest.mock.Mock()
         peer_a.out_queries_map.setdefault(queried_id, {}).setdefault(
             responding_peer_id, out_query)
@@ -433,7 +461,7 @@ class TestQueryTimeout(unittest.TestCase):
         timeout_peer_id = self.helper.id_with_prefix('')
         queried_id = self.helper.id_with_prefix('')
         peer_a.out_queries_map.setdefault(queried_id, {}).setdefault(
-            timeout_peer_id, p.OutgoingQuery(0, set(), False, False, set()))
+            timeout_peer_id, p.OutgoingQuery(0, set(), False, False, SBT()))
         with unittest.mock.patch.object(peer_a, 'behavior') as mocked_behavior:
             mocked_behavior.expect_delay.return_value = 0
             to = peer_a.query_timeout(timeout_peer_id, queried_id, None)
@@ -444,7 +472,7 @@ class TestQueryTimeout(unittest.TestCase):
             except StopIteration:
                 pass
             mocked_behavior.on_timeout.assert_called_once_with(
-                timeout_peer_id, queried_id, set(), False, False, set(), ANY)
+                timeout_peer_id, queried_id, set(), False, False, SBT(), ANY)
 
     def test_doesnt_react_if_interrupted(self):
         peer_a = self.helper.peer_with_prefix('')
@@ -482,7 +510,7 @@ class TestQueryTimeout(unittest.TestCase):
         timeout_peer_id = self.helper.id_with_prefix('')
         queried_id = self.helper.id_with_prefix('')
         peer_a.out_queries_map.setdefault(queried_id, {}).setdefault(
-            timeout_peer_id, p.OutgoingQuery(0, set(), False, False, set()))
+            timeout_peer_id, p.OutgoingQuery(0, set(), False, False, SBT()))
         peer_a.out_queries_map[queried_id]['asd'] = 1
         with unittest.mock.patch.object(peer_a, 'behavior') as mocked_behavior:
             mocked_behavior.expect_delay.return_value = 0
@@ -499,7 +527,7 @@ class TestQueryTimeout(unittest.TestCase):
         timeout_peer_id = self.helper.id_with_prefix('')
         queried_id = self.helper.id_with_prefix('')
         peer_a.out_queries_map.setdefault(queried_id, {}).setdefault(
-            timeout_peer_id, p.OutgoingQuery(0, set(), False, False, set()))
+            timeout_peer_id, p.OutgoingQuery(0, set(), False, False, SBT()))
         with unittest.mock.patch.object(peer_a, 'behavior') as mocked_behavior:
             mocked_behavior.expect_delay.return_value = 0
             to = peer_a.query_timeout(timeout_peer_id, queried_id, None)
@@ -518,7 +546,7 @@ class TestQueryTimeout(unittest.TestCase):
                                     for _ in range(5))
         peer_a.out_queries_map.setdefault(queried_id, {}).setdefault(
             timeout_peer_id, p.OutgoingQuery(0, peers_already_queried, False,
-                                             False, set()))
+                                             False, SBT()))
         with unittest.mock.patch.object(peer_a, 'behavior') as mocked_behavior:
             mocked_behavior.expect_delay.return_value = 0
             to = peer_a.query_timeout(timeout_peer_id, queried_id, None)
@@ -530,14 +558,14 @@ class TestQueryTimeout(unittest.TestCase):
                 pass
             mocked_behavior.on_timeout.assert_called_once_with(
                 timeout_peer_id, queried_id, peers_already_queried, False,
-                False, set(), ANY)
+                False, SBT(), ANY)
 
     def test_passes_on_query_further(self):
         peer_a = self.helper.peer_with_prefix('')
         timeout_peer_id = self.helper.id_with_prefix('')
         queried_id = self.helper.id_with_prefix('')
         peer_a.out_queries_map.setdefault(queried_id, {}).setdefault(
-            timeout_peer_id, p.OutgoingQuery(0, set(), True, False, set()))
+            timeout_peer_id, p.OutgoingQuery(0, set(), True, False, SBT()))
         with unittest.mock.patch.object(peer_a, 'behavior') as mocked_behavior:
             mocked_behavior.expect_delay.return_value = 0
             to = peer_a.query_timeout(timeout_peer_id, queried_id, None)
@@ -548,14 +576,14 @@ class TestQueryTimeout(unittest.TestCase):
             except StopIteration:
                 pass
             mocked_behavior.on_timeout.assert_called_once_with(
-                timeout_peer_id, queried_id, set(), True, False, set(), ANY)
+                timeout_peer_id, queried_id, set(), True, False, SBT(), ANY)
 
     def test_passes_on_query_sync(self):
         peer_a = self.helper.peer_with_prefix('')
         timeout_peer_id = self.helper.id_with_prefix('')
         queried_id = self.helper.id_with_prefix('')
         peer_a.out_queries_map.setdefault(queried_id, {}).setdefault(
-            timeout_peer_id, p.OutgoingQuery(0, set(), False, True, set()))
+            timeout_peer_id, p.OutgoingQuery(0, set(), False, True, SBT()))
         with unittest.mock.patch.object(peer_a, 'behavior') as mocked_behavior:
             mocked_behavior.expect_delay.return_value = 0
             to = peer_a.query_timeout(timeout_peer_id, queried_id, None)
@@ -566,7 +594,7 @@ class TestQueryTimeout(unittest.TestCase):
             except StopIteration:
                 pass
             mocked_behavior.on_timeout.assert_called_once_with(
-                timeout_peer_id, queried_id, set(), False, True, set(), ANY)
+                timeout_peer_id, queried_id, set(), False, True, SBT(), ANY)
 
     def test_passes_on_excluded_peer_ids(self):
         peer_a = self.helper.peer_with_prefix('')
@@ -575,7 +603,7 @@ class TestQueryTimeout(unittest.TestCase):
         excluded_id = self.helper.id_with_prefix('')
         peer_a.out_queries_map.setdefault(queried_id, {}).setdefault(
             timeout_peer_id, p.OutgoingQuery(0, set(), False, False,
-                                             set((excluded_id,))))
+                                             SBT({excluded_id: None})))
         with unittest.mock.patch.object(peer_a, 'behavior') as mocked_behavior:
             mocked_behavior.expect_delay.return_value = 0
             to = peer_a.query_timeout(timeout_peer_id, queried_id, None)
@@ -587,7 +615,7 @@ class TestQueryTimeout(unittest.TestCase):
                 pass
             mocked_behavior.on_timeout.assert_called_once_with(
                 timeout_peer_id, queried_id, set(), False, False,
-                set((excluded_id,)), ANY)
+                SBT({excluded_id: ANY}), ANY)
 
 
 class TestRecvReputationUpdate(unittest.TestCase):
@@ -870,7 +898,7 @@ class TestSubprefixCoverage(unittest.TestCase):
     def test_with_no_query_groups(self):
         peer = self.helper.peer_with_prefix('0000')
         self.assertEqual(peer.subprefix_coverage(),
-                         {sp: set() for sp in peer.subprefixes()})
+                         {sp: SBT() for sp in peer.subprefixes()})
 
     def test_with_all_peers_same_prefix(self):
         peer = self.helper.peer_with_prefix('0000')
@@ -879,7 +907,7 @@ class TestSubprefixCoverage(unittest.TestCase):
             self.helper.peer_with_prefix('0000'),
             self.helper.peer_with_prefix('0000'))
         self.assertEqual(peer.subprefix_coverage(),
-                         {sp: set() for sp in peer.subprefixes()})
+                         {sp: SBT() for sp in peer.subprefixes()})
 
     def test_subprefix_coverage(self):
         peer = self.helper.peer_with_prefix('0000')
@@ -893,13 +921,13 @@ class TestSubprefixCoverage(unittest.TestCase):
             peer, peer_1_0001, peer_2_0001, peer_3_0100, peer_4_0101,
             peer_5_0110, peer_6_1111)
         self.assertEqual(peer.subprefix_coverage(), {
-                         bs.Bits(bin='0001'): set((peer_1_0001.peer_id,
-                                                   peer_2_0001.peer_id)),
-                         bs.Bits(bin='001'): set(),
-                         bs.Bits(bin='01'): set((peer_3_0100.peer_id,
-                                                 peer_4_0101.peer_id,
-                                                 peer_5_0110.peer_id)),
-                         bs.Bits(bin='1'): set((peer_6_1111.peer_id,))})
+                         bs.Bits(bin='0001'): SBT({peer_1_0001.peer_id: None,
+                                                   peer_2_0001.peer_id: None}),
+                         bs.Bits(bin='001'): SBT(),
+                         bs.Bits(bin='01'): SBT({peer_3_0100.peer_id: None,
+                                                 peer_4_0101.peer_id: None,
+                                                 peer_5_0110.peer_id: None}),
+                         bs.Bits(bin='1'): SBT({peer_6_1111.peer_id: None})})
 
 
 class TestQueryGroupSubprefixCoverage(unittest.TestCase):
@@ -1500,7 +1528,7 @@ class TestFindMissingQueryPeers(unittest.TestCase):
         self.helper.create_query_group(peer, peer_a)
         peer.find_missing_query_peers()
         self.mocked_send_query.assert_called_once_with(
-            peer.peer_id, peer.address, peer_a.address, bs.Bits('0b01'), set(),
+            peer.peer_id, peer.address, peer_a.address, bs.Bits('0b01'), SBT(),
             ANY)
 
     def test_queries_covered_prefixes_if_less_than_desired(self):
@@ -1513,7 +1541,7 @@ class TestFindMissingQueryPeers(unittest.TestCase):
         self.mocked_send_query.assert_called_once_with(
             peer.peer_id, peer.address,
             arg_any_of(peer_a.address, peer_b.address),
-            bs.Bits('0b01'), set(), ANY)
+            bs.Bits('0b01'), SBT(), ANY)
 
     def test_specifies_known_peers(self):
         self.helper.settings['min_desired_query_peers'] = 2
@@ -1524,8 +1552,20 @@ class TestFindMissingQueryPeers(unittest.TestCase):
         self.helper.create_query_group(peer, peer_a, peer_b, peer_c)
         peer.find_missing_query_peers()
         self.mocked_send_query.assert_called_once_with(
+            peer.peer_id, peer.address, ANY, bs.Bits('0b01'),
+            SBT({peer_c.peer_id: ANY}), ANY)
+
+    def test_also_quries_peers_for_prefixes_who_were_excluded(self):
+        self.helper.settings['min_desired_query_peers'] = 2
+        peer = self.helper.peer_with_prefix('00')
+        peer_a = self.helper.peer_with_prefix('10')
+        peer_b = self.helper.peer_with_prefix('10')
+        peer_c = self.helper.peer_with_prefix('01')
+        self.helper.create_query_group(peer, peer_a, peer_b, peer_c)
+        peer.find_missing_query_peers()
+        self.mocked_send_query.assert_called_once_with(
             peer.peer_id, peer.address, peer_c.address, bs.Bits('0b01'),
-            set((peer_c.peer_id,)), ANY)
+            SBT({peer_c.peer_id: ANY}), ANY)
 
     def test_doesnt_query_if_query_is_pending(self):
         peer = self.helper.peer_with_prefix('00')
@@ -1543,11 +1583,11 @@ class TestFindMissingQueryPeers(unittest.TestCase):
         self.assertEqual(len(self.mocked_send_query.call_args_list), 2)
         self.assertTrue(
             call(peer.peer_id, peer.address, peer_a.address, bs.Bits('0b01'),
-                 set(), ANY)
+                 SBT(), ANY)
             in self.mocked_send_query.call_args_list)
         self.assertTrue(
             call(peer.peer_id, peer.address, peer_a.address, bs.Bits('0b1'),
-                 set(), ANY)
+                 SBT(), ANY)
             in self.mocked_send_query.call_args_list)
 
     def test_ignores_non_existent_subprefixes(self):
@@ -1579,21 +1619,25 @@ class TestHasInQuery(unittest.TestCase):
 
     def test_no_match(self):
         self.mock_peer.in_queries_map.setdefault(self.id_1, {}).setdefault(
-            self.id_2, p.IncomingQuery(0, set()))
+            self.id_2, p.IncomingQuery(0, SBT()))
         self.assertFalse(p.Peer.has_in_query(self.mock_peer, self.id_3,
                                              self.id_4, set()))
 
     def test_match(self):
         self.mock_peer.in_queries_map.setdefault(self.id_1, {}).setdefault(
-            self.id_2, p.IncomingQuery(0, set(self.id_3)))
+            self.id_2, p.IncomingQuery(0, SBT({self.id_3: None})))
         self.assertTrue(p.Peer.has_in_query(self.mock_peer, self.id_2,
-                                            self.id_1, set()))
+                                            self.id_1, SBT()))
 
     def test_no_excluded_peers_match(self):
         self.mock_peer.in_queries_map.setdefault(self.id_1, {}).setdefault(
-            self.id_2, p.IncomingQuery(0, set()))
+            self.id_2, p.IncomingQuery(0, SBT()))
         self.assertFalse(p.Peer.has_in_query(self.mock_peer, self.id_2,
-                                             self.id_1, set(self.id_3)))
+                                             self.id_1,
+                                             SBT({self.id_3: None})))
+        self.assertFalse(p.Peer.has_in_query(self.mock_peer, self.id_2,
+                                             self.id_1,
+                                             SBT({self.id_3[:1]: None})))
 
 
 class TestHasMatchingOutQueries(unittest.TestCase):
@@ -1607,53 +1651,63 @@ class TestHasMatchingOutQueries(unittest.TestCase):
 
     def test_no_match(self):
         self.assertFalse(p.Peer.has_matching_out_queries(self.mock_peer,
-                                                         self.id_1, set()))
+                                                         self.id_1, SBT()))
         self.mock_peer.out_queries_map.setdefault(self.id_1, {}).setdefault(
             self.id_2, 0)
         self.assertFalse(p.Peer.has_matching_out_queries(self.mock_peer,
-                                                         self.id_3, set()))
+                                                         self.id_3, SBT()))
 
     def test_exact_match(self):
         self.mock_peer.out_queries_map.setdefault(self.id_1, {}).setdefault(
-            self.id_2, p.IncomingQuery(0, set()))
+            self.id_2, p.IncomingQuery(0, SBT()))
         self.mock_peer.out_queries_map.setdefault(
             self.id_3[:-2], {}).setdefault(self.id_4,
-                                           p.IncomingQuery(0, set()))
+                                           p.IncomingQuery(0, SBT()))
         self.assertTrue(p.Peer.has_matching_out_queries(self.mock_peer,
-                                                        self.id_1, set()))
+                                                        self.id_1, SBT()))
         self.assertTrue(p.Peer.has_matching_out_queries(self.mock_peer,
-                                                        self.id_3[:-2], set()))
+                                                        self.id_3[:-2], SBT()))
 
     def test_prefix_match(self):
         self.mock_peer.out_queries_map.setdefault(self.id_1, {}).setdefault(
-            self.id_2, p.IncomingQuery(0, set()))
+            self.id_2, p.IncomingQuery(0, SBT()))
         self.mock_peer.out_queries_map.setdefault(
             self.id_3[:-2], {}).setdefault(self.id_4,
-                                           p.IncomingQuery(0, set()))
+                                           p.IncomingQuery(0, SBT()))
         self.assertTrue(p.Peer.has_matching_out_queries(self.mock_peer,
-                                                        self.id_1[:-2], set()))
+                                                        self.id_1[:-2], SBT()))
         self.assertFalse(p.Peer.has_matching_out_queries(self.mock_peer,
-                                                         self.id_3, set()))
+                                                         self.id_3, SBT()))
 
     def test_match_if_excluded_peer_ids_is_a_superset(self):
         self.mock_peer.out_queries_map.setdefault(self.id_1, {}).setdefault(
             self.id_2, p.OutgoingQuery(
-                0, set(), False, False, set((self.id_3, self.id_4))))
+                0, set(), False, False, SBT({self.id_3: None,
+                                             self.id_4: None})))
         self.assertTrue(p.Peer.has_matching_out_queries(
-            self.mock_peer, self.id_1, set((self.id_3, self.id_4))))
+            self.mock_peer, self.id_1, SBT({self.id_3: None,
+                                            self.id_4: None})))
         self.assertTrue(p.Peer.has_matching_out_queries(
-            self.mock_peer, self.id_1, set((self.id_4,))))
+            self.mock_peer, self.id_1, SBT({self.id_4: None})))
         self.assertTrue(p.Peer.has_matching_out_queries(
-            self.mock_peer, self.id_1, set()))
+            self.mock_peer, self.id_1, SBT()))
+
+    def test_match_if_excluded_peer_ids_has_prefix(self):
+        self.mock_peer.out_queries_map.setdefault(self.id_1, {}).setdefault(
+            self.id_2, p.OutgoingQuery(
+                0, set(), False, False, SBT({self.id_3[:1]: None})))
+        self.assertTrue(p.Peer.has_matching_out_queries(
+            self.mock_peer, self.id_1, SBT({self.id_3: None})))
 
     def test_no_match_if_excluded_peer_ids_isnt_a_superset(self):
         self.mock_peer.out_queries_map.setdefault(self.id_1, {}).setdefault(
             self.id_2, p.OutgoingQuery(
-                0, set(), False, False, set((self.id_3,))))
+                0, set(), False, False, SBT({self.id_3: None})))
         self.assertFalse(p.Peer.has_matching_out_queries(
-            self.mock_peer, self.id_1, set((self.id_3, self.id_4))))
+            self.mock_peer, self.id_1, SBT({self.id_3: None,
+                                            self.id_4: None})))
         self.assertFalse(p.Peer.has_matching_out_queries(
-            self.mock_peer, self.id_1, set((self.id_4,))))
+            self.mock_peer, self.id_1, SBT({self.id_4: None})))
 
 
 class TestMatchingInQueries(unittest.TestCase):
@@ -1673,53 +1727,66 @@ class TestMatchingInQueries(unittest.TestCase):
 
     def test_no_match(self):
         self.mock_peer.in_queries_map.setdefault(self.id_1, {}).setdefault(
-            self.id_2, p.IncomingQuery(0, set()))
+            self.id_2, p.IncomingQuery(0, SBT()))
         self.assertEqual(p.Peer.matching_in_queries(self.mock_peer, self.id_3,
-                                                    set()),
+                                                    SBT()),
                          {})
 
     def test_exact_match(self):
         self.mock_peer.in_queries_map.setdefault(self.id_1, {}).setdefault(
-            self.id_2, p.IncomingQuery(0, set()))
+            self.id_2, p.IncomingQuery(0, SBT()))
         self.mock_peer.in_queries_map.setdefault(
             self.id_3[:-2], {}).setdefault(self.id_4,
-                                           p.IncomingQuery(0, set()))
+                                           p.IncomingQuery(0, SBT()))
         self.assertEqual(p.Peer.matching_in_queries(self.mock_peer, self.id_1,
-                                                    set()),
-                         {self.id_1: {self.id_2: p.IncomingQuery(0, set())}})
+                                                    SBT()),
+                         {self.id_1: {self.id_2: p.IncomingQuery(0, SBT())}})
         self.assertEqual(p.Peer.matching_in_queries(self.mock_peer,
-                                                    self.id_3[:-2], set()),
+                                                    self.id_3[:-2], SBT()),
                          {self.id_3[:-2]: {
-                             self.id_4: p.IncomingQuery(0, set())}})
+                             self.id_4: p.IncomingQuery(0, SBT())}})
 
     def test_no_longer_matches(self):
         self.mock_peer.in_queries_map.setdefault(self.id_1, {}).setdefault(
-            self.id_2, p.IncomingQuery(0, set()))
+            self.id_2, p.IncomingQuery(0, SBT()))
         self.mock_peer.in_queries_map.setdefault(
             self.id_1[:-2], {}).setdefault(self.id_3,
-                                           p.IncomingQuery(0, set()))
+                                           p.IncomingQuery(0, SBT()))
         self.assertEqual(p.Peer.matching_in_queries(self.mock_peer,
-                                                    self.id_1[:-2], set()),
+                                                    self.id_1[:-2], SBT()),
                          {self.id_1[:-2]: {
-                             self.id_3: p.IncomingQuery(0, set())}})
+                             self.id_3: p.IncomingQuery(0, SBT())}})
 
     def test_multiple_matches(self):
         self.mock_peer.in_queries_map.setdefault(self.id_1, {}).setdefault(
-            self.id_2, p.IncomingQuery(0, set()))
+            self.id_2, p.IncomingQuery(0, SBT()))
         self.mock_peer.in_queries_map.setdefault(
             self.id_1[:-2], {}).setdefault(self.id_3,
-                                           p.IncomingQuery(0, set()))
+                                           p.IncomingQuery(0, SBT()))
         self.assertEqual(p.Peer.matching_in_queries(self.mock_peer, self.id_1,
-                                                    set()),
-                         {self.id_1: {self.id_2: p.IncomingQuery(0, set())},
+                                                    SBT()),
+                         {self.id_1: {self.id_2: p.IncomingQuery(0, SBT())},
                           self.id_1[:-2]: {
-                              self.id_3: p.IncomingQuery(0, set())}})
+                              self.id_3: p.IncomingQuery(0, SBT())}})
 
     def test_no_match_due_to_excluded_peer_ids(self):
         self.mock_peer.in_queries_map.setdefault(self.id_1, {}).setdefault(
-            self.id_2, p.IncomingQuery(0, set((self.id_3,))))
+            self.id_2, p.IncomingQuery(0, SBT({self.id_3: None})))
         self.assertEqual(p.Peer.matching_in_queries(self.mock_peer, self.id_1,
-                                                    set()), {})
+                                                    SBT()), {})
+
+    def test_match_if_excluded_peer_ids_have_prefix(self):
+        self.mock_peer.in_queries_map.setdefault(self.id_1, {}).setdefault(
+            self.id_2, p.IncomingQuery(0, SBT({bs.Bits('0b1100'): None,
+                                               bs.Bits('0b1111'): None})))
+        self.assertEqual(p.Peer.matching_in_queries(
+            self.mock_peer, self.id_1, SBT({bs.Bits('0b11'): None})),
+                         {
+                             self.id_1: {self.id_2: p.IncomingQuery(
+                                 0, SBT({bs.Bits('0b1100'): None,
+                                         bs.Bits('0b1111'): None}))
+                             }
+                         })
 
 
 class TestFinalizeInQueries(unittest.TestCase):

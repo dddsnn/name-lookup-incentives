@@ -127,6 +127,32 @@ class SortedIterSet(set):
 class SortedBitsTrie(pytrie.SortedTrie):
     KeyFactory = bitstring.Bits
 
+    def has_prefix_of(self, bits):
+        """
+        Return whether there is a key that is a prefix of bits.
+
+        This is true if there exists a key k in this trie with
+        bits.startswith(k). That implies len(bits) >= len(k).
+        """
+        try:
+            next(self.iter_prefixes(bits))
+            return True
+        except StopIteration:
+            return False
+
+    def is_key_prefix_subset(self, other):
+        """
+        Return whether each key has a prefix in the other trie.
+
+        This is the case if for each key k1 in this trie there exists a key k2
+        in the other such that k1.startswith(k2). That implies
+        len(k1) >= len(k2).
+        """
+        for key in self.iterkeys():
+            if not other.has_prefix_of(key):
+                return False
+        return True
+
 
 def bit_overlap(a, b):
     """Calculate the number of bits at the start that are the same."""

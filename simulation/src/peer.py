@@ -48,7 +48,7 @@ class PeerBehavior:
 
     def on_query_external(self, querying_peer_id, queried_id, in_event_id,
                           query_further=False, query_sync=False,
-                          excluded_peer_ids=util.SortedIterSet()):
+                          excluded_peer_ids=util.SortedBitsTrie()):
         """
         React to a query in the case that an external query is necessary.
 
@@ -62,9 +62,10 @@ class PeerBehavior:
         The recipient of a possible query is chosen using
         select_peer_to_query().
 
-        :param excluded_peer_ids: A set of peer IDs (not prefixes) that should
-            not be returned. Useful for finding new peers with a certain prefix
-            while avoiding learning about peers that are already known.
+        :param excluded_peer_ids: A trie whose keys are peer IDs that should
+            not be returned or prefixes that should not be prefixes of the peer
+            that is returned. Useful for finding new peers with a certain
+            prefix while avoiding learning about peers that are already known.
         """
         if self.peer.has_in_query(querying_peer_id, queried_id,
                                   excluded_peer_ids):
@@ -177,7 +178,8 @@ class PeerBehavior:
         Return whether a query was sent.
         """
         recipient_id = self.select_peer_to_query(
-            queried_id, peers_already_queried, query_further, query_sync)
+            queried_id, peers_already_queried, query_further, query_sync,
+            excluded_peer_ids)
         if recipient_id is not None:
             self.peer.send_query(
                 recipient_id, queried_id, peers_already_queried, query_further,
@@ -255,13 +257,15 @@ class PeerBehavior:
         return min(max(npr - max_rep, 0), npr)
 
     def select_peer_to_query(self, queried_id, peers_already_queried,
-                             query_further, query_sync):
+                             query_further, query_sync, excluded_peer_ids):
         """
         Select the next peer to query.
 
         Considers peers that could be queried to resolve queried_id and returns
         the ID of the best one according to best_peer_to_query(). Does not
-        consider peers whose IDs are in peers_already_queried.
+        consider peers whose IDs are in peers_already_queried. Does not
+        consider peers if a prefix of their ID is in the key set of
+        excluded_peer_ids, unless query_further is True.
 
         Returns the ID of the peer that should be queried, or None if there is
         no peer that could be queried.
@@ -276,7 +280,9 @@ class PeerBehavior:
             peers_to_query_info += [
                 (True, pi) for pi in self.peer.sync_peers.values()
                 if pi.peer_id != self.peer.peer_id
-                and pi.peer_id not in peers_already_queried]
+                and pi.peer_id not in peers_already_queried
+                and (query_further
+                     or not excluded_peer_ids.has_prefix_of(pi.peer_id))]
         if query_further:
             peers_to_query_info += [
                 (False, pi) for _, pi in self.peer.known_query_peers()
@@ -288,7 +294,9 @@ class PeerBehavior:
                 if (util.bit_overlap(query_peer_info.prefix, queried_id)
                         > own_overlap
                         and query_peer_info.peer_id
-                        not in peers_already_queried):
+                        not in peers_already_queried
+                        and not excluded_peer_ids.has_prefix_of(
+                            query_peer_info.peer_id)):
                     peers_to_query_info.append((False, query_peer_info))
         if len(peers_to_query_info) == 0:
             return None
@@ -694,15 +702,15 @@ class Peer:
         Map each subprefix to the known peers serving it.
 
         The dictionary that is returned maps each of the possible
-        len(self.prefix) subprefixes to a set of peer IDs this peer knows who
-        can serve it.
+        len(self.prefix) subprefixes to a trie whose keys are peer IDs this
+        peer knows who can serve the subprefix.
         """
-        coverage = cl.OrderedDict((sp, util.SortedIterSet())
+        coverage = cl.OrderedDict((sp, util.SortedBitsTrie())
                                   for sp in self.subprefixes())
         for _, query_peer_info in self.known_query_peers():
             for sp in self.subprefixes():
                 if query_peer_info.prefix.startswith(sp):
-                    coverage[sp].add(query_peer_info.peer_id)
+                    coverage[sp][query_peer_info.peer_id] = None
                     break
         return cl.OrderedDict((sp, qps) for (sp, qps) in coverage.items())
 
@@ -895,7 +903,7 @@ class Peer:
                         queried_id, queried_peer_info, in_event_id)
 
     def recv_query(self, querying_peer_id, queried_id, in_event_id,
-                   excluded_peer_ids=util.SortedIterSet(), skip_log=False):
+                   excluded_peer_ids=util.SortedBitsTrie(), skip_log=False):
         """
         :param skip_log: Whether to skip receiving this query in logging. If
             true, in_event_id will be used as the in_event_id for the query
@@ -928,46 +936,44 @@ class Peer:
                 in_query.time = self.env.now
                 return
         if (self.peer_id.startswith(queried_id)
-                and self.peer_id not in excluded_peer_ids):
+                and not excluded_peer_ids.has_prefix_of(self.peer_id)):
             if not skip_log:
                 in_event_id = self.logger.log(event('own_id'))
             self.behavior.on_query_self(querying_peer_id, queried_id,
                                         in_event_id)
             return
-        if queried_id.startswith(self.prefix):
+        if (queried_id.startswith(self.prefix)
+                or self.prefix.startswith(queried_id)):
             # Query for a sync peer.
             for sync_peer_id, sync_peer_info in self.sync_peers.items():
-                # TODO Signal that a peer doesn't exist.
                 # OPTI Use a trie instead of iterating.
                 if (sync_peer_id.startswith(queried_id)
-                        and sync_peer_id not in excluded_peer_ids):
+                        and not excluded_peer_ids.has_prefix_of(
+                            sync_peer_id)):
                     if not skip_log:
                         in_event_id = self.logger.log(event('known'))
                     self.behavior.on_query_sync(querying_peer_id, queried_id,
                                                 sync_peer_info, in_event_id)
                     return
-        if self.prefix.startswith(queried_id):
-            assert len(queried_id) < len(self.prefix)
-            # TODO The queried ID is shorter than the prefix, so any sync peer
-            # would satisfy the query, but only if they are not excluded. If
-            # they all are, we can't say for sure that there doesn't exist a
-            # peer, since there may be a peer in a different sync group whose
-            # ID matches the prefix that isn't excluded. If we send on the
-            # query to a peer in such a sync group, he would have the same
-            # problem and might just send the query back (livelock). To address
-            # this, we need to be able to add prefixes to the excluded set (in
-            # this case adding our prefix, so the next peer we send the query
-            # to knows not to send it back).
-            for sync_peer_id, sync_peer_info in self.sync_peers.items():
-                # TODO Signal that a peer doesn't exist.
-                # OPTI Use a trie instead of iterating.
-                if sync_peer_id not in excluded_peer_ids:
-                    if not skip_log:
-                        in_event_id = self.logger.log(event('known'))
-                    self.behavior.on_query_sync(querying_peer_id, queried_id,
-                                                sync_peer_info, in_event_id)
-                    return
-            raise Exception('Not implemented')
+            # None of self or any sync peers are valid responses, even though
+            # they match because they've all been excluded.
+            if len(queried_id) >= len(self.prefix):
+                # The queried ID is at least as long as the prefix, so we are
+                # confident that we know all peers that are possible answers
+                # (our sync group) and can answer that no such peer exists.
+                # TODO Signal that no such peer exists.
+                pass
+            else:
+                # The queried ID is shorter than the prefix, so we can't say
+                # for sure that there is no peer matching the query, unless the
+                # prefixes of all other possible sync groups have already been
+                # excluded.
+                # TODO Signal that no such peer exists.
+                assert self.prefix not in excluded_peer_ids
+                # Add this peer's prefix to the excluded IDs to signal no peer
+                # exists with this peer's prefix so we don't get this query
+                # back.
+                excluded_peer_ids[self.prefix] = None
         # TODO Don't query if peer is known as a query peer.
         if not skip_log:
             in_event_id = self.logger.log(event('external'))
@@ -990,8 +996,8 @@ class Peer:
             out_query = self.out_queries_map[queried_id].pop(
                 responding_peer_id)
             if queried_peer_info is not None:
-                assert (queried_peer_info.peer_id
-                        not in out_query.excluded_peer_ids)
+                assert not out_query.excluded_peer_ids.has_prefix_of(
+                    queried_peer_info.peer_id)
                 status = 'success'
             else:
                 status = 'failure'
@@ -1288,7 +1294,7 @@ class Peer:
 
     def add_in_query(self, querying_peer_id, queried_id, excluded_peer_ids):
         assert not self.has_in_query(querying_peer_id, queried_id,
-                                     util.SortedIterSet())
+                                     util.SortedBitsTrie())
         in_query = IncomingQuery(self.env.now, excluded_peer_ids)
         self.in_queries_map.setdefault(queried_id, cl.OrderedDict())[
             querying_peer_id] = in_query
@@ -1297,14 +1303,16 @@ class Peer:
         """
         Return whether this peer has an unfinished incoming query.
 
-        :param excluded_peer_ids: A set of peer IDs that must be a subset of
-            the incoming query's.
+        Returns True only if there is an incoming query by the exact peer for
+        the exact ID and the IncomingQuery's excluded_peer_ids has a key that
+        is a prefix for every key in the excluded_peer_ids parameter.
         """
         try:
             in_query = self.in_queries_map[queried_id][querying_peer_id]
         except KeyError:
             return False
-        return excluded_peer_ids <= in_query.excluded_peer_ids
+        return excluded_peer_ids.is_key_prefix_subset(
+            in_query.excluded_peer_ids)
 
     def has_matching_out_queries(self, queried_id, excluded_peer_ids):
         """
@@ -1315,12 +1323,13 @@ class Peer:
         if queried_id is a prefix of the queried ID of the ongoing query, i.e.
         the queried ID of the ongoing query is equal to or more specific than
         queried_id. The excluded peer IDs must also match, i.e. the
-        excluded_peer_ids set of the ongoing query must be a superset of the
-        set passed in as a parameter.
+        excluded_peer_ids key set of the ongoing query must have a prefix for
+        every element in the key set of the trie passed in as a parameter.
         """
         for out_queries in self.out_queries_map.itervalues(queried_id):
             for out_query in out_queries.values():
-                if excluded_peer_ids <= out_query.excluded_peer_ids:
+                if excluded_peer_ids.is_key_prefix_subset(
+                        out_query.excluded_peer_ids):
                     return True
         return False
 
@@ -1334,10 +1343,10 @@ class Peer:
         IncomingQuery object.
 
         An ID matches queried_id if it is a prefix of queried_id, i.e. it is
-        equal to or more general than queried_id. Additionally, the sets of
-        excluded peer IDs must match, i.e. the excluded_peer_ids set of the
-        ongoing incoming query must be a subset of the excluded_peer_ids
-        parameter.
+        equal to or more general than queried_id. Additionally, the tries of
+        excluded peer IDs must match, i.e. for every element in the ongoing
+        incoming query's excluded_peer_ids keys there must be a prefix in the
+        excluded_peer_ids parameter.
 
         Creates a copy of this peer's relevant in_queries_map, and doesn't
         delete anything.
@@ -1346,7 +1355,8 @@ class Peer:
         for in_queried_id, in_queries in self.in_queries_map.iter_prefix_items(
                 queried_id):
             for querying_peer_id, in_query in in_queries.items():
-                if in_query.excluded_peer_ids <= excluded_peer_ids:
+                if in_query.excluded_peer_ids.is_key_prefix_subset(
+                        excluded_peer_ids):
                     res.setdefault(in_queried_id, cl.OrderedDict()).setdefault(
                         querying_peer_id, copy.deepcopy(in_query))
         return res

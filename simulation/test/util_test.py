@@ -91,3 +91,66 @@ class TestNetwork(unittest.TestCase):
         with self.assertRaises(util.UnassignedAddressError):
             self.network.send_query(self.peer_a_id, self.peer_a_address,
                                     unassigned_address, queried_id, set(), 0)
+
+
+class TestSortedBitsTrie(unittest.TestCase):
+    def test_has_prefix_of_on_no_match(self):
+        t = util.SortedBitsTrie({})
+        self.assertFalse(t.has_prefix_of(bs.Bits()))
+        t = util.SortedBitsTrie({})
+        self.assertFalse(t.has_prefix_of(bs.Bits('0b0000')))
+        t = util.SortedBitsTrie({bs.Bits('0b1000'): None})
+        self.assertFalse(t.has_prefix_of(bs.Bits('0b0000')))
+        t = util.SortedBitsTrie({bs.Bits('0b1'): None})
+        self.assertFalse(t.has_prefix_of(bs.Bits('0b0000')))
+
+    def test_has_prefix_of_on_match(self):
+        t = util.SortedBitsTrie({bs.Bits('0b1010'): None})
+        self.assertTrue(t.has_prefix_of(bs.Bits('0b1010')))
+        t = util.SortedBitsTrie({bs.Bits(): None})
+        self.assertTrue(t.has_prefix_of(bs.Bits('0b1010')))
+        t = util.SortedBitsTrie({bs.Bits('0b1'): None})
+        self.assertTrue(t.has_prefix_of(bs.Bits('0b1010')))
+        t = util.SortedBitsTrie({bs.Bits('0b10'): None})
+        self.assertTrue(t.has_prefix_of(bs.Bits('0b1010')))
+        t = util.SortedBitsTrie({bs.Bits('0b101'): None,
+                                 bs.Bits('0b010'): None})
+        self.assertTrue(t.has_prefix_of(bs.Bits('0b0101')))
+
+    def test_is_key_prefix_subset_on_no_subset(self):
+        t1 = util.SortedBitsTrie({bs.Bits('0b1010'): None})
+        t2 = util.SortedBitsTrie()
+        self.assertFalse(t1.is_key_prefix_subset(t2))
+        t1 = util.SortedBitsTrie({bs.Bits('0b1010'): None})
+        t2 = util.SortedBitsTrie({bs.Bits('0b0101'): None})
+        self.assertFalse(t1.is_key_prefix_subset(t2))
+        t1 = util.SortedBitsTrie({bs.Bits('0b0'): None})
+        t2 = util.SortedBitsTrie({bs.Bits('0b01'): None})
+        self.assertFalse(t1.is_key_prefix_subset(t2))
+        t1 = util.SortedBitsTrie({bs.Bits('0b0101'): None,
+                                  bs.Bits('0b010'): None})
+        t2 = util.SortedBitsTrie({bs.Bits('0b0101'): None})
+        self.assertFalse(t1.is_key_prefix_subset(t2))
+
+    def test_is_key_prefix_subset_on_equal(self):
+        t1 = util.SortedBitsTrie()
+        t2 = util.SortedBitsTrie()
+        self.assertTrue(t1.is_key_prefix_subset(t2))
+        t1 = util.SortedBitsTrie({bs.Bits('0b1010'): None})
+        t2 = util.SortedBitsTrie({bs.Bits('0b1010'): None})
+        self.assertTrue(t1.is_key_prefix_subset(t2))
+
+    def test_is_key_prefix_subset_on_subset(self):
+        t1 = util.SortedBitsTrie({bs.Bits('0b1010'): None})
+        t2 = util.SortedBitsTrie({bs.Bits('0b10'): None})
+        self.assertTrue(t1.is_key_prefix_subset(t2))
+        t1 = util.SortedBitsTrie({bs.Bits('0b1010'): None,
+                                  bs.Bits('0b101010'): None})
+        t2 = util.SortedBitsTrie({bs.Bits('0b10'): None})
+        self.assertTrue(t1.is_key_prefix_subset(t2))
+        t1 = util.SortedBitsTrie({bs.Bits('0b1010'): None,
+                                  bs.Bits('0b101010'): None,
+                                  bs.Bits('0b111'): None})
+        t2 = util.SortedBitsTrie({bs.Bits('0b10'): None,
+                                  bs.Bits('0b1'): None})
+        self.assertTrue(t1.is_key_prefix_subset(t2))
