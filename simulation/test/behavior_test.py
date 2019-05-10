@@ -119,6 +119,47 @@ class TestOnQueryExternal(unittest.TestCase):
             peer_b.peer_id, queried_id, set(), False, False,
             SBT({excluded_id: ANY}), ANY)
 
+    def test_updates_existing_in_query_but_still_queries(self):
+        peer_a, behavior\
+            = self.helper.mock_peer_and_behavior_with_prefix('1000')
+        peer_b, _ = self.helper.mock_peer_and_behavior_with_prefix('1111')
+        self.helper.create_query_group(peer_a, peer_b)
+        querying_peer_id = self.helper.id_with_prefix('0000')
+        queried_id = self.helper.id_with_prefix('1111')
+        excluded_id = self.helper.id_with_prefix('1111')
+        peer_a.send_query.return_value = None
+        in_query = p.IncomingQuery(0, SBT())
+        peer_a.get_in_query.return_value = in_query
+        behavior.on_query_external(querying_peer_id, queried_id, None,
+                                   excluded_peer_ids=SBT({excluded_id: None}))
+        peer_a.add_in_query.assert_not_called()
+        peer_a.get_in_query.assert_called_once_with(querying_peer_id,
+                                                    queried_id)
+        self.assertEqual(in_query.excluded_peer_ids, SBT({excluded_id: None}))
+        peer_a.send_query.assert_called_once_with(
+            peer_b.peer_id, queried_id, set(), False, False,
+            SBT({excluded_id: ANY}), ANY)
+
+    def test_updates_existing_in_query_and_doesnt_query_if_out_query(self):
+        peer_a, behavior\
+            = self.helper.mock_peer_and_behavior_with_prefix('1000')
+        peer_b, _ = self.helper.mock_peer_and_behavior_with_prefix('1111')
+        self.helper.create_query_group(peer_a, peer_b)
+        querying_peer_id = self.helper.id_with_prefix('0000')
+        queried_id = self.helper.id_with_prefix('1111')
+        excluded_id = self.helper.id_with_prefix('1111')
+        peer_a.send_query.return_value = None
+        in_query = p.IncomingQuery(0, SBT())
+        peer_a.get_in_query.return_value = in_query
+        peer_a.has_matching_out_queries.return_value = True
+        behavior.on_query_external(querying_peer_id, queried_id, None,
+                                   excluded_peer_ids=SBT({excluded_id: None}))
+        peer_a.add_in_query.assert_not_called()
+        peer_a.get_in_query.assert_called_once_with(querying_peer_id,
+                                                    queried_id)
+        self.assertEqual(in_query.excluded_peer_ids, SBT({excluded_id: None}))
+        peer_a.send_query.assert_not_called()
+
     def test_passes_on_query_further(self):
         peer_a, behavior\
             = self.helper.mock_peer_and_behavior_with_prefix('1000')

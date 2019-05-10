@@ -74,10 +74,20 @@ class PeerBehavior:
             # record this again.
             assert querying_peer_id == self.peer_id
             return
+        in_query = self.peer.get_in_query(querying_peer_id, queried_id)
         if self.peer.has_matching_out_queries(queried_id, excluded_peer_ids):
             # There's a query going on that should provide an answer.
-            self.peer.add_in_query(querying_peer_id, queried_id,
-                                   excluded_peer_ids)
+            if in_query is not None:
+                # Peers are at the moment unable to deal with multiple incoming
+                # queries from the same peer for the same ID if only the
+                # excluded IDs differ. In this case, don't add a new one (which
+                # would overwrite the old one), only update the old one's
+                # excluded peers. This is a workaround analogous to the one
+                # below avoiding multiple outgoing queries.
+                in_query.excluded_peer_ids.update(excluded_peer_ids)
+            else:
+                self.peer.add_in_query(querying_peer_id, queried_id,
+                                       excluded_peer_ids)
             return
         rep = self.peer.expected_min_reputation(querying_peer_id)
         enough_rep = (self.peer.settings['reputation_buffer_factor']
@@ -100,8 +110,11 @@ class PeerBehavior:
         peers_already_queried = self.peer.out_query_recipients(queried_id)
         if self.attempt_query(queried_id, peers_already_queried, query_further,
                               query_sync, excluded_peer_ids, in_event_id):
-            self.peer.add_in_query(querying_peer_id, queried_id,
-                                   excluded_peer_ids)
+            if in_query is not None:
+                in_query.excluded_peer_ids.update(excluded_peer_ids)
+            else:
+                self.peer.add_in_query(querying_peer_id, queried_id,
+                                       excluded_peer_ids)
             return
         # No known peer, query is impossible.
         if querying_peer_id == self.peer.peer_id:
@@ -1370,6 +1383,12 @@ class Peer:
                     res.setdefault(in_queried_id, cl.OrderedDict()).setdefault(
                         querying_peer_id, copy.deepcopy(in_query))
         return res
+
+    def get_in_query(self, querying_peer_id, queried_id):
+        try:
+            return self.in_queries_map[queried_id][querying_peer_id]
+        except KeyError:
+            return None
 
     def out_query_recipients(self, queried_id):
         if queried_id in self.out_queries_map:
