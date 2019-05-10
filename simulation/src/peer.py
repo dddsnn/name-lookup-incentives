@@ -656,13 +656,10 @@ class Peer:
                 assert (len(known_peers)
                         == self.num_known_peers_for_subprefix(subprefix))
                 continue
-            try:
-                next(self.out_queries_map.iterkeys(subprefix))
+            if self.has_matching_out_queries(subprefix, known_peers):
                 # There is a pending query that will satisfy the subprefix
                 # when successful.
                 continue
-            except StopIteration:
-                pass
             in_event_id = self.logger.log(an.UncoveredSubprefixSearch(
                 self.env.now, self.peer_id, None))
             query_sync = self.settings['query_sync_for_subprefixes']

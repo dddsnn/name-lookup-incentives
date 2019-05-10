@@ -1571,9 +1571,26 @@ class TestFindMissingQueryPeers(unittest.TestCase):
         peer = self.helper.peer_with_prefix('00')
         peer_a = self.helper.peer_with_prefix('10')
         self.helper.create_query_group(peer, peer_a)
-        peer.out_queries_map[bs.Bits('0b0100101')] = None
+        peer.out_queries_map[bs.Bits('0b0100101')] = {
+            peer_a.peer_id: p.OutgoingQuery(0, set(), False, False, SBT())
+        }
         peer.find_missing_query_peers()
         self.mocked_send_query.assert_not_called()
+
+    def test_queries_if_query_is_pending_but_doesnt_exclude_known_peers(self):
+        self.helper.settings['min_desired_query_peers'] = 2
+        peer = self.helper.peer_with_prefix('00')
+        peer_a = self.helper.peer_with_prefix('10')
+        peer_b = self.helper.peer_with_prefix('10')
+        peer_c = self.helper.peer_with_prefix('01')
+        self.helper.create_query_group(peer, peer_a, peer_b, peer_c)
+        peer.out_queries_map[bs.Bits('0b0100101')] = {
+            peer_a.peer_id: p.OutgoingQuery(0, set(), False, False, SBT())
+        }
+        peer.find_missing_query_peers()
+        self.mocked_send_query.assert_called_once_with(
+            peer.peer_id, peer.address, peer_c.address, bs.Bits('0b01'),
+            SBT({peer_c.peer_id: ANY}), ANY)
 
     def test_queries_sync_peers(self):
         self.helper.settings['query_sync_for_subprefixes'] = True
