@@ -3,6 +3,7 @@ import itertools as it
 import collections as cl
 import pytrie
 import bitstring
+import copy
 
 
 class Network:
@@ -60,11 +61,11 @@ class SendQuery(simpy.events.Event):
                  excluded_peer_ids, in_event_id):
         super().__init__(env)
         self.ok = True
-        self.sender_id = sender_id
+        self.sender_id = copy.deepcopy(sender_id)
         self.recipient = recipient
-        self.queried_id = queried_id
-        self.excluded_peer_ids = excluded_peer_ids
-        self.in_event_id = in_event_id
+        self.queried_id = copy.deepcopy(queried_id)
+        self.excluded_peer_ids = copy.deepcopy(excluded_peer_ids)
+        self.in_event_id = copy.deepcopy(in_event_id)
         self.callbacks.append(SendQuery.action)
 
     def action(self):
@@ -78,11 +79,11 @@ class SendResponse(simpy.events.Event):
                  queried_peer_info, in_event_id):
         super().__init__(env)
         self.ok = True
-        self.sender_id = sender_id
+        self.sender_id = copy.deepcopy(sender_id)
         self.recipient = recipient
-        self.queried_id = queried_id
-        self.queried_peer_info = queried_peer_info
-        self.in_event_id = in_event_id
+        self.queried_id = copy.deepcopy(queried_id)
+        self.queried_peer_info = copy.deepcopy(queried_peer_info)
+        self.in_event_id = copy.deepcopy(in_event_id)
         self.callbacks.append(SendResponse.action)
 
     def action(self):
@@ -95,13 +96,13 @@ class SendReputationUpdate(simpy.events.Event):
                  reputation_diff, time, in_event_id):
         super().__init__(env)
         self.ok = True
-        self.sender_id = sender_id
+        self.sender_id = copy.deepcopy(sender_id)
         self.recipient = recipient
-        self.peer_id = peer_id
-        self.query_group_ids = query_group_ids
-        self.reputation_diff = reputation_diff
-        self.time = time
-        self.in_event_id = in_event_id
+        self.peer_id = copy.deepcopy(peer_id)
+        self.query_group_ids = copy.deepcopy(query_group_ids)
+        self.reputation_diff = copy.deepcopy(reputation_diff)
+        self.time = copy.deepcopy(time)
+        self.in_event_id = copy.deepcopy(in_event_id)
         self.callbacks.append(SendReputationUpdate.action)
 
     def action(self):
