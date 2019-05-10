@@ -92,7 +92,12 @@ class PeerBehavior:
                 in_event_id)
             return
         # TODO Send queries to multiple peers at once.
-        peers_already_queried = util.SortedIterSet()
+        # Initialize the set of peers that should not be queried with those to
+        # whom a query for the exact ID is already in progress. This is to
+        # remedy an issues arising from peers being unable to track multiple
+        # queries for the same ID to the same peer. This isn't ideal, but
+        # wouldn't happen often anyway.
+        peers_already_queried = self.peer.out_query_recipients(queried_id)
         if self.attempt_query(queried_id, peers_already_queried, query_further,
                               query_sync, excluded_peer_ids, in_event_id):
             self.peer.add_in_query(querying_peer_id, queried_id,
@@ -138,6 +143,9 @@ class PeerBehavior:
         if len(matching_in_queries) == 0:
             # No incoming queries could be answered by this, don't retry.
             return
+        # Assure no peer to whom a query for the exact ID is currently in
+        # progress get s queried again. See comment in on_query_external().
+        peers_already_queried |= self.peer.out_query_recipients(queried_id)
         if self.attempt_query(queried_id, peers_already_queried, query_further,
                               query_sync, excluded_peer_ids, in_event_id):
             return
@@ -161,6 +169,9 @@ class PeerBehavior:
         if len(matching_in_queries) == 0:
             # No incoming queries could be answered by this, don't retry.
             return
+        # Assure no peer to whom a query for the exact ID is currently in
+        # progress get s queried again. See comment in on_query_external().
+        peers_already_queried |= self.peer.out_query_recipients(queried_id)
         if self.attempt_query(queried_id, peers_already_queried, query_further,
                               query_sync, excluded_peer_ids, in_event_id):
             return
@@ -858,6 +869,8 @@ class Peer:
         :param peers_already_queried: A set of peer IDs that should not be
             queried.
         """
+        assert (queried_id not in self.out_queries_map
+                or recipient_id not in self.out_queries_map[queried_id])
         peers_already_queried.add(recipient_id)
         out_query = OutgoingQuery(self.env.now, peers_already_queried,
                                   query_further, query_sync, excluded_peer_ids)
@@ -1360,6 +1373,12 @@ class Peer:
                     res.setdefault(in_queried_id, cl.OrderedDict()).setdefault(
                         querying_peer_id, copy.deepcopy(in_query))
         return res
+
+    def out_query_recipients(self, queried_id):
+        if queried_id in self.out_queries_map:
+            return util.SortedIterSet(pi for pi in
+                                      self.out_queries_map[queried_id].keys())
+        return util.SortedIterSet()
 
     def finalize_own_query(self, status, in_event_id):
         self.logger.log(an.QueryFinalized(self.env.now, self.peer_id, status,

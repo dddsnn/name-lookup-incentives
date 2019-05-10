@@ -1822,3 +1822,35 @@ class TestFinalizeInQueries(unittest.TestCase):
             p.Peer.finalize_in_queries(self.mock_peer, in_queries_map,
                                        'status', None)
             mocked_finalize.assert_called_once_with('status', ANY)
+
+
+class TestOutQueryRecipients(unittest.TestCase):
+    def setUp(self):
+        self.mock_peer = unittest.mock.Mock()
+        self.id_1 = bs.Bits(uint=0, length=8)
+        self.id_2 = bs.Bits(uint=1, length=8)
+        self.id_3 = bs.Bits(uint=2, length=8)
+        self.id_4 = bs.Bits(uint=3, length=8)
+        self.id_5 = bs.Bits(uint=4, length=8)
+
+    def test_on_empty(self):
+        self.mock_peer.out_queries_map = {}
+        self.assertEqual(
+            p.Peer.out_query_recipients(self.mock_peer, self.id_1), set())
+        self.mock_peer.out_queries_map = {
+            self.id_2: {self.id_3: 0, self.id_4: 0}
+        }
+        self.assertEqual(
+            p.Peer.out_query_recipients(self.mock_peer, self.id_1), set())
+
+    def test_on_matches(self):
+        self.mock_peer.out_queries_map = {
+            self.id_1: {self.id_2: 0, self.id_3: 0},
+            self.id_4: {self.id_5: 0}
+        }
+        self.assertEqual(
+            p.Peer.out_query_recipients(self.mock_peer, self.id_1),
+            set((self.id_2, self.id_3)))
+        self.assertEqual(
+            p.Peer.out_query_recipients(self.mock_peer, self.id_4),
+            set((self.id_5,)))
