@@ -116,7 +116,7 @@ class TestOnQueryExternal(unittest.TestCase):
         peer_a.add_in_query.assert_called_once_with(
             querying_peer_id, queried_id, SBT({excluded_id: None}))
         peer_a.send_query.assert_called_once_with(
-            peer_b.peer_id, queried_id, set(), False, False,
+            peer_b.peer_id, queried_id, set((querying_peer_id,)), False, False,
             SBT({excluded_id: ANY}), ANY)
 
     def test_updates_existing_in_query_but_still_queries(self):
@@ -137,7 +137,7 @@ class TestOnQueryExternal(unittest.TestCase):
                                                     queried_id)
         self.assertEqual(in_query.excluded_peer_ids, SBT({excluded_id: None}))
         peer_a.send_query.assert_called_once_with(
-            peer_b.peer_id, queried_id, set(), False, False,
+            peer_b.peer_id, queried_id, set((querying_peer_id,)), False, False,
             SBT({excluded_id: ANY}), ANY)
 
     def test_updates_existing_in_query_and_doesnt_query_if_out_query(self):
@@ -171,7 +171,8 @@ class TestOnQueryExternal(unittest.TestCase):
         behavior.on_query_external(querying_peer_id, queried_id, None,
                                    query_further=True)
         peer_a.send_query.assert_called_once_with(
-            peer_b.peer_id, queried_id, set(), True, False, SBT(), ANY)
+            peer_b.peer_id, queried_id, set((querying_peer_id,)), True, False,
+            SBT(), ANY)
 
     def test_passes_on_query_sync(self):
         peer_a, behavior\
@@ -184,7 +185,8 @@ class TestOnQueryExternal(unittest.TestCase):
         behavior.on_query_external(querying_peer_id, queried_id, None,
                                    query_sync=True)
         peer_a.send_query.assert_called_once_with(
-            peer_b.peer_id, queried_id, set(), False, True, SBT(), ANY)
+            peer_b.peer_id, queried_id, set((querying_peer_id,)), False, True,
+            SBT(), ANY)
 
     def test_passes_on_excluded_peer_ids(self):
         peer_a, behavior\
@@ -198,7 +200,7 @@ class TestOnQueryExternal(unittest.TestCase):
         behavior.on_query_external(querying_peer_id, queried_id, None,
                                    excluded_peer_ids=SBT({excluded_id: None}))
         peer_a.send_query.assert_called_once_with(
-            peer_b.peer_id, queried_id, set(), False, False,
+            peer_b.peer_id, queried_id, set((querying_peer_id,)), False, False,
             SBT({excluded_id: ANY}), ANY)
 
     def test_just_finalizes_if_query_from_self_and_no_known_peers(self):
@@ -275,8 +277,9 @@ class TestOnQueryExternal(unittest.TestCase):
         behavior.on_query_external(querying_peer_id, queried_id, None)
         peer_a.out_query_recipients.assert_called_once_with(queried_id)
         peer_a.send_query.assert_called_once_with(
-            peer_b.peer_id, queried_id, set((out_query_peer_id,)), False,
-            False, SBT(), ANY)
+            peer_b.peer_id, queried_id,
+            set((out_query_peer_id, querying_peer_id)), False, False, SBT(),
+            ANY)
 
 
 class TestOnResponseSuccess(unittest.TestCase):

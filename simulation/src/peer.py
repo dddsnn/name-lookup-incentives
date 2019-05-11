@@ -108,6 +108,7 @@ class PeerBehavior:
         # queries for the same ID to the same peer. This isn't ideal, but
         # wouldn't happen often anyway.
         peers_already_queried = self.peer.out_query_recipients(queried_id)
+        peers_already_queried.add(querying_peer_id)
         if self.attempt_query(queried_id, peers_already_queried, query_further,
                               query_sync, excluded_peer_ids, in_event_id):
             if in_query is not None:
