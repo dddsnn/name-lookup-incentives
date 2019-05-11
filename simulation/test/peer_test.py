@@ -397,6 +397,24 @@ class TestRecvResponse(unittest.TestCase):
             mocked_behavior.on_response_success.assert_not_called()
             mocked_behavior.on_response_failure.assert_not_called()
 
+    def test_doesnt_react_if_returned_excluded_peer(self):
+        peer_a = self.helper.peer_with_prefix('')
+        responding_peer_id = self.helper.id_with_prefix('')
+        queried_id = self.helper.id_with_prefix('')
+        queried_peer_info = self.helper.peer_with_prefix('').info()
+        out_query = p.OutgoingQuery(0, set(), False, False,
+                                    SBT({queried_peer_info.peer_id: None}))
+        peer_a.out_queries_map.setdefault(queried_id, {}).setdefault(
+            responding_peer_id, out_query)
+        with unittest.mock.patch.object(peer_a, 'behavior') as mocked_behavior:
+            peer_a.recv_response(responding_peer_id, queried_id,
+                                 queried_peer_info, None)
+            mocked_behavior.on_response_success.assert_not_called()
+            mocked_behavior.on_response_failure.assert_not_called()
+        self.assertEqual(
+            peer_a.out_queries_map[queried_id][responding_peer_id],
+            out_query)
+
     def test_deletes_out_query(self):
         peer_a = self.helper.peer_with_prefix('')
         responding_peer_id = self.helper.id_with_prefix('')

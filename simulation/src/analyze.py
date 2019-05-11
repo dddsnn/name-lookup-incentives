@@ -222,7 +222,8 @@ class Logger:
         """Plot response statuses over time until some point."""
         replay = Replay(self.events, {}, response_status_event_processor)
         replay.step_until(until_time)
-        for category in ('success', 'failure', 'timeout', 'unmatched'):
+        for category in ('success', 'failure', 'timeout', 'unmatched',
+                         'returned_excluded_peer'):
             replay.data.setdefault(category, [])
 
         bins = np.arange(0, replay.current_time + bin_size, bin_size)
@@ -230,8 +231,10 @@ class Logger:
         plt.hist((np.array(replay.data['success']),
                   np.array(replay.data['failure']),
                   np.array(replay.data['timeout']),
-                  np.array(replay.data['unmatched'])),
-                 bins, label=('success', 'failure', 'timeout', 'unmatched'),
+                  np.array(replay.data['unmatched']),
+                  np.array(replay.data['returned_excluded_peer'])),
+                 bins, label=('success', 'failure', 'timeout', 'unmatched',
+                              'returned_excluded_peer'),
                  histtype='barstacked')
         plt.xlabel('Time')
         plt.ylabel('Number of responses')
@@ -860,15 +863,23 @@ class ResponseReceived(Event):
             * 'success': Successful response, i.e. the sender claims to provide
                 the correct information about the queried ID.
             * 'failure': The responding peer cannot resolve the query.
+            * 'returned_excluded_peer': The sender claims to provide the
+                correct information and includes a peer, but it was excluded
+                according to the query that is on record. This can sometimes
+                happen when a query is sent multiple times to the same
+                recipient but with different sets of excluded peer IDs and is
+                due to peers' inability to separate outgoing queries based on
+                differences in the sets of excluded peer IDs.
         """
         super().__init__(time, in_event_id)
         self.sender_id = sender_id
         self.recipient_id = recipient_id
         self.queried_peer_info = queried_peer_info
         self.queried_id = queried_id
-        if status not in ('unmatched', 'success', 'failure'):
-            raise Exception('Status must be one of unmatched, success, or'
-                            ' failure.')
+        if status not in ('unmatched', 'success', 'failure',
+                          'returned_excluded_peer'):
+            raise Exception('Status must be one of unmatched, success,'
+                            ' failure, or returned_excluded_peer.')
         self.status = status
 
 

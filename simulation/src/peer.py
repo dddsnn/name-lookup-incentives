@@ -1019,8 +1019,19 @@ class Peer:
             out_query = self.out_queries_map[queried_id].pop(
                 responding_peer_id)
             if queried_peer_info is not None:
-                assert not out_query.excluded_peer_ids.has_prefix_of(
-                    queried_peer_info.peer_id)
+                if (queried_peer_info.peer_id is not None
+                        and out_query.excluded_peer_ids.has_prefix_of(
+                            queried_peer_info.peer_id)):
+                    # The returned peer was excluded according to the outgoing
+                    # query on record. This can happen occasionally if two
+                    # queries are sent to the same peer with different sets of
+                    # excluded peers (there is no mechanism to keep track of
+                    # both). The second query should return the correct answer.
+                    # Put the out_query back, log and ignore this one.
+                    self.out_queries_map[queried_id][responding_peer_id]\
+                        = out_query
+                    status = 'returned_excluded_peer'
+                    return
                 status = 'success'
             else:
                 status = 'failure'
