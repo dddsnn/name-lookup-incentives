@@ -1506,9 +1506,10 @@ class QueryGroup:
 
         :param members: An iterable of PeerInfo objects.
         """
-        self.query_group_id = query_group_id
+        self.query_group_id = copy.deepcopy(query_group_id)
         self._members = cl.OrderedDict(
-            (info.peer_id, QueryPeerInfo(info, initial_reputation))
+            (info.peer_id, QueryPeerInfo(copy.deepcopy(info),
+                                         copy.deepcopy(initial_reputation)))
             for info in members)
 
     def __len__(self):
@@ -1550,9 +1551,9 @@ class QueryGroup:
 
 class PeerInfo:
     def __init__(self, peer_id, prefix, address):
-        self.peer_id = peer_id
-        self.prefix = prefix
-        self.address = address
+        self.peer_id = copy.deepcopy(peer_id)
+        self.prefix = copy.deepcopy(prefix)
+        self.address = copy.deepcopy(address)
 
     def __lt__(self, other):
         return self.peer_id < other.peer_id
@@ -1565,22 +1566,22 @@ ReputationUpdate = cl.namedtuple('ReputationUpdate',
 class QueryPeerInfo(PeerInfo):
     def __init__(self, info, initial_reputation):
         super().__init__(info.peer_id, info.prefix, info.address)
-        self.reputation = initial_reputation
+        self.reputation = copy.deepcopy(initial_reputation)
         self.reputation_updates = []
 
 
 class OutgoingQuery:
     def __init__(self, time, peers_already_queried, query_further, query_sync,
                  excluded_peer_ids):
-        self.time = time
-        self.peers_already_queried = peers_already_queried
-        self.query_further = query_further
-        self.query_sync = query_sync
-        self.excluded_peer_ids = excluded_peer_ids
+        self.time = copy.deepcopy(time)
+        self.peers_already_queried = copy.deepcopy(peers_already_queried)
+        self.query_further = copy.deepcopy(query_further)
+        self.query_sync = copy.deepcopy(query_sync)
+        self.excluded_peer_ids = copy.deepcopy(excluded_peer_ids)
         self.timeout_proc = None
 
 
 class IncomingQuery:
     def __init__(self, time, excluded_peer_ids):
-        self.time = time
-        self.excluded_peer_ids = excluded_peer_ids
+        self.time = copy.deepcopy(time)
+        self.excluded_peer_ids = copy.deepcopy(excluded_peer_ids)
