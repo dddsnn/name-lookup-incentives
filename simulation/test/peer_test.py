@@ -172,6 +172,9 @@ class TestRecvQuery(unittest.TestCase):
             peer_a.recv_query(querying_peer_id, peer_a.peer_id, None)
             mocked_behavior.on_query_self.assert_called_once_with(
                 querying_peer_id, peer_a.peer_id, ANY)
+            mocked_behavior.on_query_sync.assert_not_called()
+            mocked_behavior.on_query_external.assert_not_called()
+            mocked_behavior.on_query_no_such_peer.assert_not_called()
 
     def test_reacts_to_query_for_prefix_of_self(self):
         peer_a = self.helper.peer_with_prefix('')
@@ -181,6 +184,9 @@ class TestRecvQuery(unittest.TestCase):
             peer_a.recv_query(querying_peer_id, queried_id, None)
             mocked_behavior.on_query_self.assert_called_once_with(
                 querying_peer_id, queried_id, ANY)
+            mocked_behavior.on_query_sync.assert_not_called()
+            mocked_behavior.on_query_external.assert_not_called()
+            mocked_behavior.on_query_no_such_peer.assert_not_called()
 
     def test_reacts_to_query_for_sync_peer(self):
         peer_a = self.helper.peer_with_prefix('0000')
@@ -190,6 +196,9 @@ class TestRecvQuery(unittest.TestCase):
             peer_a.recv_query(querying_peer_id, peer_b.peer_id, None)
             mocked_behavior.on_query_sync.assert_called_once_with(
                 querying_peer_id, peer_b.peer_id, peer_b.info(), ANY)
+            mocked_behavior.on_query_self.assert_not_called()
+            mocked_behavior.on_query_external.assert_not_called()
+            mocked_behavior.on_query_no_such_peer.assert_not_called()
 
     def test_reacts_to_query_for_prefix_of_sync_peer(self):
         peer_a = self.helper.peer_with_prefix('0000')
@@ -200,6 +209,9 @@ class TestRecvQuery(unittest.TestCase):
             peer_a.recv_query(querying_peer_id, queried_id, None)
             mocked_behavior.on_query_sync.assert_called_once_with(
                 querying_peer_id, queried_id, peer_b.info(), ANY)
+            mocked_behavior.on_query_self.assert_not_called()
+            mocked_behavior.on_query_external.assert_not_called()
+            mocked_behavior.on_query_no_such_peer.assert_not_called()
 
     def test_reacts_to_query_for_external_peer(self):
         peer_a = self.helper.peer_with_prefix('0000')
@@ -209,6 +221,9 @@ class TestRecvQuery(unittest.TestCase):
             peer_a.recv_query(querying_peer_id, queried_id, None)
             mocked_behavior.on_query_external.assert_called_once_with(
                 querying_peer_id, queried_id, ANY, excluded_peer_ids=SBT())
+            mocked_behavior.on_query_self.assert_not_called()
+            mocked_behavior.on_query_sync.assert_not_called()
+            mocked_behavior.on_query_no_such_peer.assert_not_called()
 
     def test_doesnt_react_to_repeated_query_from_self(self):
         peer_a = self.helper.peer_with_prefix('0000')
@@ -220,6 +235,7 @@ class TestRecvQuery(unittest.TestCase):
             mocked_behavior.on_query_self.assert_not_called()
             mocked_behavior.on_query_sync.assert_not_called()
             mocked_behavior.on_query_external.assert_not_called()
+            mocked_behavior.on_query_no_such_peer.assert_not_called()
         self.assertEqual(
             peer_a.in_queries_map[queried_id][peer_a.peer_id].time, 5)
 
@@ -234,6 +250,7 @@ class TestRecvQuery(unittest.TestCase):
             mocked_behavior.on_query_self.assert_not_called()
             mocked_behavior.on_query_sync.assert_not_called()
             mocked_behavior.on_query_external.assert_not_called()
+            mocked_behavior.on_query_no_such_peer.assert_not_called()
         self.assertEqual(
             peer_a.in_queries_map[queried_id][querying_peer_id].time, 0)
 
@@ -291,6 +308,40 @@ class TestRecvQuery(unittest.TestCase):
                 querying_peer_id, queried_id, ANY, excluded_peer_ids=SBT({
                     peer_a.prefix: None, peer_a.peer_id: None,
                     peer_b.peer_id: None, peer_c.peer_id: None}))
+
+    def test_responds_no_such_peer_if_prefix_covers_queried_id(self):
+        peer_a = self.helper.peer_with_prefix('0000')
+        self.helper.peer_with_prefix('0000')
+        querying_peer_id = self.helper.id_with_prefix('')
+        queried_id = self.helper.id_with_prefix('0000')
+        with unittest.mock.patch.object(peer_a, 'behavior') as mocked_behavior:
+            peer_a.recv_query(querying_peer_id, queried_id, None)
+            mocked_behavior.on_query_no_such_peer.assert_called_once_with(
+                querying_peer_id, queried_id, ANY)
+
+    def test_responds_no_such_peer_if_all_sync_groups_excluded(self):
+        self.helper.settings['prefix_length'] = 2
+        peer_a = self.helper.peer_with_prefix('00')
+        querying_peer_id = self.helper.id_with_prefix('')
+        queried_id = bs.Bits('0b0')
+        with unittest.mock.patch.object(peer_a, 'behavior') as mocked_behavior:
+            peer_a.recv_query(querying_peer_id, queried_id, None,
+                              excluded_peer_ids=SBT({peer_a.peer_id: None,
+                                                     bs.Bits('0b01'): None}))
+            mocked_behavior.on_query_no_such_peer.assert_called_once_with(
+                querying_peer_id, queried_id, ANY)
+
+    def test_doesnt_respond_no_such_peer_if_not_all_sync_groups_excluded(self):
+        self.helper.settings['prefix_length'] = 3
+        peer_a = self.helper.peer_with_prefix('000')
+        querying_peer_id = self.helper.id_with_prefix('')
+        queried_id = bs.Bits('0b0')
+        with unittest.mock.patch.object(peer_a, 'behavior') as mocked_behavior:
+            peer_a.recv_query(querying_peer_id, queried_id, None,
+                              excluded_peer_ids=SBT({peer_a.peer_id: None,
+                                                     bs.Bits('0b001'): None,
+                                                     bs.Bits('0b011'): None}))
+            mocked_behavior.on_query_no_such_peer.assert_not_called()
 
 
 class TestRecvResponse(unittest.TestCase):
@@ -1889,3 +1940,35 @@ class TestOutQueryRecipients(unittest.TestCase):
         self.assertEqual(
             p.Peer.out_query_recipients(self.mock_peer, self.id_4),
             set((self.id_5,)))
+
+
+class TestPrefixesFor(unittest.TestCase):
+    def setUp(self):
+        self.helper = TestHelper()
+        self.helper.settings['prefix_length'] = 3
+
+    def test_generates_all(self):
+        peer = self.helper.peer_with_prefix('')
+        self.assertEqual(set(peer.prefixes_for(bs.Bits())),
+                         set((bs.Bits('0b000'), bs.Bits('0b001'),
+                              bs.Bits('0b010'), bs.Bits('0b011'),
+                              bs.Bits('0b100'), bs.Bits('0b101'),
+                              bs.Bits('0b110'), bs.Bits('0b111'))))
+        self.assertEqual(set(peer.prefixes_for(bs.Bits('0b0'))),
+                         set((bs.Bits('0b000'), bs.Bits('0b001'),
+                              bs.Bits('0b010'), bs.Bits('0b011'))))
+        self.assertEqual(set(peer.prefixes_for(bs.Bits('0b01'))),
+                         set((bs.Bits('0b010'), bs.Bits('0b011'))))
+        self.assertEqual(set(peer.prefixes_for(bs.Bits('0b101'))),
+                         set((bs.Bits('0b101'),)))
+
+    def test_generates_only_once(self):
+        peer = self.helper.peer_with_prefix('')
+        self.assertEqual(len(set(peer.prefixes_for(bs.Bits()))),
+                         len(list(peer.prefixes_for(bs.Bits()))))
+        self.assertEqual(len(set(peer.prefixes_for(bs.Bits('0b0')))),
+                         len(list(peer.prefixes_for(bs.Bits('0b0')))))
+        self.assertEqual(len(set(peer.prefixes_for(bs.Bits('0b01')))),
+                         len(list(peer.prefixes_for(bs.Bits('0b01')))))
+        self.assertEqual(len(set(peer.prefixes_for(bs.Bits('0b101')))),
+                         len(list(peer.prefixes_for(bs.Bits('0b101')))))

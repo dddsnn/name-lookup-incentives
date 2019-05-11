@@ -6,6 +6,7 @@ import copy
 import collections as cl
 import random
 import numpy as np
+import bitstring as bs
 
 
 query_group_id_iter = it.count()
@@ -127,6 +128,21 @@ class PeerBehavior:
                 in_event_id)
             self.peer.send_response(
                 querying_peer_id, queried_id, None, in_event_id, delay=delay)
+
+    def on_query_no_such_peer(self, querying_peer_id, queried_id, in_event_id):
+        """React to a query for which no record exists."""
+        rep = self.peer.expected_min_reputation(querying_peer_id)
+        enough_rep = (self.peer.settings['reputation_buffer_factor']
+                      * self.peer.settings['no_penalty_reputation'])
+        delay = self.decide_delay(querying_peer_id)
+        if querying_peer_id != self.peer.peer_id and rep >= enough_rep:
+            self.peer.expect_penalty(
+                querying_peer_id, self.peer.settings['timeout_query_penalty'],
+                delay + self.peer.settings['expected_penalty_timeout_buffer'],
+                in_event_id)
+            return
+        self.peer.send_response(querying_peer_id, queried_id, PeerInfo.empty(),
+                                in_event_id, delay=delay)
 
     def on_response_success(self, responding_peer_id, queried_id,
                             queried_peer_info, excluded_peer_ids, in_event_id):
@@ -985,18 +1001,35 @@ class Peer:
                 # The queried ID is at least as long as the prefix, so we are
                 # confident that we know all peers that are possible answers
                 # (our sync group) and can answer that no such peer exists.
-                # TODO Signal that no such peer exists.
-                pass
+                if not skip_log:
+                    in_event_id = self.logger.log(event('no_such_peer'))
+                self.behavior.on_query_no_such_peer(querying_peer_id,
+                                                    queried_id, in_event_id)
+                return
             else:
                 # The queried ID is shorter than the prefix, so we can't say
                 # for sure that there is no peer matching the query, unless the
                 # prefixes of all other possible sync groups have already been
                 # excluded.
-                # TODO Signal that no such peer exists.
-                assert self.prefix not in excluded_peer_ids
+                for prefix in self.prefixes_for(queried_id):
+                    if (not excluded_peer_ids.has_prefix_of(prefix)
+                            and self.prefix != prefix):
+                        # There is a prefix starting with queried_id that could
+                        # still yield a result.
+                        break
+                else:
+                    # All prefixes starting with queried_id have been excluded,
+                    # we can say that there exists no peer matching the queried
+                    # ID.
+                    if not skip_log:
+                        in_event_id = self.logger.log(event('no_such_peer'))
+                    self.behavior.on_query_no_such_peer(
+                        querying_peer_id, queried_id, in_event_id)
+                    return
                 # Add this peer's prefix to the excluded IDs to signal no peer
                 # exists with this peer's prefix so we don't get this query
                 # back.
+                assert self.prefix not in excluded_peer_ids
                 excluded_peer_ids[self.prefix] = None
         # TODO Don't query if peer is known as a query peer.
         if not skip_log:
@@ -1425,6 +1458,20 @@ class Peer:
                 self.finalize_own_query(status, in_event_id)
             del self.in_queries_map[queried_id]
 
+    def prefixes_for(self, bits):
+        """
+        Generate all prefixes that start with bits.
+
+        bits must not be longer than the prefix_length set in the settings.
+        """
+        len_suffix = self.settings['prefix_length'] - len(bits)
+        assert len_suffix >= 0
+        if len_suffix == 0:
+            yield bits
+        else:
+            for i in range(2 ** len_suffix):
+                yield bits + bs.Bits(uint=i, length=len_suffix)
+
 
 def calculate_reputation(reward_attenuation_strategy, current_reputation,
                          reputation_diff):
@@ -1569,6 +1616,10 @@ class PeerInfo:
 
     def __lt__(self, other):
         return self.peer_id < other.peer_id
+
+    @staticmethod
+    def empty():
+        return PeerInfo(None, None, None)
 
 
 ReputationUpdate = cl.namedtuple('ReputationUpdate',

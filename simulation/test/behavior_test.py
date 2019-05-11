@@ -282,6 +282,50 @@ class TestOnQueryExternal(unittest.TestCase):
             ANY)
 
 
+class TestOnQueryNoSuchPeer(unittest.TestCase):
+    def setUp(self):
+        self.helper = TestHelper()
+
+    def test_responds(self):
+        peer, behavior = self.helper.mock_peer_and_behavior_with_prefix('')
+        querying_peer_id = self.helper.id_with_prefix('')
+        peer.send_query.return_value = None
+        behavior.on_query_no_such_peer(querying_peer_id, peer.peer_id, None)
+        peer.send_response.assert_called_once_with(
+            querying_peer_id, peer.peer_id, p.PeerInfo.empty(), ANY, delay=ANY)
+
+    def test_applies_delay(self):
+        peer, behavior = self.helper.mock_peer_and_behavior_with_prefix('')
+        querying_peer, _ = self.helper.mock_peer_and_behavior_with_prefix('')
+        gid = self.helper.create_query_group(peer, querying_peer)
+        npr = self.helper.settings['no_penalty_reputation']
+        delay = 4
+        peer.query_groups[gid][querying_peer.peer_id].reputation = npr - delay
+        peer.send_query.return_value = None
+        behavior.on_query_no_such_peer(querying_peer.peer_id, peer.peer_id,
+                                       None)
+        peer.send_response.assert_called_once_with(
+            querying_peer.peer_id, ANY, ANY, ANY, delay=delay)
+
+    def test_does_nothing_if_enough_reputation(self):
+        peer, behavior = self.helper.mock_peer_and_behavior_with_prefix('')
+        querying_peer, _ = self.helper.mock_peer_and_behavior_with_prefix('')
+        query_group_id = self.helper.create_query_group(peer, querying_peer)
+        enough_rep = (self.helper.settings['reputation_buffer_factor']
+                      * self.helper.settings['no_penalty_reputation'])
+        peer.query_groups[query_group_id][peer.peer_id].reputation\
+            = enough_rep + 1
+        peer.send_query.return_value = None
+        behavior.on_query_no_such_peer(querying_peer.peer_id, peer.peer_id,
+                                       None)
+        peer.send_response.assert_not_called()
+        peer.expect_penalty.assert_called_once_with(
+            querying_peer.peer_id,
+            self.helper.settings['timeout_query_penalty'],
+            behavior.decide_delay(querying_peer.peer_id)
+            + self.helper.settings['expected_penalty_timeout_buffer'], ANY)
+
+
 class TestOnResponseSuccess(unittest.TestCase):
     def setUp(self):
         self.helper = TestHelper()

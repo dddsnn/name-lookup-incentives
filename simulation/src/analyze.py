@@ -817,13 +817,16 @@ class QueryReceived(Event):
                 further query must be sent in order to answer this query. This
                 may not happen if the peer e.g. decides he has enough
                 reputation.
+            * 'no_such_peer': Query for an ID that is known to not have an
+                associated peer.
         """
         super().__init__(time, in_event_id)
         self.sender_id = sender_id
         self.recipient_id = recipient_id
         self.queried_id = queried_id
-        if status not in ('own_id', 'known', 'external'):
-            raise Exception('Status must be one of own_id, known, or external')
+        if status not in ('own_id', 'known', 'external', 'no_such_peer'):
+            raise Exception('Status must be one of own_id, known, external, or'
+                            ' no_such_peer.')
         self.status = status
 
 
