@@ -17,8 +17,8 @@
 \renewcommand{\aclabelfont}[1]{\normalfont{\normalsize{#1}}\hfill} % keine serifenlose schrift für acronym
 
 % newer acronym packaged dont use bflabel anymore, to not fail the statement below provide the command if not existing
-\providecommand\bflabel{} 
-\renewcommand{\bflabel}[1]{\aclabelfont{#1}} 
+\providecommand\bflabel{}
+\renewcommand{\bflabel}[1]{\aclabelfont{#1}}
 
 %\usepackage{acronym}
 \usepackage{subfigure}
@@ -107,7 +107,7 @@
 \usepackage{fancyhdr} %%Fancy Kopf- und Fußzeilen
 %\usepackage{longtable} %%Für Tabellen, die eine Seite überschreiten
 \usepackage{lscape}
-\usepackage{rotating} 
+\usepackage{rotating}
 %\usepackage[htt]{hyphenat} %Trennung von Typewriter-Schriften
 %\usepackage{listings}
 \usepackage{pstricks-add}
@@ -122,7 +122,7 @@
 \newcommand\T{\rule{0pt}{2.5ex}\rule[-1.0ex]{0pt}{0pt}}
 \newcommand\B{\rule[-1.0ex]{0pt}{0pt}}
 
-\definecolor{slightgray}{gray}{.90} 
+\definecolor{slightgray}{gray}{.90}
 
 
 %% Definitionen %%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -162,11 +162,11 @@
 \frontmatter
 \input{chapters/00_title}
 \cleardoublepage
-\input{chapters/00_statement}
+\input{chapters/01_statement}
 \cleardoublepage
-\input{chapters/00_abstract}
+\input{chapters/02_abstract}
 \cleardoublepage
-\input{chapters/00_acknowledgments}
+\input{chapters/03_acknowledgments}
 \cleardoublepage
 
 % Titelseite hatte noch normale Tabellen. Von hier ab sollen alle
@@ -187,7 +187,7 @@
 %\input{commands}
 
 \mainmatter
-\input{chapters/01_introduction}
+\input{chapters/10_introduction}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% LITERATUR UND ANDERE VERZEICHNISSE
