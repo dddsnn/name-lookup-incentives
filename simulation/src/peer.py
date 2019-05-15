@@ -646,10 +646,10 @@ class Peer:
             self.logger.log(an.QueryGroupAdd(self.env.now, peer_info.peer_id,
                                              query_group.query_group_id, None))
         finally:
-            # Update the set of uncovered subprefixes for every member of the
-            # query group. This may not actually change anything, but it's the
-            # easiest way of maintaining the current data.
             for query_peer_info in query_group.infos():
+                # Update the set of uncovered subprefixes for every member of
+                # the query group. This may not actually change anything, but
+                # it's the easiest way of maintaining the current data.
                 # TODO Remove this hack. See comment at the beginning.
                 query_peer = self.network.peers[query_peer_info.address]
                 assert query_peer.peer_id == query_peer_info.peer_id
@@ -658,6 +658,12 @@ class Peer:
                         self.env.now, query_peer.peer_id,
                         util.SortedIterSet(query_peer.uncovered_subprefixes()),
                         None))
+                # Introduce everyone in the group to the new member.
+                if query_peer.peer_id != self.peer_id:
+                    query_peer.introduce(self.info())
+                else:
+                    for other_query_peer_info in query_group.infos():
+                        self.introduce(other_query_peer_info)
 
     def start_missing_query_peer_search(self):
         self.find_missing_query_peers()
