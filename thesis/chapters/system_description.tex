@@ -1,0 +1,43 @@
+\chapter{Description of the System}
+\section{Goal}
+- if everyone is selfish but wants to have access to lots of peers, get them to
+  contribute
+- effective and without negative impacts for cooperating peers
+- 4 major areas of interest: reputation availability, mitigating selfishness,
+  query group maintenance dynamics, complaints
+
+\section{Organization}
+- kademlia/p-grid-style dht
+- sync groups for replication/syncing, query groups for descending into the tree
+- sync groups maintain records and send each other updates (broadcast here,
+  possibly gossipping)
+- reputation score is maintained in query groups (each peer stores every
+  member's reputation
+- peers get reputation for answering queries, penalties for failing to do so (or
+  doing so late/early)
+- above a threshold, they get delay-free service
+- below that, responses to them are delayed
+- peers want delay-free service, so they have to participate
+- (decay)
+- reputation attenuation
+- reputation update incentives, here assumed not necessary
+- too early responses must also be penalized
+- query group formation out of scope
+- complaint system if someone misbehaves in non-public interaction, out of scope
+- peers can send multiple queries to minimize the risk of a timeout
+- peers must send a query to the lowest-reputation peer, but may send more to
+  others
+
+\section{Types of Peers}
+- cooperating (should refusing to answer count towards this, as the system
+  calculates with peers being selfish?)
+- defecting out of laziness
+- sabotaging, i.e. investing resources to ruin it for others
+
+
+- something must be done to prevent circular queries: a queries b, b queries c,
+  c queries a again, and a awaits the answer from b in order to answer
+- assume all sync groups have peers (you can't respond "doesn't exist" for a
+  query for an ID in a sync group you're not in. it may be possible to respond
+  "probably doesn't exist, with some proof how much work you did, but that's out
+  of scope
