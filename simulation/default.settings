@@ -1,6 +1,6 @@
 {
     # The seed used for the RNG.
-    'rng_seed': 0,
+    'rng_seed': 5803379951609632196,
     # Name of the log file that will be written.
     'log_file_name': 'log.log',
     # A list of tuples (t, n) indicating that at time t, n new peers should be
