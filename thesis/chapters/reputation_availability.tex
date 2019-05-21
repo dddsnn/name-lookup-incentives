@@ -1,5 +1,109 @@
 \chapter{Reputation Availability}
-- peers who are behaving well must be able to attain and maintain enough
-  reputation for delay-free service
+The incentive system's goal is to provide a good level of service to those peers
+who abide by the rules of the system (TODO terminology: cooperating?). Since the
+system measures this via a reputation point system, cooperating (TODO) peers
+must be able to gain the required amount of reputation within a reasonable time
+frame.
 
-\section{TODO}
+This chapter examines under which circumstances this is the case.
+
+\section{Environment}
+TODO CHOOSE A SEED
+- mention and reference settings files for reproducing results
+- query group forming etc., should be repeat from system
+  description/implementation
+- some peers are forced to open new groups that no other than the initial 2
+  peers join: little traffic means little traffic means slow reputation gains.
+  better implementation could let peers invite other useful peers, or make the
+  no-penalty reputation relative to e.g. total reputation in the group.
+- query group size 16
+- request generation
+- only one query at a time
+- 8 random introductions + sync group
+- finding peers for uncovered subprefixes
+- 64 peers
+- penalties, rewards
+- decay
+- simplified query group access and creation, reputation updates
+
+\section{Peer Selection Strategy}
+\subsection{Strategy: Overlap}
+\subsection{Strategy: Overlap $\rightarrow$ Reputation Sorted}
+- best
+\subsection{Strategy: Overlap $\rightarrow$ Reputation Saturated Last}
+\subsection{Strategy: Reputation Sorted}
+\subsection{Strategy: Random}
+- time it takes to get to no-penalty rep, dependent on who gets picked first
+- impact of allowing to not use maximal overlap peers: hop count, timeouts (due
+  to penalties, recursive queries), failures?
+\subsection{Uneven Query Distribution}
+\section{Reputation Decay}
+- decay, necessary (see system description), but difficult
+- decay doesn't really work if it's supposed to be the main incentive in
+  continuing to participate: too difficult to balance even with the constant
+  stream of requests; need timeout penalties as main measure
+- possible solutions: vary decay rate with total reputation in group, or with
+  average number of queries in a group or something
+\section{Penalty Expectations}
+- reputation oscillating
+- peers need to expect penalties when they decide not to answer
+- implementation flaw: peers don't expect penalties if they need to query
+  further and it takes too long (recursive query problem). expecting a penalty
+  for a fail response doesn't make sense if the response had already timed out.
+- high buffer as workaround
+\section{Reputation Attenuation}
+- necessity
+- different parameters
+- the harder it is to get to max desired reputation, the fewer timeouts there
+  are (calculate timeout rate)
+- discuss whether lower\_bound should be set higher than no-penalty rep (10)
+- possible improvements
+    - peers expect rewards (not just penalties)
+    - peers have a utility function that balances the investment in getting more
+      reputation (more expensive the more they get) against the risk of going
+      below the non-penalty rep
+\subsection{Constant}
+\subsection{Exponential}
+\subsection{Harmonic}
+\section{Query Group Reevaluation}
+- incomplete implementation causes problems: peers first find their necessary
+  query peers, but then they leave. potentially mitigated by running query peer
+  discovery repeatedly now?
+\section{Getting Started in a Running System (TODO section name)}
+- number of introductions needed to get subprefix coverage
+\section{Effect of Small Sync Groups}
+- with small sync groups, particularly one peer per sync group, the system is
+  very brittle, even if all sync groups exist (see 11/about)
+- routing loops are a problem that can occur when overlap isn't the first
+  selection criterion (particularly subprefix queries). this can lead to
+  timeouts and lots of penalties (related to brittleness with small sync groups)
+- the problem with each peer in his own sync group is apparently that, once the
+  first peers reach 14, they let queries time out, and this causes problems to
+  other peers who were relying on them, crashing reputations. with longer
+  prefixes and deeper lookups (more hops), the likelihood of something timing
+  out on the way rises.
+
+
+-----------------------
+- recursive-query-problem, observable in peer reputations (some configurations?
+  see 8/about)
+- impact of query group size
+- uneven distribution of rep (effect of even sync groups)
+- difference in expected delays because of difference in time between
+  calculating; may have changed in the meantime
+- peers can get more than their maximum desired reputation
+- in the case of multiple shared groups, where do peers get rep?
+- query peer selection: must send to peer with lowest rep
+- uneven query distribution
+- query group reevaluation mechanism, caveat that new groups can't be created,
+  only when a new peer is introduced
+- missing sync groups are a problem: no one can say for sure that there doesn't
+  exist a peer in that sync group, so peers querying for missing subprefix
+  coverage give out penalties to those they query because of the resulting fail
+  responses. no real solution other than ensuring non-empty sync groups (linked
+  to replication). this is confirmed by giving peers global knowledge of which
+  sync groups exist and not having them query for those subprefixes, then
+  everything works. even one missing sync group can screw everything up (see 64
+  peers/6 bit prefix case).
+- number of introductions relative to the amount of peers has an effect on how
+  easy it is for the system to get started (see 11/about)

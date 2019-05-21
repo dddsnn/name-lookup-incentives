@@ -1,10 +1,12 @@
-\chapter{Description of the System}
+\chapter{System Description}
 \section{Goal}
 - if everyone is selfish but wants to have access to lots of peers, get them to
   contribute
 - effective and without negative impacts for cooperating peers
 - 4 major areas of interest: reputation availability, mitigating selfishness,
   query group maintenance dynamics, complaints
+- prevent freeriding
+- resistant to whitewashing
 
 \section{Organization}
 - kademlia/p-grid-style dht
@@ -18,7 +20,9 @@
 - above a threshold, they get delay-free service
 - below that, responses to them are delayed
 - peers want delay-free service, so they have to participate
-- (decay)
+- decay, is necessary to prevent peers from getting rep and then not offering
+  any prefixes anymore (thus not receiving penalties), but that didn't go well
+  (also into reputation availability chapter)
 - reputation attenuation
 - reputation update incentives, here assumed not necessary
 - too early responses must also be penalized
@@ -27,8 +31,22 @@
 - peers can send multiple queries to minimize the risk of a timeout
 - peers must send a query to the lowest-reputation peer, but may send more to
   others
+- recursive queries vs. iterative queries w/ vouchers vs. explicitly promising
+  response times w/ advertised prefixes
+- there needs to be some leeway given, as reputation etc. aren't perfectly
+  synchronized
+\subsection{Definitions}
+- prefix
+- subprefix
+\subsection{Reputation Management}
+\subsection{Query Group Creation and Maintenance}
 
-\section{Types of Peers}
+\section{Peers}
+\subsection{Simplifying Assumptions}
+- don't lie about time stamps
+- always broadcast reputation updates truthfully, even without incentive
+- are not actively malicious
+\subsection{Types}
 - cooperating (should refusing to answer count towards this, as the system
   calculates with peers being selfish?)
 - defecting out of laziness
