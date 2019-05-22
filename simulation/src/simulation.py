@@ -10,6 +10,7 @@ import collections as cl
 import math
 import copy
 import itertools as it
+import os
 
 
 # Patch in a less-than for the Bits class, which is necessary for ordered dicts
@@ -190,7 +191,15 @@ if __name__ == '__main__':
     if len(sys.argv) < 2:
         print('Provide a settings file.')
         exit(1)
-    settings = util.read_settings(sys.argv[1])
+    if not sys.argv[1].endswith('.settings'):
+        print('Provide a settings file with a .settings suffix.')
+        exit(1)
+    log_file_name = sys.argv[1].rpartition('.settings')[0] + '.log'
+    settings_file_name = sys.argv[1]
+    if os.path.lexists(log_file_name):
+        print('Log file {} exists, terminating.'.format(log_file_name))
+        exit(1)
+    settings = util.read_settings(settings_file_name)
     random.seed(a=settings['rng_seed'], version=2)
     env = simpy.Environment()
     logger = an.Logger(settings)
@@ -223,11 +232,11 @@ if __name__ == '__main__':
     until = float('inf')
     if len(sys.argv) > 2:
         until = float(sys.argv[2])
-    file_name = settings['log_file_name']
     progress_proc = env.process(util.progress_process(env, 1))
-    signal.signal(signal.SIGINT, terminate(progress_proc, logger, file_name))
+    signal.signal(signal.SIGINT, terminate(progress_proc, logger,
+                                           log_file_name))
     print('running simulation until {}'.format(until))
     env.process(decay_reputation(env, all_query_groups, peers, logger,
                                  settings))
     env.run(until)
-    write_log(logger, file_name)
+    write_log(logger, log_file_name)

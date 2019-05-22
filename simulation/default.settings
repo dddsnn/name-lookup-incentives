@@ -2,8 +2,6 @@
     ############################# Initialization #############################
     # The seed used for the RNG.
     'rng_seed': 5803379951609632196,
-    # Name of the log file that will be written.
-    'log_file_name': 'log.log',
     # A list of tuples (t, n, s) indicating that at time t, n new peers should
     # be added to the simulation whose settings are made up of the default
     # settings (this file) where keys in s override default keys. Not all
