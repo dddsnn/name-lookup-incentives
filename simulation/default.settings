@@ -166,5 +166,7 @@
     # The number of time units of round trip time a peer considers to be due
     # to network delay. In the calculation of penalty delay, this will be
     # added on top.
-    'query_timeout': 2
+    'query_timeout': 2,
+    # Whether peers should expect penalties when they misbehave.
+    'expect_penalties': True
 }
