@@ -1,6 +1,7 @@
 {
+    ############################# Initialization #############################
     # The seed used for the RNG.
-    'rng_seed': 0,
+    'rng_seed': 5803379951609632196,
     # Name of the log file that will be written.
     'log_file_name': 'log.log',
     # A list of tuples (t, n) indicating that at time t, n new peers should be
@@ -21,13 +22,32 @@
     # prefix.
     'ensure_non_empty_sync_groups': True,
 
-    # The time the reputation decay process sleeps.
-    'decay_timestep': float('inf'),
-    # The reputation decay that is applied per time unit. This isn't affected
-    # by decay_timestep: if decay_timestep is 10 and decay_per_time_unit is
-    # 0.2, every 10 time units 2 reputation decay are imposed.
-    'decay_per_time_unit': 0,
+    ########################### System Parameters ############################
+    # Length of peer IDs in bits.
+    'id_length': 16,
+    # Length of peer prefixes in bits.
+    'prefix_length': 4,
+    # The number of time units reputation updates are archived to be able to
+    # roll back and reapply them in case of updates arriving out of order.
+    'update_retention_time': 100,
+    # The size of the ring buffer used to store past reputation in query
+    # groups.
+    'query_group_history_length': 100,
+    # The time interval in between recording query group reputations.
+    'query_group_history_interval': 1,
+    # The time interval in between reevaluating query group memberships.
+    'query_group_reevaluation_interval': 1,
+    # The amount of time after an expected penalty is expected to be applied
+    # at which the expected penalty times out.
+    'expected_penalty_timeout_buffer': 4,
+    # Whether to ignore subprefixes for which there doesn't exist any peer in
+    # the simulation when querying for missing subprefixes. Makes use of
+    # global information not normally available to a peer.
+    'ignore_non_existent_subprefixes': False,
+    # The number of time units a message passed between peers takes to arrive.
+    'transmission_delay': 0.1,
 
+    ################################# Rules ##################################
     # The reputation increase awarded for successfully answering a query.
     'successful_query_reward': 1,
     # The reputation decrease imposed for answering a query, but failing to
@@ -38,6 +58,12 @@
     'timeout_query_penalty': -2,
     # The amount of reputation at or above which no penalty is imposed.
     'no_penalty_reputation': 10,
+    # The time the reputation decay process sleeps.
+    'decay_timestep': float('inf'),
+    # The reputation decay that is applied per time unit. This isn't affected
+    # by decay_timestep: if decay_timestep is 10 and decay_per_time_unit is
+    # 0.2, every 10 time units 2 reputation decay are imposed.
+    'decay_per_time_unit': 0,
     # An object describing how rewards are attenuated based on current
     # reputation. Must have one of the following forms:
     # {
@@ -87,37 +113,7 @@
         'upper_bound': 15
     },
 
-    # Length of peer IDs in bits.
-    'id_length': 16,
-    # Length of peer prefixes in bits.
-    'prefix_length': 4,
-    # The amount of query peers every peer strives to at least have for each
-    # subprefix.
-    'min_desired_query_peers': 2,
-    # The size of a query group at which a peer considers it full.
-    'max_desired_group_size': 16,
-    # The number of time units of round trip time a peer considers to be due
-    # to network delay. In the calculation of penalty delay, this will be
-    # added on top.
-    'query_timeout': 2,
-    # The number of time units reputation updates are archived to be able to
-    # roll back and reapply them in case of updates arriving out of order.
-    'update_retention_time': 100,
-    # The size of the ring buffer used to store past reputation in query
-    # groups.
-    'query_group_history_length': 100,
-    # The time interval in between recording query group reputations.
-    'query_group_history_interval': 1,
-    # The time interval in between reevaluating query group memberships.
-    'query_group_reevaluation_interval': 1,
-    # The amount of time after an expected penalty is expected to be applied
-    # at which the expected penalty times out.
-    'expected_penalty_timeout_buffer': 4,
-    # Whether to ignore subprefixes for which there doesn't exist any peer in
-    # the simulation when querying for missing subprefixes. Makes use of
-    # global information not normally available to a peer.
-    'ignore_non_existent_subprefixes': False,
-
+    ############################# Peer Behavior ##############################
     # The multiple of the no_penalty_reputation at or above which a peer will
     # stop responding to queries.
     'reputation_buffer_factor': 1.4,
@@ -162,7 +158,13 @@
     # uncovered subprefixes. They will not check if there is a query pending
     # that matches the subprefix.
     'uncovered_subprefix_interval': 10,
-
-    # The number of time units a message passed between peers takes to arrive.
-    'transmission_delay': 0.1
+    # The amount of query peers every peer strives to at least have for each
+    # subprefix.
+    'min_desired_query_peers': 2,
+    # The size of a query group at which a peer considers it full.
+    'max_desired_group_size': 16,
+    # The number of time units of round trip time a peer considers to be due
+    # to network delay. In the calculation of penalty delay, this will be
+    # added on top.
+    'query_timeout': 2
 }
