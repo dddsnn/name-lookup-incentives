@@ -19,8 +19,8 @@ class PeerBehavior:
     def on_query_self(self, querying_peer_id, queried_id, in_event_id):
         """React to a query for own ID."""
         rep = self.peer.expected_min_reputation(querying_peer_id)
-        enough_rep = (self.peer.settings['reputation_buffer_factor']
-                      * self.peer.settings['no_penalty_reputation'])
+        enough_rep = (self.peer.settings['reputation_buffer']
+                      + self.peer.settings['no_penalty_reputation'])
         delay = self.decide_delay(querying_peer_id)
         if querying_peer_id != self.peer.peer_id and rep >= enough_rep:
             if self.peer.settings['expect_penalties']:
@@ -37,8 +37,8 @@ class PeerBehavior:
                       in_event_id):
         """React to a query for the ID of a sync peer."""
         rep = self.peer.expected_min_reputation(querying_peer_id)
-        enough_rep = (self.peer.settings['reputation_buffer_factor']
-                      * self.peer.settings['no_penalty_reputation'])
+        enough_rep = (self.peer.settings['reputation_buffer']
+                      + self.peer.settings['no_penalty_reputation'])
         delay = self.decide_delay(querying_peer_id)
         if querying_peer_id != self.peer.peer_id and rep >= enough_rep:
             if self.peer.settings['expect_penalties']:
@@ -60,7 +60,7 @@ class PeerBehavior:
         A peer will only react if he has not enough reputation in one of the
         query groups shared with the querying peer. How much reputation is
         enough is governed by the no_penalty_reputation and the
-        reputation_buffer_factor in the settings.
+        reputation_buffer in the settings.
 
         A peer will expect penalties if he misbehaves.
 
@@ -95,8 +95,8 @@ class PeerBehavior:
                                        excluded_peer_ids)
             return
         rep = self.peer.expected_min_reputation(querying_peer_id)
-        enough_rep = (self.peer.settings['reputation_buffer_factor']
-                      * self.peer.settings['no_penalty_reputation'])
+        enough_rep = (self.peer.settings['reputation_buffer']
+                      + self.peer.settings['no_penalty_reputation'])
         delay = self.decide_delay(querying_peer_id)
         if querying_peer_id != self.peer.peer_id and rep >= enough_rep:
             # We have enough reputation and are not interested in expending
@@ -140,8 +140,8 @@ class PeerBehavior:
     def on_query_no_such_peer(self, querying_peer_id, queried_id, in_event_id):
         """React to a query for which no record exists."""
         rep = self.peer.expected_min_reputation(querying_peer_id)
-        enough_rep = (self.peer.settings['reputation_buffer_factor']
-                      * self.peer.settings['no_penalty_reputation'])
+        enough_rep = (self.peer.settings['reputation_buffer']
+                      + self.peer.settings['no_penalty_reputation'])
         delay = self.decide_delay(querying_peer_id)
         if querying_peer_id != self.peer.peer_id and rep >= enough_rep:
             if self.peer.settings['expect_penalties']:
@@ -364,9 +364,8 @@ class PeerBehavior:
                 with queried_id. No tie breaker.
             * 'overlap_high_rep_last': As 'overlap', but peers with enough
                 reputation (i.e. whose minimum reputation in all shared query
-                groups is greater than or equal 'no_penalty_reputation' times
-                'reputation_buffer_factor') are given lower priority than all
-                others.
+                groups is greater than or equal 'no_penalty_reputation' plus
+                'reputation_buffer') are given lower priority than all others.
             * 'random': Choose a peer at random.
             * 'overlap_rep_sorted': As 'overlap' but within the group of the
                 highest overlap, choose the peer with the lowest reputation.
@@ -400,8 +399,8 @@ class PeerBehavior:
                 def high_rep_key(sync_peer_info):
                     ok = overlap_key(sync_peer_info)
                     enough_rep\
-                        = (self.peer.settings['reputation_buffer_factor']
-                           * self.peer.settings['no_penalty_reputation'])
+                        = (self.peer.settings['reputation_buffer']
+                           + self.peer.settings['no_penalty_reputation'])
                     min_rep = self.peer.min_peer_reputation(
                         sync_peer_info[1].peer_id)
                     if min_rep >= enough_rep:

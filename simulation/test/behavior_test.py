@@ -35,8 +35,8 @@ class TestOnQuerySelf(unittest.TestCase):
         peer, behavior = self.helper.mock_peer_and_behavior_with_prefix('')
         querying_peer, _ = self.helper.mock_peer_and_behavior_with_prefix('')
         query_group_id = self.helper.create_query_group(peer, querying_peer)
-        enough_rep = (self.helper.settings['reputation_buffer_factor']
-                      * self.helper.settings['no_penalty_reputation'])
+        enough_rep = (self.helper.settings['reputation_buffer']
+                      + self.helper.settings['no_penalty_reputation'])
         peer.query_groups[query_group_id][peer.peer_id].reputation\
             = enough_rep + 1
         peer.send_query.return_value = None
@@ -83,8 +83,8 @@ class TestOnQuerySync(unittest.TestCase):
         sync_peer, _ = self.helper.mock_peer_and_behavior_with_prefix('0000')
         querying_peer, _ = self.helper.mock_peer_and_behavior_with_prefix('')
         query_group_id = self.helper.create_query_group(peer, querying_peer)
-        enough_rep = (self.helper.settings['reputation_buffer_factor']
-                      * self.helper.settings['no_penalty_reputation'])
+        enough_rep = (self.helper.settings['reputation_buffer']
+                      + self.helper.settings['no_penalty_reputation'])
         peer.query_groups[query_group_id][peer.peer_id].reputation\
             = enough_rep + 1
         peer.send_query.return_value = None
@@ -234,8 +234,8 @@ class TestOnQueryExternal(unittest.TestCase):
             self.helper.mock_peer_and_behavior_with_prefix('0000')
         query_group_id = self.helper.create_query_group(peer_a, peer_b,
                                                         querying_peer)
-        enough_rep = (self.helper.settings['reputation_buffer_factor']
-                      * self.helper.settings['no_penalty_reputation'])
+        enough_rep = (self.helper.settings['reputation_buffer']
+                      + self.helper.settings['no_penalty_reputation'])
         peer_a.query_groups[query_group_id][peer_a.peer_id].reputation\
             = enough_rep + 1
         queried_id = self.helper.id_with_prefix('1111')
@@ -311,8 +311,8 @@ class TestOnQueryNoSuchPeer(unittest.TestCase):
         peer, behavior = self.helper.mock_peer_and_behavior_with_prefix('')
         querying_peer, _ = self.helper.mock_peer_and_behavior_with_prefix('')
         query_group_id = self.helper.create_query_group(peer, querying_peer)
-        enough_rep = (self.helper.settings['reputation_buffer_factor']
-                      * self.helper.settings['no_penalty_reputation'])
+        enough_rep = (self.helper.settings['reputation_buffer']
+                      + self.helper.settings['no_penalty_reputation'])
         peer.query_groups[query_group_id][peer.peer_id].reputation\
             = enough_rep + 1
         peer.send_query.return_value = None
@@ -924,8 +924,8 @@ class TestSelectPeerToQuery(unittest.TestCase):
         peer_b = self.helper.peer_with_prefix('1111')
         peer_c = self.helper.peer_with_prefix('1000')
         query_group_id = self.helper.create_query_group(peer_a, peer_b, peer_c)
-        enough_rep = (self.helper.settings['reputation_buffer_factor']
-                      * self.helper.settings['no_penalty_reputation'])
+        enough_rep = (self.helper.settings['reputation_buffer']
+                      + self.helper.settings['no_penalty_reputation'])
         peer_a.query_groups[query_group_id][peer_b.peer_id].reputation\
             = enough_rep + 1
         selected = peer_a.behavior.select_peer_to_query(
@@ -940,8 +940,8 @@ class TestSelectPeerToQuery(unittest.TestCase):
         query_group_id_1 = self.helper.create_query_group(peer_a, peer_b,
                                                           peer_c)
         self.helper.create_query_group(peer_a, peer_b, peer_c)
-        enough_rep = (self.helper.settings['reputation_buffer_factor']
-                      * self.helper.settings['no_penalty_reputation'])
+        enough_rep = (self.helper.settings['reputation_buffer']
+                      + self.helper.settings['no_penalty_reputation'])
         peer_a.query_groups[query_group_id_1][peer_b.peer_id].reputation\
             = enough_rep + 1
         selected = peer_a.behavior.select_peer_to_query(

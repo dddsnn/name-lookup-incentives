@@ -116,9 +116,9 @@
     },
 
     ############################# Peer Behavior ##############################
-    # The multiple of the no_penalty_reputation at or above which a peer will
-    # stop responding to queries.
-    'reputation_buffer_factor': 1.4,
+    # The amount of reputation added to the no_penalty_reputation at or above
+    # which a peer will stop responding to queries.
+    'reputation_buffer': 4,
     # The strategy to use when selecting the next peer to send a query to.
     # Possible values are:
     # * 'overlap': Choose the peer whose prefix has the highest overlap with

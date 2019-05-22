@@ -211,8 +211,8 @@ class Logger:
 
         def axes_modifier(axes):
             npr = self.settings['no_penalty_reputation']
-            enough_rep = (self.settings['reputation_buffer_factor']
-                          * self.settings['no_penalty_reputation'])
+            enough_rep = (self.settings['reputation_buffer']
+                          + self.settings['no_penalty_reputation'])
             axes.axhline(npr, linestyle='--', color='k', alpha=0.2)
             axes.axhline(enough_rep, linestyle='--', color='k', alpha=0.2)
         plot_steps('Reputation percentiles in query groups', 'Time',
@@ -441,8 +441,8 @@ class Logger:
 
         def axes_modifier(axes):
             npr = self.settings['no_penalty_reputation']
-            enough_rep = (self.settings['reputation_buffer_factor']
-                          * self.settings['no_penalty_reputation'])
+            enough_rep = (self.settings['reputation_buffer']
+                          + self.settings['no_penalty_reputation'])
             axes.axhline(npr, linestyle='--', color='k', alpha=0.2)
             axes.axhline(enough_rep, linestyle='--', color='k', alpha=0.2)
 
