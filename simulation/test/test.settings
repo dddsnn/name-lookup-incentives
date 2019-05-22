@@ -4,9 +4,11 @@
     'rng_seed': 5803379951609632196,
     # Name of the log file that will be written.
     'log_file_name': 'log.log',
-    # A list of tuples (t, n) indicating that at time t, n new peers should be
-    # added to the simulation.
-    'peer_batches': [(0, 64)],
+    # A list of tuples (t, n, s) indicating that at time t, n new peers should
+    # be added to the simulation whose settings are made up of the default
+    # settings (this file) where keys in s override default keys. Not all
+    # settings keys can be overridden (e.g. system parameters like ID length).
+    'peer_batches': [(0, 64, {})],
     # The number of randomly selected peers each peer is introduced to in the
     # beginning.
     'num_random_introductions': 8,

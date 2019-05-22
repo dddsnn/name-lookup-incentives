@@ -64,7 +64,7 @@ def terminate(progress_proc, logger, file_name):
 
 def even_sync_groups_peer_id_batches(settings):
     peer_batches = settings['peer_batches']
-    total_num_peers = sum(n for _, n in peer_batches)
+    total_num_peers = sum(n for _, n, _ in peer_batches)
     if total_num_peers > 2 ** settings['id_length']:
         raise Exception('IDs are too short for the number of peers.')
     if (math.log2(total_num_peers) % 1
@@ -88,14 +88,15 @@ def even_sync_groups_peer_id_batches(settings):
                     break
     peer_id_batches = []
     peer_id_iter = iter(all_peer_ids)
-    for time, num_peers in peer_batches:
-        peer_id_batches.append((time, it.islice(peer_id_iter, num_peers)))
+    for time, num_peers, override_settings in peer_batches:
+        peer_id_batches.append((time, it.islice(peer_id_iter, num_peers),
+                                override_settings))
     return peer_id_batches, all_peer_ids
 
 
 def random_peer_id_batches(settings):
     peer_batches = settings['peer_batches']
-    total_num_peers = sum(n for _, n in peer_batches)
+    total_num_peers = sum(n for _, n, _ in peer_batches)
     if total_num_peers > 2 ** settings['id_length']:
         raise Exception('IDs are too short for the number of peers.')
     if (settings['ensure_non_empty_sync_groups']
@@ -107,7 +108,7 @@ def random_peer_id_batches(settings):
     if settings['ensure_non_empty_sync_groups']:
         prefixes = [bs.Bits(uint=i, length=settings['prefix_length'])
                     for i in range(2 ** settings['prefix_length'])]
-    for time, num_peers in peer_batches:
+    for time, num_peers, override_settings in peer_batches:
         peer_ids = []
         for _ in range(num_peers):
             while True:
@@ -122,17 +123,30 @@ def random_peer_id_batches(settings):
                     if prefixes:
                         prefixes.pop(0)
                     break
-        peer_id_batches.append((time, peer_ids))
+        peer_id_batches.append((time, peer_ids, override_settings))
     return peer_id_batches, all_peer_ids
 
 
 def add_peers(time, peer_id_batch, all_peers, env, logger, network,
-              all_query_groups, all_prefixes, settings, sync_groups,
-              query_group_id):
+              all_query_groups, all_prefixes, settings, override_settings,
+              sync_groups, query_group_id):
+    if ('id_length' in override_settings
+            or 'prefix_length' in override_settings
+            or 'initial_reputation' in override_settings
+            or 'max_desired_group_size' in override_settings
+            or 'reward_attenuation' in override_settings
+            or 'no_penalty_reputation' in override_settings
+            or 'timeout_query_penalty' in override_settings
+            or 'failed_query_penalty' in override_settings
+            or 'successful_query_reward' in override_settings):
+        raise Exception('Can\'t override settings that have to be the same for'
+                        ' all peers.')
+    peer_settings = copy.deepcopy(settings)
+    peer_settings.update(override_settings)
     added_peers = []
     for peer_id in peer_id_batch:
         peer = p.Peer(env, logger, network, peer_id, all_query_groups,
-                      all_prefixes, settings)
+                      all_prefixes, peer_settings)
         all_peers[peer_id] = peer
         added_peers.append(peer)
         prefix = peer_id[:settings['prefix_length']]
@@ -200,11 +214,11 @@ if __name__ == '__main__':
     else:
         peer_id_batches, all_peer_ids = random_peer_id_batches(settings)
     assert len(all_peer_ids) == len(set(all_peer_ids))
-    for time, peer_id_batch in peer_id_batches:
+    for time, peer_id_batch, override_settings in peer_id_batches:
         util.do_delayed(
             env, time, add_peers, time, peer_id_batch, peers, env, logger,
-            network, all_query_groups, all_prefixes, settings, sync_groups,
-            query_group_id)
+            network, all_query_groups, all_prefixes, settings,
+            override_settings, sync_groups, query_group_id)
 
     until = float('inf')
     if len(sys.argv) > 2:
