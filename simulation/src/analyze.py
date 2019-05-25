@@ -144,7 +144,8 @@ class Logger:
                 reputations[query_group_id] = query_group[peer_id]
         return reputations
 
-    def plot_average_reputation_until(self, until_time):
+    def plot_average_reputation_until(self, until_time, show=True,
+                                      file_prefix=None):
         """Plot average reputation over time until some point."""
         reputations = {}
         replay = Replay(self.events, {}, self.query_groups_event_processor)
@@ -172,10 +173,13 @@ class Logger:
                      query_group_id)
                     for query_group_id, record in sorted(reputations.items(),
                                                          key=lambda t: t[0])]
+        if file_prefix is not None:
+            file_prefix += '_avg_rep'
         plot_steps('Average reputation in query groups', 'Time', 'Reputation',
-                   ((('', data_set),)))
+                   ((('', data_set),)), show, file_prefix)
 
-    def plot_reputation_percentiles_until(self, until_time, max_edge_length=3):
+    def plot_reputation_percentiles_until(self, until_time, max_edge_length=3,
+                                          show=True, file_prefix=None):
         """Plot reputation percentiles over time until some point."""
         reputations = {}
         replay = Replay(self.events, {}, self.query_groups_event_processor)
@@ -215,10 +219,14 @@ class Logger:
                           + self.settings['no_penalty_reputation'])
             axes.axhline(npr, linestyle='--', color='k', alpha=0.2)
             axes.axhline(enough_rep, linestyle='--', color='k', alpha=0.2)
+        if file_prefix is not None:
+            file_prefix += '_rep_percs'
         plot_steps('Reputation percentiles in query groups', 'Time',
-                   'Reputation', data_sets, max_edge_length, axes_modifier)
+                   'Reputation', data_sets, show, file_prefix, max_edge_length,
+                   axes_modifier)
 
-    def plot_response_statuses_until(self, until_time, bin_size=10):
+    def plot_response_statuses_until(self, until_time, bin_size=10, show=True,
+                                     file_prefix=None):
         """Plot response statuses over time until some point."""
         replay = Replay(self.events, {}, response_status_event_processor)
         replay.step_until(until_time)
@@ -227,33 +235,42 @@ class Logger:
             replay.data.setdefault(category, [])
 
         bins = np.arange(0, replay.current_time + bin_size, bin_size)
-        plt.title('Response statuses')
-        plt.hist((np.array(replay.data['success']),
+        figure, axes = plt.subplots()
+        axes.set_title('Response statuses')
+        axes.hist((np.array(replay.data['success']),
                   np.array(replay.data['failure']),
                   np.array(replay.data['timeout']),
                   np.array(replay.data['unmatched']),
                   np.array(replay.data['returned_excluded_peer'])),
-                 bins, label=('success', 'failure', 'timeout', 'unmatched',
-                              'returned_excluded_peer'),
-                 histtype='barstacked')
-        plt.xlabel('Time')
-        plt.ylabel('Number of responses')
-        plt.legend()
-        plt.show()
+                  bins, label=('success', 'failure', 'timeout', 'unmatched',
+                               'returned_excluded_peer'),
+                  histtype='barstacked')
+        axes.set_xlabel('Time')
+        axes.set_ylabel('Number of responses')
+        axes.legend()
+        if file_prefix is not None:
+            figure.savefig(file_prefix + '_resp_statuses.png')
+        if show:
+            plt.show()
 
     def plot_queries_at_peers_between(self, start_time, until_time,
-                                      num_bins=40):
+                                      num_bins=40, show=True,
+                                      file_prefix=None):
         """Plot number of queries arriving at peers in a time range."""
         replay = Replay(self.events, {}, queries_received_event_processor)
         replay.skip_before(start_time)
         replay.step_until(until_time)
 
         data_sets = [('', [np.array(list(replay.data.values()))])]
+        if file_prefix is not None:
+            file_prefix += '_queries_at_peers'
         plot_hists('Number of queries arriving at peers', 'Number of queries',
-                   'Number of peers', data_sets, num_bins, 1)
+                   'Number of peers', data_sets, num_bins, show, file_prefix,
+                   1)
 
     def plot_selection_probabilities_at(self, time, num_bins=10,
-                                        max_edge_length=3):
+                                        max_edge_length=3, show=True,
+                                        file_prefix=None):
         """
         Plot histograms of the probability a peer is selected for a query.
 
@@ -366,11 +383,14 @@ class Logger:
 
         data_sets = [('Query group {}'.format(i), [np.array(list(p.values()))])
                      for i, p in selection_probabilities.items()]
+        if file_prefix is not None:
+            file_prefix += '_probs'
         plot_hists('Peer selection probabilities by query group at time {}'
                    .format(time), 'Probability', 'Number of peers', data_sets,
-                   num_bins, max_edge_length)
+                   num_bins, show, file_prefix, max_edge_length)
 
-    def plot_query_group_sizes_until(self, until_time, max_edge_length=3):
+    def plot_query_group_sizes_until(self, until_time, max_edge_length=3,
+                                     show=True, file_prefix=None):
         """Plot query group sizes over time until some point."""
         sizes = {}
         replay = Replay(self.events, {}, self.query_groups_event_processor)
@@ -400,11 +420,13 @@ class Logger:
             data_set = [(time_axis, size_axis, 'Number of peers')]
             data_sets.append(('Query group {}'.format(query_group_id),
                               data_set))
-
+        if file_prefix is not None:
+            file_prefix += '_group_sizes'
         plot_steps('Query group sizes', 'Time', 'Number of peers', data_sets,
-                   max_edge_length)
+                   show, file_prefix, max_edge_length)
 
-    def plot_peer_reputations_until(self, until_time, max_edge_length=3):
+    def plot_peer_reputations_until(self, until_time, max_edge_length=3,
+                                    show=True, file_prefix=None):
         """Plot peer reputations over time until some point."""
         reps = {}
         replay = Replay(self.events, {}, self.query_groups_event_processor)
@@ -445,9 +467,25 @@ class Logger:
                           + self.settings['no_penalty_reputation'])
             axes.axhline(npr, linestyle='--', color='k', alpha=0.2)
             axes.axhline(enough_rep, linestyle='--', color='k', alpha=0.2)
+        if file_prefix is not None:
+            file_prefix += '_peer_reps'
+        plot_steps('Peer reputations', 'Time', 'Reputation', data_sets, show,
+                   file_prefix, max_edge_length, axes_modifier)
 
-        plot_steps('Peer reputations', 'Time', 'Reputation', data_sets,
-                   max_edge_length, axes_modifier)
+    def save_plots_until(self, until_time, file_prefix):
+        self.plot_average_reputation_until(until_time, False, file_prefix)
+        self.plot_reputation_percentiles_until(until_time, 1, False,
+                                               file_prefix)
+        self.plot_response_statuses_until(until_time, show=False,
+                                          file_prefix=file_prefix)
+        self.plot_queries_at_peers_between(0, until_time, show=False,
+                                           file_prefix=file_prefix)
+        self.plot_selection_probabilities_at(
+            until_time, max_edge_length=1, show=False, file_prefix=file_prefix)
+        self.plot_query_group_sizes_until(until_time, max_edge_length=1,
+                                          show=False, file_prefix=file_prefix)
+        self.plot_peer_reputations_until(until_time, max_edge_length=1,
+                                         show=False, file_prefix=file_prefix)
 
     def query_groups_event_processor(self, data, event):
         """
@@ -485,8 +523,8 @@ class Logger:
                     query_group[query_peer_id] = new_rep
 
 
-def plot_steps(title, xlabel, ylabel, data_sets, max_edge_length=3,
-               axes_modifier=None):
+def plot_steps(title, xlabel, ylabel, data_sets, show, file_prefix,
+               max_edge_length=3, axes_modifier=None):
     """
     Plot a grid of step graphs.
 
@@ -501,11 +539,12 @@ def plot_steps(title, xlabel, ylabel, data_sets, max_edge_length=3,
     """
     def plotter(axes, plot_data):
         axes.step(plot_data[0], plot_data[1], label=plot_data[2], where='post')
-    plot_grid(title, xlabel, ylabel, data_sets, plotter, max_edge_length,
-              axes_modifier)
+    plot_grid(title, xlabel, ylabel, data_sets, plotter, show, file_prefix,
+              max_edge_length, axes_modifier)
 
 
-def plot_hists(title, xlabel, ylabel, data_sets, num_bins, max_edge_length=3):
+def plot_hists(title, xlabel, ylabel, data_sets, num_bins, show, file_prefix,
+               max_edge_length=3):
     """
     Plot a grid of histograms.
 
@@ -519,11 +558,12 @@ def plot_hists(title, xlabel, ylabel, data_sets, num_bins, max_edge_length=3):
     """
     def plotter(axes, plot_data):
         axes.hist(plot_data, num_bins)
-    plot_grid(title, xlabel, ylabel, data_sets, plotter, max_edge_length)
+    plot_grid(title, xlabel, ylabel, data_sets, plotter, show, file_prefix,
+              max_edge_length)
 
 
-def plot_grid(title, xlabel, ylabel, data_sets, plotter, max_edge_length=3,
-              axes_modifier=None):
+def plot_grid(title, xlabel, ylabel, data_sets, plotter, show, file_prefix,
+              max_edge_length=3, axes_modifier=None):
     """
     Plot a grid of graphs.
 
@@ -544,6 +584,8 @@ def plot_grid(title, xlabel, ylabel, data_sets, plotter, max_edge_length=3,
         function.
     :param plotter: A function taking a matplotlib axes and one entry of the
         plot data list that creates the plot.
+    :param show: Whether to show the plot.
+    :param file_prefix: A prefix for a file name. If None, no file is written.
     :param max_edge_length: Maximum number of graphs to lay out along each
         edge of a figure. A figure will have no more than max_edge_length**2
         graphs.
@@ -577,7 +619,11 @@ def plot_grid(title, xlabel, ylabel, data_sets, plotter, max_edge_length=3,
                 axes.legend()
         for axes in axess.flatten()[edge_length * (edge_length - 1):]:
             axes.set_xlabel(xlabel)
-    plt.show()
+        if file_prefix:
+            figure.savefig(file_prefix + '_{}_of_{}.png'.format(figure_idx + 1,
+                                                                num_figures))
+    if show:
+        plt.show()
 
 
 def sync_groups_event_processor(data, event):
