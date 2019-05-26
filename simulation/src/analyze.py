@@ -8,6 +8,7 @@ import itertools as it
 import operator as op
 import bitstring
 import peer
+import os
 
 
 # Patch in a less-than for the Bits class, which is necessary for ordered dicts
@@ -624,6 +625,26 @@ def plot_grid(title, xlabel, ylabel, data_sets, plotter, show, file_prefix,
                                                                 num_figures))
     if show:
         plt.show()
+
+
+def save_all_log_plots_until(until_time):
+    """Save plots of all logs in directory to file."""
+    log_file_names = [fn[:-4] for fn in os.listdir('.') if fn.endswith('.log')]
+    num_skipped = 0
+    for log_file_name in log_file_names:
+        try:
+            os.mkdir(log_file_name)
+        except FileExistsError:
+            print('Output directory {} exists, skipping.'
+                  .format(log_file_name))
+            num_skipped += 1
+            continue
+        logger = Logger.load(log_file_name + '.log')
+        logger.save_plots_until(until_time, os.path.join(log_file_name,
+                                                         log_file_name))
+    if num_skipped:
+        print('{} out of {} log files were skipped'
+              .format(num_skipped, len(log_file_names)))
 
 
 def sync_groups_event_processor(data, event):
