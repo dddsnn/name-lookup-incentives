@@ -1,7 +1,117 @@
 \chapter{Implementation}
+TODO
+- write a README
+- put on github and link
 - should be deterministic
 - possibly not the same results on different machines due to floats
+- network abstraction (addresses)
+- time units <-> seconds
+
 \section{Model}
 TODO
-\section{Simplifying Assumptions}
+- peer stop answering when their reputation is saturated
+- the lowest reputation in shared query groups counts
+- reputation buffer
+\section{Settings}
+TODO explain what settings files are
+
+specified: there are 64 peers with an ID length of 16 bit and a prefix length of
+4 bit, resulting in an average sync group size of 4 peers. Query group sizes are
+capped at 16 peers; there is no specific enforcement of this, peers simply don't
+join groups that already have 16 peers.
+
+- prefix length is fixed and always actually a prefix of the peer ID (can't be
+  changed)
+
+The reward for a successful query is 1 (reputation point), the penalty for a
+timeout is 2, the penalty for a failed query is 1. There is no reputation decay.
+
+During initialization, peers with random IDs are generated and registered with
+the network abstraction. Every peer is then introduced to 8 randomly selected
+peers (i.e. given their ID and address so to be able to contact him) as well as
+to all peers in his sync group (those 2 sets may overlap).
+
+When introduced to another peer, a peer checks which of his subprefixes the
+other peer serves. If he doesn't already know this peer from a query group he is
+in and doesn't already know at least 2 peers serving that subprefix from his
+query groups, he will join a query group with the newly introduced peer. This
+mechanism is simplified: for this purpose, peers have access to a list of all
+query groups. The peer will first check if there is a query group the other peer
+is in that is not full (i.e. has less than 16 members). If so, he will add
+himself to that group. Otherwise, he will check if any of his own query groups
+is not full and, if so, add the other peer to it. Otherwise, he will create a
+new query group containing just himself and the other peer. (TODO does this
+belong into implementation?)
+
+The first thing every peer does when the simulation starts is completing their
+subprefix coverage: they check for which of their subprefixes they know less
+than 2 peers and send queries for these subprefixes. Once a successful response
+arrives, the peer information contained in it is introduced and a query group
+can be joined. This process is repeated every 10 seconds. In those queries,
+peers specify which peers covering the subprefix they already know, so that
+those peers will not occur in the response.  These queries are also special in
+that peers can select recipients where the overlap of the recipient's prefix
+with the target ID (TODO terminology: target of a query (can be an ID or a
+prefix)) is less than or equal to the peer's. This is usually disallowed to
+prevent routing loops (ensuring queries terminate after at most as many hops as
+the prefix is long). However, when completing subprefix coverage, this may be
+necessary: if the peer doesn't know anyone closer to the desired subprefix (and
+that is the problem he is trying to solve), he must necessarily query someone
+who is not closer. There is no mechanism to prevent routing loops implemented
+(TODO).
+
+Peers broadcast reputation updates faithfully and honestly, i.e. when a response
+arrives or a timeout occurs, they send an update to each member in all the query
+groups they share with the responder. (TODO does this belong into
+implementation?)
+
+In order to facilitate traffic, every second the simulation generates 1 request
+for a full ID at every peer. A request represents a user interacting with the
+protocol stack. It may lead to the peer needing to send out a query in order to
+resolve it, and it may not (if the peer already knows the answer, e.g. if the
+requested ID is in the same sync group). The requested ID is randomly chosen
+with equal distribution from all existing peer IDs and may be the peer's own ID.
+
+Peers only send one query at a time in order to resolve a request or an incoming
+query. (TODO does this belong into implementation?)
+
+Peers don't go offline. (TODO does this belong into implementation?)
+
+- seed
+- attenuation
+- 200 seconds
+- transmission delay
+- no pen reputation
+- no even sync groups
+- initial rep
+- ensure non-empty sync groups
+- reputation buffer
+- selection strat
+- no group switching
+- don't query sync peers for subprefixes
+- timeout 2
+- penalty expectations on
+\section{Simplifying Assumptions and Shortcomings}
 TODO
+- reputation updates are broadcast without incentive
+- some peers are forced to open new groups that no other than the initial 2
+  peers join: little traffic means slow reputation gains.
+  better implementation could let peers invite other useful peers, or make the
+  no-penalty reputation relative to e.g. total reputation in the group.
+- very small query groups have weird behavior (slow rep gain), they're not
+  shown, not considered interesting. a proper query group finding is necessary
+- queries are always answered, if only after a long delay. this enables
+  potentially abusive behavior by peers who don't care about how long it takes
+  (e.g. low-power embedded stuff), but it also may be necessary to find
+  subprefix coverage
+
+\section{Peer Service (TODO title; the interface the Peer class provides)}
+- one query at a time
+- for each outgoing query, every peer notes the peers he has already queried and
+  doesn't try them again
+\section{Analysis Module}
+- graph types, what do the colors mean in each (maybe make all black for
+  percentiles?)
+- explain why unmatched queries occur: a sends b a query, times out at a, b
+  answers anyway
+- reputation graphs show no-penalty rep and rep-saturated rep

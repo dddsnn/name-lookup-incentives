@@ -3,40 +3,399 @@ The incentive system's goal is to provide a good level of service to those peers
 who abide by the rules of the system (TODO terminology: cooperating?). Since the
 system measures this via a reputation point system, cooperating (TODO) peers
 must be able to gain the required amount of reputation within a reasonable time
-frame.
+frame. At the same time, they should not be so quickly contented with their
+level of reputation that they frequently lose the incentive to participate (TODO
+are they still "cooperating" in this case?).
+
+- being able to gain rep basically means being sent enough queries regularly
 
 This chapter examines under which circumstances this is the case.
 
-\section{Environment}
-TODO CHOOSE A SEED
-- mention and reference settings files for reproducing results
-- query group forming etc., should be repeat from system
-  description/implementation
-- some peers are forced to open new groups that no other than the initial 2
-  peers join: little traffic means little traffic means slow reputation gains.
-  better implementation could let peers invite other useful peers, or make the
-  no-penalty reputation relative to e.g. total reputation in the group.
-- query group size 16
-- request generation
-- only one query at a time
-- 8 random introductions + sync group
-- finding peers for uncovered subprefixes
-- 64 peers
-- penalties, rewards
-- decay
-- simplified query group access and creation, reputation updates
+\section{Setup}
+This chapter contains evaluations of many simulation runs. The
+\texttt{.settings} (TODO link to section in implementation) files for
+reproducing these results should be distributed along with this thesis in the
+\texttt{thesis/simulation\_runs/reputation\_availability} subdirectory. The file
+name is given for each result (TODO).
+
+Most (TODO most or all?) of the simulation runs are based on the default
+configuration (\texttt{default.settings} (TODO check that it's still current)).
+For information on the meaning of the parameters, see the implementation chapter
+(TODO link).
+
+The most important parameters of the default settings are these:
+\begin{itemize}
+\item Random seed: 5803379951609632196
+\item Number of peers: 64
+\item Length of IDs: 16 bit
+\item Length of prefixes: 4 bit (i.e. average sync group size of 4 peers)
+\item Evenly sized sync groups are not ensured
+\item Sync groups are ensured to be non-empty
+\item Number of random introductions: 8
+\item Subprefix coverage check interval: 10 seconds (TODO make sure it's clear
+      what this is)
+\item Sync peers are not queried when finding subprefix coverage (TODO
+      terminology "finding coverage")
+\item Maximum query group size: 16
+\item Minimum desired number of query peers: 2
+\item Reward for a successful query: 1 reputation point
+\item Penalty for a failed query: 1 reputation point
+\item Penalty for a timeout: 2 reputation points
+\item No reputation decay
+\item No-penalty reputation (TODO terminology): 10 reputation points
+\item Request generation: 1 per second per peer (TODO possibly more complex
+      request generation?)
+\item Reputation attenuation: exponential with exponent 0.35, coefficient 1,
+      lower bound 10 and upper bound 15
+\item Transmission delay: 0.1 seconds
+\item Network timeout: 2 seconds
+\item Initial reputation: 0
+\item Reputation buffer: 4 reputation points (meaning a tolerance of 2 timeout
+      penalties (TODO still correct?))
+\item Peer selection strategy: \emph{overlap $\rightarrow$ reputation sorted}
+\item Group switching is disabled
+\item Penalty expectations are enabled
+\end{itemize}
+
+Simulations usually (TODO usually or always?) last 200 seconds.
 
 \section{Peer Selection Strategy}
-\subsection{Strategy: Overlap}
-\subsection{Strategy: Overlap $\rightarrow$ Reputation Sorted}
-- best
-\subsection{Strategy: Overlap $\rightarrow$ Reputation Saturated Last}
-\subsection{Strategy: Reputation Sorted}
-\subsection{Strategy: Random}
+Many requests or incoming queries make it necessary for a peer to send a query
+to a query peer. The peer must then choose the recipient of the query. How peers
+decide this influences the reputation availability in the system. 5 different
+strategies have been implemented and are presented in the following.
+
+- all peers use the same strategy
+- should strategies not avoiding loops be penalized? (i.e. give penaltes for
+  queries for target IDs to which the querying peer is closer than the queried
+  peer)
+- TODO find routing loops automatically
+- TODO performance metrics for this chapter? e.g. average query time
+- TODO new graph plotting how many query group memberships are above 10 rep, as
+  a measure for rep gain ability (exclude very small groups?)
+- TODO measure how often the recursive query problem occurs
+
+\subsection{Strategy: \emph{Overlap}}
+This is the default selection strategy that was described in the implementation
+chapter (TODO link). Out of all possible recipients, the peer chooses one whose
+prefix overlaps maximally with the target ID (TODO link overlap definition in
+system description). Under the assumption that peers have complete subprefix
+coverage, this ensures that queries always terminate and no routing loops occur,
+since at each hop the distance to the target ID shrinks.
+
+- TODO formalize overlap with target ID
+
+The strategy does not specify a tie breaker. In the simulation query groups are
+maintainer as Python \texttt{OrderedDict} objects, which are always iterated
+over in a predictable order. Upon entering a query group, this object is copied
+to the new member, so that he also has the same iteration order. This leads to a
+problem where some "lucky" peers always get picked first, simply because of
+their position in the dictionary. Others in contrast have a difficult time
+getting any reputation because they don't receive queries (they may still
+receive some, e.g.  after a peer let a query time out).
+
+- TODO number of queries received histogram
+
+Figure~\ref{fig:selection_overlap_peer_reps} shows examples of a peer (on the
+left) who is "lucky" in one query group (not so much in others, but he can still
+get by), and another (on the right) who is unable to gain sufficient reputation.
+Other peers not shown are able to quickly gain reputation in all their groups.
+
+An example of the effect on the reputation percentiles in a query group is shown
+in figure~\ref{fig:selection_overlap_rep_percs}: the 50th percentile and above
+can easily gain reputation, while peers below struggle.
+
+(TODO recursive-query problem? peers who aren't getting queries can't answer the
+ones they're getting in time. confirm.)
+
+The underlying problem is that peers have no consideration for which peers could
+use queries in order to gain reputation, nor do they have any incentive to.
+There end up being "rich" peers and "poor" peers because of this.
+
+While this is cause by an artifact of the implementation, it is by no means
+certain that this problem couldn't occur in a real system. Peers may use an
+implementation that also tends to favor some peers over others for lack of a tie
+breaker.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.49\columnwidth]{figures/selection_overlap_peer_reps_3_of_64}
+\includegraphics[width=0.49\columnwidth]{figures/selection_overlap_peer_reps_5_of_64}
+\caption{Reputation over time for strategy \emph{overlap} for 2 peers}
+\label{fig:selection_overlap_peer_reps}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=1\columnwidth]{figures/selection_overlap_rep_percs_2_of_14}
+\caption{Reputation percentiles over time for strategy \emph{overlap} in one
+query group}
+\label{fig:selection_overlap_rep_percs}
+\end{figure}
+
+Figure~\ref{fig:selection_overlap_resp_statuses} shows the response statuses
+over time. They are fairly well-behaved, with timeouts and unmatched responses
+that settle at a low level.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=1\columnwidth]{figures/selection_overlap_resp_statuses}
+\caption{Response statuses over time for strategy \emph{overlap}}
+\label{fig:selection_overlap_resp_statuses}
+\end{figure}
+
+- TODO interaction with attenuation, would be worse without
+
+\subsection{Strategy: \emph{Overlap $\rightarrow$ Reputation Saturated Last}}
+- TODO call the sending peer sender or querying peer for clarity?
+This strategy is a modification of the \emph{overlap} strategy, but with a
+secondary criterion as a tie breaker. Peers still start out choosing a recipient
+based on the overlap of the recipient's prefix and the target ID, except they
+give potential recipients who are \emph{reputation saturated} the lowest
+priority.
+
+The peer considers a potential recipient \emph{reputation saturated} if the
+lowest reputation the potential recipient has in any query group shared with the
+peer is greater or equal than the reputation at which the potential recipient
+would let the query time out out of laziness. In the simulation, this is the
+no-penalty reputation (TODO terminology) plus the reputation buffer.
+
+Effectively, the peer makes a list of all known query peers (TODO only those he
+hasn't queried before. make that clear, possibly somewhere before) and sorts it
+by the overlap length, longest first. Then he goes through the list and takes
+out any potential recipient who is reputation saturated and appends him to the
+back. The peer at the beginning of the list is then chosen. That means that any
+peer that is not reputation saturated will be chosen over peers that are.
+
+The rationale behind this is that a reputation saturated recipient would not
+bother responding, so the peer himself has an incentive not to choose that
+recipient. As a side effect, it's supposed to shift queries away from those
+peers that were chosen first with the \emph{overlap} strategy towards those who
+were "unlucky".
+
+The peer of course doesn't know exactly whether a potential recipient is
+reputation saturated, since the amount of reputation at which he would stop
+responding (if there is any) is a policy decision. But he can guess the
+potential recipient's saturation reputation (TODO definition?), e.g. simply
+taking his own. In the simulation, this is not a problem at all, since all peers
+have the same reputation buffer.
+
+- TODO number of queries received histogram
+
+Rational choices for the saturation reputation are at discrete intervals and
+correspond to the number of trembles a peer can tolerate. E.g., in the default
+settings, the reputation buffer is 4, for a total of 14 reputation, which allows
+a peer to let one query time out for a penalty of 2 and still have 12
+reputation. An unintentional timeout after that would leave the peer still at or
+above the 10 no-penalty (TODO terminology) reputation. Another rational choice
+would be a reputation buffer of 3, which would allow a peer to tolerate a failed
+query penalty (of 1). But a reputation buffer of e.g. 3.5 doesn't make sense,
+since it doesn't give the peer a possibility he wouldn't have with a buffer of
+3 (there is no penalty of 1.5 in the rules). So the peer has some indication
+about what assumption to make about the potential recipients reputation
+saturation. (TODO this entire paragraph isn't completely accurate. a peer could
+want to be able to tolerate one tremble and then already have some reputation
+above 10 to get back to 12 in a shorter time, perhaps based on experience with
+his average tremble rate and reputation gain rate)
+
+Since this strategy is based on the \emph{overlap} strategy, it also protects
+against routing loops under the previous assumption that the querying peer has
+complete subprefix coverage, with the added stipulation that not all peers with
+a higher overlap (of which there must be at least one since the peer has
+complete subprefix coverage) are sorted to the back. If they are, routing loops
+may occur, where the query gets forwarded to someone further from the target and
+eventually back to the peer who issued it in the first place. That peer will
+then wait for the response to his first query to answer that same query that
+looped back around to him, which, of course, will never arrive. Eventually, the
+timeout on the initial query kicks in, and penalties are applied, possibly even
+along the loop, so that the peer who initiated the first query is penalized for
+essentially not answering his own query (TODO confirm). The peer will eventually
+try the reputation saturated peers closer to the target. However, these then may
+choose to query peers further away from the target, leading to a new routing
+loop, and fail to respond in time. In effect, this can contribute to queries not
+being answered at all.
+
+- check notes for interpretation. still same conclusions, or has some change in
+  the simulation altered the results?
+
+Figure~\ref{fig:selection_overlap_high_rep_last_rep_percs} shows the reputation
+percentiles of 2 query groups. The ability for peers of the lowest percentiles
+to gain reputation compares favorably to the \emph{overlap} strategy, they are
+able to eventually pass the no-penalty reputation. However, they take much
+longer to do it than peers of the higher percentiles. Both of these observations
+were to be expected, since "unlucky" peers (who previously were not selected
+first due to their position in the iteration order) are now given priority once
+the "lucky" ones are reputation saturated.  But this takes time, explaining the
+delay for the lower percentiles.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.49\columnwidth]{figures/selection_overlap_high_rep_last_rep_percs_1_of_14}
+\includegraphics[width=0.49\columnwidth]{figures/selection_overlap_high_rep_last_rep_percs_4_of_14}
+\caption{Reputation percentiles over time for strategy \emph{overlap
+$\rightarrow$ reputation saturated last} in 2 query groups}
+\label{fig:selection_overlap_high_rep_last_rep_percs}
+\end{figure}
+
+Figure~\ref{fig:selection_overlap_high_rep_last_peer_reps} shows the reputation
+development of 2 peers. On the left, an example of a peer gaining quickly in one
+group, but with a delay in another. On the right, an extreme example for whom
+reputation gains in all groups is delayed for a long time, but happens
+eventually. There are also examples of peers able to gain reputation quickly in
+all groups that are not shown.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.49\columnwidth]{figures/selection_overlap_high_rep_last_peer_reps_1_of_64}
+\includegraphics[width=0.49\columnwidth]{figures/selection_overlap_high_rep_last_peer_reps_24_of_64}
+\caption{Reputation over time for strategy \emph{overlap $\rightarrow$
+reputation saturated last} for 2 peers}
+\label{fig:selection_overlap_high_rep_last_peer_reps}
+\end{figure}
+
+- TODO compare response statuses in a more systematic manner (and include number
+  of responses)
+
+Figure~\ref{fig:selection_overlap_high_rep_last_resp_statuses} shows the
+response statuses over time. Compared with the \emph{overlap} strategy, there
+are a few more timeouts and unmatched queries. The difference isn't big, but can
+be explained by the possibility of selecting unsuitable peers. The possibility
+of routing loops was discussed, but they may also happen if queries are sent to
+recipients suffering from the recursive query problem (TODO terminology). (TODO
+confirm from the log)
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=1\columnwidth]{figures/selection_overlap_high_rep_last_resp_statuses}
+\caption{Response statuses over time for strategy \emph{overlap $\rightarrow$
+reputation saturated last}}
+\label{fig:selection_overlap_high_rep_last_resp_statuses}
+\end{figure}
+
+\subsection{Strategy: \emph{Overlap $\rightarrow$ Reputation Sorted}}
+This strategy is another modification of the \emph{overlap} strategy. The
+querying peer again takes all viable query peers (i.e. those that haven't been
+queried for the target ID already) and sorts them by the length of the overlap
+of their prefix with the target ID, longest first. As a secondary sorting
+criterion he uses the reputation the potential recipient has in any shared query
+group (TODO find a term for this, see definitions in system description
+chapter), lowest first. So effectively, out of all potential recipients he will
+only consider the subset consisting of those whose overlap is greatest and chose
+the one with the lowest reputation.
+
+The strategy was designed to address the issue with \emph{overlap $\rightarrow$
+reputation saturated last}, namely that "unlucky" peers still have to wait for
+the "lucky" ones to become reputation saturated before they can gain reputation
+at a practical rate. With that, it was left up to chance whether a peer could do
+well in the system, which is not a desirable property because it could scare off
+potentially valuable contributors.
+
+By selecting the lowest-reputation peer (within the group with maximal overlap),
+the ability to gain reputation is supposed to be better distributed among all
+peers. It is of course still required for a peer to be useful to others in the
+query group, i.e. to serve a prefix subprefixes of which others query for
+(longer ones are better). This is what leads to the peer being in the group of
+considered peers with maximal overlap in the first place (TODO mention group
+switching section here?).
+
+- TODO number of queries received histogram
+
+- attenuation means it takes a lot longer to get from 10 to 14 than from 0 to
+  10. that means socially it is better that all gain at the same rate (e.g.
+  unlucky peers shouldn't have to wait for lucky ones to be rep saturated),
+  since that's the quickes way to get everyone penalty-free
+
+Figure~\ref{fig:selection_overlap_rep_sorted_rep_percs} shows reputation
+percentiles in 2 query groups. One in which reputation is gained easily gained
+by all peers, one in which the 5th percentile can't quite maintain the
+no-penalty reputation for a while (TODO likely from recursive query problem,
+with one peer in a small query group where getting to 10 takes a long time.
+check that).
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.49\columnwidth]{figures/selection_overlap_rep_sorted_rep_percs_2_of_14}
+\includegraphics[width=0.49\columnwidth]{figures/selection_overlap_rep_sorted_rep_percs_3_of_14}
+\caption{Reputation percentiles over time for strategy \emph{overlap
+$\rightarrow$ reputation sorted} in 2 query groups}
+\label{fig:selection_overlap_rep_sorted_rep_percs}
+\end{figure}
+
+Figure~\ref{fig:selection_overlap_rep_sorted_peer_reps} shows the reputation
+development of 2 peers. The one on the left has it very easy to gain reputation,
+the one on the right struggles for a while in 2 of his 3 query groups, but can
+eventually gain and maintain beyond the no-penalty reputation. This is about the
+worst case as well (TODO excluding peers in very small groups).
+
+The left graph very clearly shows a sort of sawtooth pattern that stems from the
+peer letting a query time out once he is reputation saturated at 14 reputation,
+thus falling dow to 12 and subsequently starting to gain reputation again.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.49\columnwidth]{figures/selection_overlap_rep_sorted_peer_reps_11_of_64}
+\includegraphics[width=0.49\columnwidth]{figures/selection_overlap_rep_sorted_peer_reps_5_of_64}
+\caption{Reputation over time for strategy \emph{overlap $\rightarrow$
+reputation sorted} for 2 peers}
+\label{fig:selection_overlap_rep_sorted_peer_reps}
+\end{figure}
+
+The frequencies of response statuses presented in
+figure~\ref{fig:selection_overlap_rep_sorted_response_statuses} shows this
+strategy to be better than the other \emph{overlap} strategies in terms of query
+success rate. The fact that peers can quickly gain reputation and receive
+penalty-free service makes the recursive query problem (TODO terminology) less
+likely (TODO confirm by measuring how often it happens), leading to fewer
+timeouts.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=1\columnwidth]{figures/selection_overlap_rep_sorted_resp_statuses}
+\caption{Response statuses over time for strategy \emph{overlap $\rightarrow$
+reputation sorted}}
+\label{fig:selection_overlap_rep_sorted_resp_statuses}
+\end{figure}
+
+\emph{Overlap $\rightarrow$ reputation sorted} is the best performing of the
+strategies presented here for the purpose of reputation availability.
+Essentially all peers can quickly and reliably gain reputation (TODO not in
+small groups, but that's a problem with the implementation).
+
+It also prevents routing loops as well as any, since the querying peer always
+picks a recipient from the group of peers with maximal overlap. In this regard,
+it is clearly better than \emph{overlap $\rightarrow$ reputation saturated
+last}, where this was not necessarily the case.
+
+The downside is that there is no inherent incentive for peers to use this
+strategy. It may provide good social value, but for any individual choice a
+querying peer could decide that the lowest-reputation peer is less likely to
+answer, or likely to take more time, than some other one. This could be from
+previous experience, or from the assumption that a peer with low reputation in
+one query group also has low reputation in other query groups, leading to the
+recursive query problem (TODO terminology).
+
+- we're also assuming here that all peers play well, everyone is interested in
+  high reputation. a peer content with the worst service level would be sent all
+  the queries, leading to desastrous results
+- needs to be enforced (must send to lowest rep peer)
+    - lowest rep peer must be able to find out a query he wasn't sent a query he
+      was supposed to be
+    - peers may not want to query the lowest rep peer, because he has a higher
+      chance of not answering in time; can send another query
+- does this maybe remove incentive to find a query group in which one is useful
+  (since the system guarantees some queries)? peers may only be good for one
+  subprefix, but are getting all the queries for it
+
+
+\subsection{Strategy: \emph{Reputation Sorted}}
+- no routing loop protection
+\subsection{Strategy: \emph{Random}}
+- no routing loop protection
 - time it takes to get to no-penalty rep, dependent on who gets picked first
 - impact of allowing to not use maximal overlap peers: hop count, timeouts (due
   to penalties, recursive queries), failures?
 \subsection{Uneven Query Distribution}
+
 \section{Reputation Decay}
 - decay, necessary (see system description), but difficult
 - decay doesn't really work if it's supposed to be the main incentive in
@@ -44,6 +403,7 @@ TODO CHOOSE A SEED
   stream of requests; need timeout penalties as main measure
 - possible solutions: vary decay rate with total reputation in group, or with
   average number of queries in a group or something
+
 \section{Penalty Expectations}
 - reputation oscillating
 - peers need to expect penalties when they decide not to answer
@@ -51,9 +411,11 @@ TODO CHOOSE A SEED
   further and it takes too long (recursive query problem). expecting a penalty
   for a fail response doesn't make sense if the response had already timed out.
 - high buffer as workaround
+
 \section{Reputation Attenuation}
 - necessity
 - different parameters
+- penalties not attenuated
 - the harder it is to get to max desired reputation, the fewer timeouts there
   are (calculate timeout rate)
 - discuss whether lower\_bound should be set higher than no-penalty rep (10)
@@ -62,15 +424,21 @@ TODO CHOOSE A SEED
     - peers have a utility function that balances the investment in getting more
       reputation (more expensive the more they get) against the risk of going
       below the non-penalty rep
+- effect on peer selection overlap and overlap\_high\_rep\_last: peers that
+  aren't selected first are going to have a difficult time, the ones that are
+  drop below 10 very quickly
 \subsection{Constant}
 \subsection{Exponential}
 \subsection{Harmonic}
+
 \section{Query Group Reevaluation}
 - incomplete implementation causes problems: peers first find their necessary
   query peers, but then they leave. potentially mitigated by running query peer
   discovery repeatedly now?
+
 \section{Getting Started in a Running System (TODO section name)}
 - number of introductions needed to get subprefix coverage
+
 \section{Effect of Small Sync Groups}
 - with small sync groups, particularly one peer per sync group, the system is
   very brittle, even if all sync groups exist (see 11/about)

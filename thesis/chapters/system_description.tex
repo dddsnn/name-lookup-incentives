@@ -5,7 +5,7 @@
 - effective and without negative impacts for cooperating peers
 - 4 major areas of interest: reputation availability, mitigating selfishness,
   query group maintenance dynamics, complaints
-- prevent freeriding
+- prevent freeriding, can't trust peers initially (rep must start at 0)
 - resistant to whitewashing
 
 \section{Organization}
@@ -17,6 +17,7 @@
   member's reputation
 - peers get reputation for answering queries, penalties for failing to do so (or
   doing so late/early)
+- credit-only system
 - above a threshold, they get delay-free service
 - below that, responses to them are delayed
 - peers want delay-free service, so they have to participate
@@ -35,27 +36,78 @@
   response times w/ advertised prefixes
 - there needs to be some leeway given, as reputation etc. aren't perfectly
   synchronized
+- peers can specify which peers they don't want as a response
+  (excluded\_peer\_ids)
 \subsection{Definitions}
+- ID
 - prefix
 - subprefix
+- subprefix coverage
+- target ID (the thing that's queried for, can be a full ID or just a prefix)
+- being "closer to" an ID, overlap
+- hop
+- reputation
+- reward, penalty
+- no-penalty reputation
+- authoritative sync group (necessary?); only sync group can answer query with
+  authority (they are the only ones assumed to have current data)
+- record
+- good performance, i.e. being able to get reputation quickly
+- recursive query problem
+- find a term for "minimum reputation in all shared query groups" used e.g. in
+  peer selection
+- routing loop
+- a peer being "useful" in a query group, i.e. others
+- game theory stuff: utility, cooperating, defecting, social value (probably
+  more)
+- "serving a prefix"
 \subsection{Reputation Management}
+- rewards/penalties are applied in all query groups shared by the 2 peers
+  involved (the one giving and the one receiving the reward/penalty). it would
+  be possible to let the would-be receiver of a reward/penalty decide in which
+  query group he wants to receive it, but that seems complicated (and is
+  potentially open to abuse, letting a peer specify to be penalized in a group
+  he doesn't care about)
+- when a query has been successfully answered, the recipient gives a reward by
+  sending a signed statement to the sender that says the sender should be given
+  a reward; the sender then has an incentive to broadcast this. if the recipient
+  fails to send that statement, the complaint mechanism is needed
+- penalties are broadcast by the recipient (of a failed query, or the peer who
+  experienced a timeout). the incentive for this must be a (small) reward for
+  broadcasting it. this is of course open to abuse and requires the complaint
+  mechanism again
 \subsection{Query Group Creation and Maintenance}
+\subsection{Complaints}
 
 \section{Peers}
 \subsection{Simplifying Assumptions}
 - don't lie about time stamps
-- always broadcast reputation updates truthfully, even without incentive
+- always broadcast reputation updates truthfully, even without incentive; reward
+  updates are broadcast by the peer giving the reward, not the one receiving it
+- there is no reward for broadcasting penalties
 - are not actively malicious
+- all records are equally likely to be queried. would not hold in a real system,
+  you'd need load-balancing: self-organizing with incentives, so you need the
+  p-grid approach of being able to advertise more prefixes
 \subsection{Types}
 - cooperating (should refusing to answer count towards this, as the system
   calculates with peers being selfish?)
 - defecting out of laziness
 - sabotaging, i.e. investing resources to ruin it for others
 
+\section{Possible Attacks}
+
 
 - something must be done to prevent circular queries: a queries b, b queries c,
-  c queries a again, and a awaits the answer from b in order to answer
+  c queries a again, and a awaits the answer from b in order to answer. this is
+  a problem when finding missing subprefix coverage (it's not a problem if peers
+  only query other peers whose overlap is strictly greater)
 - assume all sync groups have peers (you can't respond "doesn't exist" for a
   query for an ID in a sync group you're not in. it may be possible to respond
   "probably doesn't exist, with some proof how much work you did, but that's out
   of scope
+- reputation updates require a vector clock so that a peer who has just joined a
+  group can detect whether he has missed an update that was sent before the
+  sender knew the new peer needed to receive it as well (see notes.md)
+- incentives to keep up-to-date in sync groups: indirect, huge penalty for
+  providing outdated records
