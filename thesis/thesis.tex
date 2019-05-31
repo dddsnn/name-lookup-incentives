@@ -127,6 +127,15 @@
 
 %% Definitionen %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+% Command to provide a figure caption that also specifies a .settings file.
+\newcommand*{\captionsettings}[2]{%
+  \caption[{#1}]{%
+    #1%
+    \\\hspace{\linewidth}%
+    \textcolor{gray}{\texttt{.settings} file: \texttt{#2}}%
+  }%
+}
+
 
 %% zur Benutzung bei ergänzenden Daten%%%%%%%%%%%%%%%%%%%%%%%%
 %\usepackage{endnotes}

@@ -15,8 +15,8 @@ This chapter examines under which circumstances this is the case.
 This chapter contains evaluations of many simulation runs. The
 \texttt{.settings} (TODO link to section in implementation) files for
 reproducing these results should be distributed along with this thesis in the
-\texttt{thesis/simulation\_runs/reputation\_availability} subdirectory. The file
-name is given for each result (TODO).
+\texttt{thesis/simulation\_runs/} subdirectory. The \texttt{.settings} file name
+for each result is given relative to that directory (TODO).
 
 Most (TODO most or all?) of the simulation runs are based on the default
 configuration (\texttt{default.settings} (TODO check that it's still current)).
@@ -121,15 +121,16 @@ breaker.
 \centering
 \includegraphics[width=0.49\columnwidth]{figures/selection_overlap_peer_reps_3_of_64}
 \includegraphics[width=0.49\columnwidth]{figures/selection_overlap_peer_reps_5_of_64}
-\caption{Reputation over time for strategy \emph{overlap} for 2 peers}
+\captionsettings{Reputation over time for strategy \emph{overlap} for 2
+peers}{selection\_strategy/selection\_overlap.settings}
 \label{fig:selection_overlap_peer_reps}
 \end{figure}
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=1\columnwidth]{figures/selection_overlap_rep_percs_2_of_14}
-\caption{Reputation percentiles over time for strategy \emph{overlap} in one
-query group}
+\captionsettings{Reputation percentiles over time for strategy \emph{overlap} in
+one query group}{selection\_strategy/selection\_overlap.settings}
 \label{fig:selection_overlap_rep_percs}
 \end{figure}
 
@@ -140,7 +141,8 @@ that settle at a low level.
 \begin{figure}[t]
 \centering
 \includegraphics[width=1\columnwidth]{figures/selection_overlap_resp_statuses}
-\caption{Response statuses over time for strategy \emph{overlap}}
+\captionsettings{Response statuses over time for strategy
+\emph{overlap}}{selection\_strategy/selection\_overlap.settings}
 \label{fig:selection_overlap_resp_statuses}
 \end{figure}
 
@@ -232,8 +234,9 @@ delay for the lower percentiles.
 \centering
 \includegraphics[width=0.49\columnwidth]{figures/selection_overlap_high_rep_last_rep_percs_1_of_14}
 \includegraphics[width=0.49\columnwidth]{figures/selection_overlap_high_rep_last_rep_percs_4_of_14}
-\caption{Reputation percentiles over time for strategy \emph{overlap
-$\rightarrow$ reputation saturated last} in 2 query groups}
+\captionsettings{Reputation percentiles over time for strategy \emph{overlap
+$\rightarrow$ reputation saturated last} in 2 query
+groups}{selection\_strategy/selection\_overlap\_high\_rep\_last.settings}
 \label{fig:selection_overlap_high_rep_last_rep_percs}
 \end{figure}
 
@@ -248,8 +251,9 @@ all groups that are not shown.
 \centering
 \includegraphics[width=0.49\columnwidth]{figures/selection_overlap_high_rep_last_peer_reps_1_of_64}
 \includegraphics[width=0.49\columnwidth]{figures/selection_overlap_high_rep_last_peer_reps_24_of_64}
-\caption{Reputation over time for strategy \emph{overlap $\rightarrow$
-reputation saturated last} for 2 peers}
+\captionsettings{Reputation over time for strategy \emph{overlap $\rightarrow$
+reputation saturated last} for 2
+peers}{selection\_strategy/selection\_overlap\_high\_rep\_last.settings}
 \label{fig:selection_overlap_high_rep_last_peer_reps}
 \end{figure}
 
@@ -267,8 +271,9 @@ confirm from the log)
 \begin{figure}[t]
 \centering
 \includegraphics[width=1\columnwidth]{figures/selection_overlap_high_rep_last_resp_statuses}
-\caption{Response statuses over time for strategy \emph{overlap $\rightarrow$
-reputation saturated last}}
+\captionsettings{Response statuses over time for strategy \emph{overlap
+$\rightarrow$ reputation saturated
+last}}{selection\_strategy/selection\_overlap\_high\_rep\_last.settings}
 \label{fig:selection_overlap_high_rep_last_resp_statuses}
 \end{figure}
 
@@ -316,8 +321,9 @@ check that).
 \centering
 \includegraphics[width=0.49\columnwidth]{figures/selection_overlap_rep_sorted_rep_percs_2_of_14}
 \includegraphics[width=0.49\columnwidth]{figures/selection_overlap_rep_sorted_rep_percs_3_of_14}
-\caption{Reputation percentiles over time for strategy \emph{overlap
-$\rightarrow$ reputation sorted} in 2 query groups}
+\captionsettings{Reputation percentiles over time for strategy \emph{overlap
+$\rightarrow$ reputation sorted} in 2 query
+groups}{selection\_strategy/selection\_overlap\_rep\_sorted.settings}
 \label{fig:selection_overlap_rep_sorted_rep_percs}
 \end{figure}
 
@@ -335,8 +341,9 @@ thus falling dow to 12 and subsequently starting to gain reputation again.
 \centering
 \includegraphics[width=0.49\columnwidth]{figures/selection_overlap_rep_sorted_peer_reps_11_of_64}
 \includegraphics[width=0.49\columnwidth]{figures/selection_overlap_rep_sorted_peer_reps_5_of_64}
-\caption{Reputation over time for strategy \emph{overlap $\rightarrow$
-reputation sorted} for 2 peers}
+\captionsettings{Reputation over time for strategy \emph{overlap $\rightarrow$
+reputation sorted} for 2
+peers}{selection\_strategy/selection\_overlap\_rep\_sorted.settings}
 \label{fig:selection_overlap_rep_sorted_peer_reps}
 \end{figure}
 
@@ -351,8 +358,9 @@ timeouts.
 \begin{figure}[t]
 \centering
 \includegraphics[width=1\columnwidth]{figures/selection_overlap_rep_sorted_resp_statuses}
-\caption{Response statuses over time for strategy \emph{overlap $\rightarrow$
-reputation sorted}}
+\captionsettings{Response statuses over time for strategy \emph{overlap
+$\rightarrow$ reputation
+sorted}}{selection\_strategy/selection\_overlap\_rep\_sorted.settings}
 \label{fig:selection_overlap_rep_sorted_resp_statuses}
 \end{figure}
 
