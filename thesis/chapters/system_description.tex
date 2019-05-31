@@ -61,6 +61,8 @@
 - game theory stuff: utility, cooperating, defecting, social value (probably
   more)
 - "serving a prefix"
+- content peer, one who is content with the lowest level of service (e.g.
+  because of low-power device)
 \subsection{Reputation Management}
 ==============
 - TODO this is from some notes i took earlier. incorporate them
@@ -112,6 +114,8 @@ This system is also necessary if updates are done via gossiping (TODO why?).
   mechanism again
 \subsection{Query Group Creation and Maintenance}
 \subsection{Complaints}
+- used for situations in which two peers disagree about something, one is lying,
+  but no other than the two know the truth
 
 \section{Peers}
 \subsection{Simplifying Assumptions}
@@ -128,8 +132,20 @@ This system is also necessary if updates are done via gossiping (TODO why?).
   calculates with peers being selfish?)
 - defecting out of laziness
 - sabotaging, i.e. investing resources to ruin it for others
+- not contributing because satisfied with minimal service, e.g. slow embedded
+  stuff (content peer, see definitions)
+- vengeful? i.e. sabotaging after another peer didn't collude?
 
 \section{Possible Attacks}
+- distinguish attacks on the reputation system (getting more/disrupting it) vs.
+  attacks on privacy, subverting the design goal of being hard to track (the
+  latter isn't the primary focus, but should be kept in mind)
+- collusion: peers can only give rewards to any other given peer every so often
+  (timer counting down). requires keeping a lot more state, also not at all
+  clear about the consequences: what if you need to query, but none of the
+  possible recipients are interested in answering because you can't reward them?
+  you'd need more query peers for shorter subprefixes (that's actually what
+  kademlia does for performance)
 
 
 - something must be done to prevent circular queries: a queries b, b queries c,

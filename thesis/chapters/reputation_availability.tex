@@ -348,7 +348,7 @@ peers}{selection\_strategy/selection\_overlap\_rep\_sorted.settings}
 \end{figure}
 
 The frequencies of response statuses presented in
-figure~\ref{fig:selection_overlap_rep_sorted_response_statuses} shows this
+figure~\ref{fig:selection_overlap_rep_sorted_resp_statuses} shows this
 strategy to be better than the other \emph{overlap} strategies in terms of query
 success rate. The fact that peers can quickly gain reputation and receive
 penalty-free service makes the recursive query problem (TODO terminology) less
@@ -374,26 +374,168 @@ picks a recipient from the group of peers with maximal overlap. In this regard,
 it is clearly better than \emph{overlap $\rightarrow$ reputation saturated
 last}, where this was not necessarily the case.
 
-The downside is that there is no inherent incentive for peers to use this
-strategy. It may provide good social value, but for any individual choice a
+- TODO abbreviations? lrp - lowest-rep peer, qp - querying peer, ar - actual
+  recipient, etc.
+
+\subsubsection{Content Peers}
+It must be pointed out that, in the simulation, all peers are willing to
+contribute for the best possible service, i.e. they do their best to answer
+queries until they are reputation saturated (TODO this assumption should have
+been stated in a previous chapter, description or implementation). Any peers who
+are not contributing because they are content with the lowest level of service
+(called \emph{content peers} for this discussion) would remain at 0 reputation.
+They would thus be strongly favored for selection, but the effort wasted on
+them, and queries remain unanswered.
+
+This could have desastrous results on overall performance for queries where the
+group of peers with maximal overlap contains a content peer. Firstly, in the
+case where querying peers only send one query, the first query is always going
+to fail, adding a timeout to the total lookup time.
+
+Secondly, in case the querying peer sends two (or more) queries, the one
+addressed to the content peer is wasted; it was meant to allow the
+lowest-reputation peer to gain reputation, but this opportunity is given to the
+content peer, who will not seize it. In this case, the purpose of this selection
+strategy, to enable low-reputation peers to get started and in effect to
+increase social value, is not served.
+
+- TODO do a simulation with content peers
+
+Possible solutions to this problem could be based on treating the content peer
+differently from the other peers. First, this requires detecting that the peer
+is indeed content. If he is nice, he could announce this upon joining the group
+(he may still be tolerated in the group if he gives rewards for successful
+queries). If he isn't, detection would have to be based on experience: a peer
+who never responds to queries is potentially content.
+
+- TODO is there really incentive to try to detect content peers? what's the
+  immediate benefit for the peer for going through that trouble?
+
+Once there is a suspicion that a peer is content, he, and any other content
+peers, can be skipped when selecting peers. That is, when making the list of
+viable potential recipients, content peers are excluded. If the peer really is
+content, he shouldn't mind not receiving the query, and certainly not complain,
+out of laziness (if he does complain, he would be better classified as
+malicious, since he takes action that is not to his own benefit, but to the
+detriment of the group).
+
+Content peers who are so lazy they don't even bother giving rewards for
+succesful responses they received could be dealt with via the complaint system
+or the query group management (TODO ref system description). Peers who should
+have gotten a reward but didn't can complain or just make an effort to have the
+peer removed from the group.
+
+\subsubsection{Enforcement}
+\label{sec:selection_overlap_rep_sorted_enforcement}
+The downside of this strategy is that there is no inherent incentive for peers
+to use it. It may provide good social value, but for any individual choice a
 querying peer could decide that the lowest-reputation peer is less likely to
 answer, or likely to take more time, than some other one. This could be from
 previous experience, or from the assumption that a peer with low reputation in
 one query group also has low reputation in other query groups, leading to the
-recursive query problem (TODO terminology).
+recursive query problem (TODO terminology) and longer response times.
 
-- we're also assuming here that all peers play well, everyone is interested in
-  high reputation. a peer content with the worst service level would be sent all
-  the queries, leading to desastrous results
-- needs to be enforced (must send to lowest rep peer)
-    - lowest rep peer must be able to find out a query he wasn't sent a query he
-      was supposed to be
-    - peers may not want to query the lowest rep peer, because he has a higher
-      chance of not answering in time; can send another query
+So in order for this strategy to be implemented in a real system, the rules of
+the system must make querying the lowest-reputation peer mandatory. The querying
+peer may send multiple queries, but for any query group he shares with the
+recipient of a query, the lowest-reputation peer in that query group with
+maximal overlap must also be sent one. A behavior conformant with this rule
+would be for the querying peer to use whatever criteria he wishes to select the
+recipient, and then to additionally query the lowest-reputation peer.
+
+This rule has to be enforced to be useful. The enforcement process encompasses
+two things: detecting that the querying peer failed to also send a query to the
+lowest-reputation peer, and agreeing whether a penalty should be applied to the
+querying peer and a compensation to the lowest-reputation peer.
+
+The first of these problems may be tackled in one of two ways: the
+lowest-reputation could monitor reputation updates in the query group. He then
+knows a querying peer failed to send him a query if there is a reward or penalty
+applied by the querying peer to some other peer for a query the
+lowest-reputation peer should also have received but didn't. This requires
+reputation updates regarding responses to include which target ID they're about.
+However, this has privacy implications (see
+\ref{sec:selection_overlap_rep_sorted_privacy}), and there is neither any
+incentive for the querying peer sending the reputation update to include
+truthful information and thus risk a penalty, nor is there any incentive for the
+subject of the reputation update (the one being given a reward or penalty) to
+correct false information. Since no one else knows the truth about the target
+ID, this approach is not promising.
+
+The other approach to detecting missing queries to the lowest-reputation peer is
+to let all recipients of queries check if there is another peer in the query
+group with equally large overlap, but less reputation than them. The actual
+recipient of a query has all the necessary information and so could raise this
+issue. Then, if this leads to the lowest-reputation peer receiving compensation,
+the actual recipient would receive a reward as well, as a sort of finder's fee
+to incentivize the checking.
+
+This approach can cause trouble in the presence of content peers. The proposed
+solution to dealing with those was to ignore them and not send them queries. But
+if another peer then notices this and starts the enforcement process, the
+querying peer may end up being penalized. This brings back all the problems of
+content peers blocking actually contributing peers from gaining reputation. A
+possible modification of the enforcement could require the lowest-reputation
+peer (the content peer in this case) to make the complaint himself. Under the
+assumption that the content peer truly is content, he would be too lazy to even
+do that. In addition, if the actual recipient of the query who noticed the
+lacking query to the lowest-reputation peer is aware that he is content, he need
+not bother informing him, since there is no hope of a finder's fee anyway.
+
+The second stage of enforcement is coming to an agreement whether a penalty
+should be applied to the querying peer and compensation awarded to the
+lowest-reputation peer. This must be done via the complaint system (TODO ref),
+since no other than the two peers involved know the truth about whether a query
+was sent. And in case the querying peer sends a reputation update without ever
+sending a query to make his failure to send the query not-detectable by the
+actual recipient, this is also a case for the complaint system (TODO does this
+work even if he sends a reward? does the low-rep peer have an incentive to
+complain?).
+
+To clarify, this system has not been implemented in the simulation.
+
+- TODO implement this, or a simplified version, for the next chapter?
+
+\subsubsection{Privacy Implications}
+\label{sec:selection_overlap_rep_sorted_privacy}
+Employing this strategy has privacy implications. The entire point of the
+reputation system is to incentivize participation in order to give each peer
+many choices where to forward queries to and thus make profile building harder
+(TODO wording: spread yourself thin or something).
+
+This strategy demands that a querying peer tell one other specific peer (the
+lowest-reputation peer) which target ID he is interested in. But the querying
+peer may not want to do that, for whatever reason. Maybe he doesn't trust the
+peer (from previous experience, maybe he believes he is being followed), maybe
+he has already sent him plenty of queries in the past and doesn't want him to
+have too much information.
+
+Peers who are very sensitive to this could of course be in many more query
+groups than is required for subprefix coverage, giving them a wider choice of
+peers to query and making it less likely they feel forced into a bad situation.
+
+A modification alleviating this issue is to only require a peer to query the
+lowest-reputation peer if he has less than the no-penalty reputation (getting
+everyone above that threshold quickly is the purpose of the strategy, after
+all). Assuming that peers generally do well, this would further reduce the
+number of instances of having to send unwanted queries.
+
+There is another issue that was mentioned in
+\ref{sec:selection_overlap_rep_sorted_enforcement}: if reputation updates
+regarding responses must include the target ID, this is equivalent to
+broadcasting to the entire query group the target ID of each query, a much more
+severe infringement than the one described. Sure enough, for that purpose (to
+detect whether a query should also have been sent to the lowest-reputation
+peer) it would be enough to include only the prefix of the target ID, but this
+still leaks a lot of information. Luckily, the approach that required this has
+an alternative and wasn't very promising anyway.
+
+\subsubsection{Possible Impact on Usefulness}
 - does this maybe remove incentive to find a query group in which one is useful
   (since the system guarantees some queries)? peers may only be good for one
   subprefix, but are getting all the queries for it
-
+- ref query group reevaluation section, explain what usefulness is
+- hasn't been implemented, not clear
 
 \subsection{Strategy: \emph{Reputation Sorted}}
 - no routing loop protection
