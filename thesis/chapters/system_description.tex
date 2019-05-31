@@ -62,6 +62,40 @@
   more)
 - "serving a prefix"
 \subsection{Reputation Management}
+==============
+- TODO this is from some notes i took earlier. incorporate them
+Reputation updates must include the time at which they should be applied in
+order to correct for different transmission delays. Otherwise, the reputation
+record may diverge at different peers if they receive 2 updates in a different
+order, where one of them set the reputation to 0. (E.g. a peer has 1 reputation
+and 2 updates arrive one subtracting 2, the next adding 1. Subtracting first
+yields 1 reputation, adding first yields 0.) In case 2 updates specify the same
+time, a deterministic tie breaker must exist (e.g. uint value of the peer ID).
+
+There must be some leeway when checking the reputation in a peer, since updates
+that should have taken effect already may still be in transmission. This needs
+to be taken into account when deciding on the penalty delay, but also when
+deciding whether a peer is misbehaving (e.g. answering too early).
+
+Every peer must include a sequence number with every reputation update he sends
+within a query group. This number must be incremented by 1 with every update
+(TODO why exactly 1, why not just at least 1?).
+Every peer must maintain the last sequence number received by every peer in a
+query group (vector clock). When joining a query group, the new peer must
+receive a copy of the current group state from one of the peers which includes
+the state of the vector clock. This is necessary to allow the new peer to detect
+whether he has missed an update that was sent when he wasn't in the group yet.
+E.g. consider a query group containing peers A and B. A sends a reputation
+update. Before it arrives at B, peer C joins the group and receives a copy of
+the group state from B. Since C wasn't in the group when A sent its update, A
+didn't send the update to C, and B didn't know about the update when it sent the
+copy of the group state to C, so C still has the state from before the update. C
+must then ask all peers in the group whether it missed any updates. For this, he
+needs to include the sequence number, otherwise it's impossible to say with
+certainty which updates are already included in the state C received from B.
+This system is also necessary if updates are done via gossiping (TODO why?).
+=============
+
 - rewards/penalties are applied in all query groups shared by the 2 peers
   involved (the one giving and the one receiving the reward/penalty). it would
   be possible to let the would-be receiver of a reward/penalty decide in which
