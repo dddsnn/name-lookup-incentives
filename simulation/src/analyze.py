@@ -250,7 +250,7 @@ class Logger:
         axes.set_ylabel('Number of responses')
         axes.legend()
         if file_prefix is not None:
-            figure.savefig(file_prefix + '_resp_statuses.png')
+            figure.savefig(file_prefix + '_resp_statuses.pdf')
         if show:
             plt.show()
 
@@ -621,7 +621,7 @@ def plot_grid(title, xlabel, ylabel, data_sets, plotter, show, file_prefix,
         for axes in axess.flatten()[edge_length * (edge_length - 1):]:
             axes.set_xlabel(xlabel)
         if file_prefix:
-            figure.savefig(file_prefix + '_{}_of_{}.png'.format(figure_idx + 1,
+            figure.savefig(file_prefix + '_{}_of_{}.pdf'.format(figure_idx + 1,
                                                                 num_figures))
     if show:
         plt.show()
