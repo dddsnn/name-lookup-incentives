@@ -1350,6 +1350,7 @@ class Peer:
         :param timeout: The amount of time units after which the expected
             penalty should be considered timed out.
         """
+        assert self.settings['expect_penalties']
         in_event_id = self.logger.log(an.ExpectedPenalty(
             self.env.now, self.peer_id, peer_id, in_event_id))
         self.expected_penalties.setdefault(peer_id, []).append(
