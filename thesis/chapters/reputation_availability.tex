@@ -12,6 +12,7 @@ are they still "cooperating" in this case?).
 This chapter examines under which circumstances this is the case.
 
 \section{Setup}
+- TODO redo percentile graphs with all black lines, colors are meaningless
 This chapter contains evaluations of many simulation runs. The
 \texttt{.settings} (TODO link to section in implementation) files for
 reproducing these results should be distributed along with this thesis in the
@@ -65,6 +66,7 @@ Simulations usually (TODO usually or always?) last 200 seconds.
   impl chapter
 
 \section{Peer Selection Strategy}
+\label{sec:selection}
 Many requests or incoming queries make it necessary for a peer to send a query
 to a query peer. The peer must then choose the recipient of the query. How peers
 decide this influences the reputation availability in the system. 5 different
@@ -560,6 +562,7 @@ an alternative and wasn't very promising anyway.
   average number of queries in a group or something
 
 \section{Penalty Expectations}
+\label{sec:penalty_expectations}
 - turn off attenuation for demonstration; also has the same effect
 - reputation oscillating
 - peers need to expect penalties when they decide not to answer
@@ -610,26 +613,26 @@ section). It also assumes that trembles happen relatively rarely, since
 otherwise peers may be unlucky and tremble repeatedly without being able to make
 up for it in between, crashing their reputation. The recursive query problem
 (TODO terminology) may make it impossible for newcomers to become established.,
-For example, assuming a target response probability of 5\%, the ratio of reward
+For example, assuming a target response probability of 95\%, the ratio of reward
 to penalty would have to be 1:20, so newcomers would have to earn more than 20
 rewards for every penalty they incur in order to make progress towards the
 no-penalty reputation (TODO terminology).
 
-Removing the no-penalty reputation (i.e. setting it to 0) is also not an option,
-since the purpose of it is to prevent whitewashing by requiring newcomers to put
-in some work before enjoying unpenalized service. The solution presented here is
-to make a distinction between these two phases, establishing oneself in the
-system while having less than the no-penalty reputation, and the steady state
-after. In the former, reputation is gained as usual, but in the latter,
-reputation earnings are attenuated by one of three strategies in a way that
-allows to regulate the response probability without impacting newcomers' ability
-to establish themselves.
+Removing the no-penalty reputation (TODO terminology)(i.e. setting it to 0) is
+also not an option, since the purpose of it is to prevent whitewashing by
+requiring newcomers to put in some work before enjoying unpenalized service. The
+solution presented here is to make a distinction between these two phases,
+establishing oneself in the system while having less than the no-penalty
+reputation, and the steady state after. In the former, reputation is gained as
+usual, but in the latter, reputation earnings are attenuated by one of three
+strategies in a way that allows to regulate the response probability without
+impacting newcomers' ability to establish themselves.
 
 A distinction is made between \emph{raw reputation} $r_r$ and \emph{effective
 reputation} $r_e$, where \emph{raw reputation} is the reputation as previously,
 and \emph{effective reputation} is the result of applying an attenuation
 function $att$ to the raw reputation. The effective reputation is what is used
-when a decision has to be made based on a peer's reputation, e.g.  how much of a
+when a decision has to be made based on a peer's reputation, e.g. how much of a
 penalty delay (TODO terminology) to impose.
 
 When updating a peer's reputation, rewards are applied to the raw reputation,
@@ -754,21 +757,246 @@ $a = 1$, $k = 8$, $l = 15$)}
 \label{fig:att_harm_raw_vs_eff}
 \end{figure}
 
-- different parameters
-- the harder it is to get to max desired reputation, the fewer timeouts there
-  are (calculate timeout rate)
-- discuss whether lower\_bound should be set higher than no-penalty rep (10)
-- possible improvements
-    - peers expect rewards (not just penalties)
-    - peers have a utility function that balances the investment in getting more
-      reputation (more expensive the more they get) against the risk of going
-      below the non-penalty rep
-- effect on peer selection overlap and overlap\_high\_rep\_last: peers that
-  aren't selected first are going to have a difficult time, the ones that are
-  drop below 10 very quickly
-- what is the effect on different reputation buffers? peers who want more
-  security will have it much much harder
-- also sort of solves the oscillation problem that penalty expectations
+\subsection{Comparison}
+Figures~\ref{fig:attenuation_percs} and \ref{fig:attenuation_resp} show
+reputation percentiles and response statuses of simulation runs demonstrating
+the different attenuation strategies. The percentiles are all of the same query
+group, with the same members (TODO confirm). The example was chosen to
+illustrate a few points. It is not representative of the overall performance
+(TODO confirm, quantify), many other groups perform better.
+
+The parameters in the attenuated simulations have been chosen so that it takes
+roughly the same amount of raw reputation to get from 10 (the attenuation
+threshold) to 14 (the saturation reputation for all peers): $\frac{4}{0.08} =
+50$ for \emph{constant}, $4^{\frac{1}{0.35}} \approx 52.5$ for
+\emph{exponential}, and $1 + 9 + 17 + 25 = 52$ for \emph{harmonic}. In effect,
+the first peers to become saturated in the attenuated cases do so at around the
+same time.
+
+\begin{figure}[t]
+  \centering
+  \begin{subfigure}[t]{0.45\columnwidth}
+    \centering
+    \includegraphics[width=\columnwidth]{figures/attenuation_no_attenuation_rep_percs_6_of_14}
+    \subcaptionsettings{No
+    attenuation}{attenuation/attenuation\_no\_attenuation.settings}
+    \label{fig:attenuation_no_att_percs}
+  \end{subfigure}\hfill%
+  \begin{subfigure}[t]{0.45\columnwidth}
+    \centering
+    \includegraphics[width=\columnwidth]{figures/{{attenuation_0.08_constant_rep_percs_6_of_14}}}
+    \subcaptionsettings{\emph{Constant} attenuation, $c =
+    0.08$}{attenuation/attenuation\_0.08\_constant.settings}
+    \label{fig:attenuation_constant_percs}
+  \end{subfigure}\hfill\\%
+  \begin{subfigure}[t]{0.45\columnwidth}
+    \centering
+    \includegraphics[width=\columnwidth]{figures/{{attenuation_0.35_1_exponential_rep_percs_6_of_14}}}
+    \subcaptionsettings{\emph{Exponential} attenuation, $p = 0.35$, $c =
+    1$}{attenuation/attenuation\_0.35\_1\_exponential.settings}
+    \label{fig:attenuation_exp_percs}
+  \end{subfigure}\hfill%
+  \begin{subfigure}[t]{0.45\columnwidth}
+    \centering
+    \includegraphics[width=\columnwidth]{figures/attenuation_1_8_harmonic_rep_percs_6_of_14}
+    \subcaptionsettings{\emph{Harmonic} attenuation, $a = 1$, $k =
+    8$}{attenuation/attenuation\_1\_8\_harmonic.settings}
+    \label{fig:attenuation_harmonic_percs}
+  \end{subfigure}
+  \caption{Reputation percentiles in the same query group for different
+  attenuation strategies. For all, $t = 10$ and $l = 15$.}
+  \label{fig:attenuation_percs}
+\end{figure}
+
+In the case of no attenuation (figure~\ref{fig:attenuation_no_att_percs}) the
+5th percentile doesn't make it above the no-penalty reputation. This is due to
+one peer\footnote{Since this query group contains 16 peers, the 5th percentile
+is just the one peer.} (TODO peer id 8961) who is suffering from the recursive
+query problem (TODO terminology). Over the course of the simulation, he receives
+140 penalties, all of them for timeouts. There are also 132 responses sent by
+him that were unmatched at the receiver (TODO late instead of unmatched, if that
+gets implemented), meaning they were sent after the timeout was triggered at the
+receiver. So the peer tried, but was frequently too late (TODO confirm by
+archiving timed out queries and implementing a metric measuring how many
+too-late recursive queries there are).
+
+This peer is not struggling in the cases with attenuation turned on. The likely
+reason is that, during recursive queries he is experiencing more timeouts
+without attenuation than with attenuation (TODO confirm this is the only
+reason). Without it, it is much easier for the other peers to become reputation
+saturated.
+
+Without attenuation, some oscillation can be seen in the reputation percentiles,
+which reflects oscillation in individual peer reputations. Peers are also
+getting significantly above the reputation at which they are saturated (14). The
+reason is that, while peers expect penalties
+(see~\ref{sec:penalty_expectations}), they do not expect rewards. This leads to
+them answering multiple queries in a row, even though answering only the first
+would have made them saturated; the reputation update simply hasn't arrived yet.
+This is of course still true for the attenuated cases, but here it takes a lot
+more raw reputation to get to the saturated effective reputation.
+
+There is no discernible difference between \emph{exponential} and
+\emph{harmonic} attenuation, which makes sense considering their similarity in
+the relationship between raw and effective reputation
+(figures~\ref{fig:att_exp_raw_vs_eff} and \ref{fig:att_harm_raw_vs_eff}).
+
+There is some difference between them and \emph{constant}, however. In the
+latter, every point of raw reputation is attenuated in the same way, while in
+the former the attenuation rises as the peer's accumulated effective reputation
+rises. For \emph{harmonic}, the first point above the attenuation threshold is
+not attenuated at all, for \emph{exponential}, attenuation just above the
+threshold is actually negative, i.e. the effective reputation yielded is greater
+than the raw reputation. This makes it easier for peers to gain reputation just
+above the no-penalty reputation (TODO terminology) in order to be able to
+tolerate a tremble. This is demonstrated by the simulations: the 5th percentile
+(the struggling peer) manages to reliably stay above the no-penalty reputation
+with \emph{exponential} or \emph{harmonic} attenuation
+(figures~\ref{fig:attenuation_exp_percs} and
+\ref{fig:attenuation_harmonic_percs}), while he dips below it once more for the
+\emph{constant} case (figure~\ref{fig:attenuation_constant_percs}). And the 25th
+percentile is also "stuck" at around the no-penalty reputation (TODO
+terminology) for a lot longer in the \emph{constant} case.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=1\columnwidth]{{{figures/attenuation_0.0417_constant_12_threshold_rep_percs_6_of_14}}}
+\captionsettings{Reputation percentiles over time for \emph{constant}
+attenuation with higher threshold ($c = 0.0417$, $t =
+12$)}{attenuation/attenuation\_0.0417\_constant\_12\_threshold.settings}
+\label{fig:attenuation_0.0417_constant_12_threshold_percs}
+\end{figure}
+
+A possibility to address this is to set the attenuation threshold above the
+no-penalty reputation, allowing peers to e.g. to gain enough reputation to
+tolerate a tremble without attenuation kicking in. This is shown in
+figure~\ref{fig:attenuation_0.0417_constant_12_threshold_percs}: \emph{constant}
+attenuation is used but the threshold is set to 12, and the coefficient is
+adjusted to 0.0417, so that it still takes 50 raw reputation to get from 10 to
+14 effective reputation. The struggling peer's reputation develops in a way
+comparable to \emph{exponential} or \emph{harmonic} from
+figure~\ref{fig:attenuation_percs}.
+
+A potential problem with this approach is that the rules of the system must make
+an assumption about how many trembles a peer should be able to tolerate and set
+the attenuation threshold appropriately. In order to achieve the same expected
+response probability, effective reputation above the higher threshold has to be
+more "expensive". However, if some peer is satisfied with being able to tolerate
+fewer trembles than the system assumes, he may get away with no attenuation at
+all. In the example shown in
+figure~\ref{fig:attenuation_0.0417_constant_12_threshold_percs}, the threshold
+is set so peers can easily get to 12 reputation, where they are able to tolerate
+one penalty of 2 points. A peer may be confident he won't drop below 10
+reputation once he reaches it, and let queries time out once he reaches 12
+reputation. That peer would never have his reputation attenuated and have a very
+low response probability.
+
+On the other hand, \emph{exponential} and \emph{harmonic} attenuation are
+disadvantageous for peers wishing to be able to tolerate more trembles for extra
+reliability, since effective reputation gets more and more expensive. For
+example, using \emph{exponential} attenation with $c = 1$, $p = 0.35$ (as in the
+examples), it takes about 52.5 raw reputation to get from 10 to 14 effective
+reputation. In order to get from 10 to 16 (being able to tolerate 3 trembles),
+it takes 167.2. This puts a much higher stress on such peers wishing for more
+reliability.
+
+A solution to this could be to cap the "cost" of effective reputation,
+essentially combining \emph{exponential} or \emph{harmonic} attenuation with
+\emph{constant} attenuation, switching over to the latter once a certain amount
+of effective reputation has been earned.
+
+The reputation cap (the upper limit of effective reputation that can't be
+surpassed) is meant to ensure activity in the query groups by preventing peers
+from collecting a lot of reputation up front and then not responding to queries
+for prolonged periods. In the simulations, this didn't become relevant because
+all peers let queries time out once 14 effective reputation are reached.  With
+\emph{exponential} or \emph{harmonic} attenuation, it's not a viable strategy
+anyway, since effective reputation gets more and more "expensive". But with
+\emph{constant} attenuation an upper limit may well become necessary.
+
+\begin{figure}[t]
+  \centering
+  \begin{subfigure}[t]{0.45\columnwidth}
+    \centering
+    \includegraphics[width=\columnwidth]{figures/attenuation_no_attenuation_resp_statuses}
+    \subcaptionsettings{No
+    attenuation}{attenuation/attenuation\_no\_attenuation.settings}
+    \label{fig:attenuation_no_att_resp}
+  \end{subfigure}\hfill%
+  \begin{subfigure}[t]{0.45\columnwidth}
+    \centering
+    \includegraphics[width=\columnwidth]{figures/{{attenuation_0.08_constant_resp_statuses}}}
+    \subcaptionsettings{\emph{Constant} attenuation, $c =
+    0.08$}{attenuation/attenuation\_0.08\_constant.settings}
+    \label{fig:attenuation_constant_resp}
+  \end{subfigure}\hfill\\%
+  \begin{subfigure}[t]{0.45\columnwidth}
+    \centering
+    \includegraphics[width=\columnwidth]{figures/{{attenuation_0.35_1_exponential_resp_statuses}}}
+    \subcaptionsettings{\emph{Exponential} attenuation, $p = 0.35$, $c =
+    1$}{attenuation/attenuation\_0.35\_1\_exponential.settings}
+    \label{fig:attenuation_exp_resp}
+  \end{subfigure}\hfill%
+  \begin{subfigure}[t]{0.45\columnwidth}
+    \centering
+    \includegraphics[width=\columnwidth]{figures/attenuation_1_8_harmonic_resp_statuses}
+    \subcaptionsettings{\emph{Harmonic} attenuation, $a = 1$, $k =
+    8$}{attenuation/attenuation\_1\_8\_harmonic.settings}
+    \label{fig:attenuation_harmonic_resp}
+  \end{subfigure}
+  \caption{Response statuses for different attenuation strategies. For all, $t =
+  10$ and $l = 15$.}
+  \label{fig:attenuation_resp}
+\end{figure}
+
+Figure~\ref{fig:attenuation_resp} shows the response statuses for the
+simulations corresponding to the reputation percentiles in
+figure~\ref{fig:attenuation_percs}. Again, there is virtually no difference
+between \emph{exponential} and \emph{harmonic} attenuation. Both yield good
+performance with a low percentage of timeouts. It matches (TODO confirm, do the
+math) the theorectical response probability given that peers let queries time
+out once they reach 14 reputation, take a penalty of 2 points and then work
+their way back up to 14. (TODO give numbers, maybe a table with number of
+responses, timeouts?).
+
+\emph{Constant} attenuation is very similar, but has a few more timeouts. This
+is due to the fact that it takes less raw reputation to get from 12 to 14 than
+for the other attenuation strategies (25 compared to 45.26 and 42,
+respectively). That means after letting an incoming query time out, peers can
+work their way back up to 14 faster (TODO confirm theoretical prediction holds,
+give numbers, table?).
+
+Without attenuation, there are many more timeouts, and as a consequence also
+many more messages in total (TODO give numbers, confirm theoretical prediction
+holds). Here, peers are very easily able to earn 14 reputation and become
+saturated, at which point they let the next query time out. This is the reason
+attenuation is necessary.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=1\columnwidth]{figures/attenuation_no_attenuation_selection_overlap_rep_percs_2_of_14}
+\captionsettings{Reputation percentiles over time with no attenuation and peer
+selection strategy \emph{overlap} in one query
+group}{attenuation/attenuation\_no\_attenuation\_selection\_overlap.settings}
+\label{fig:attenuation_no_att_selection_overlap_rep_percs}
+\end{figure}
+
+Figure~\ref{fig:attenuation_no_att_selection_overlap_rep_percs} shows reputation
+percentiles with no attenuation and the peer selection strategy \emph{overlap}.
+The same settings were used and the same query group shown as in
+figure~\ref{fig:selection_overlap_rep_percs} from section~\ref{sec:selection}
+covering selection strategies, except that attenuation has been turned off
+(previously, the default \emph{exponential} attenuation was used).
+
+The comparison shows that the problem of the \emph{overlap} peer selection
+strategy where some peers are unlucky and are only sent queries with low
+priority is less severe when attenuation is turned off. This is because the
+"lucky" peers who are preferred query recipients are reputation saturated after
+much less time and letting their incoming queries time out, at which point the
+"unlucky" peers are chosen. The fundamental problem still exists though, the
+"unlucky" peers still have to wait.
+
+- TODO also sort of solves the oscillation problem that penalty expectations
   addressed (by significantly reducing the amplitude)
 
 \section{Query Group Reevaluation}

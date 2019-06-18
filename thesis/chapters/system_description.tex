@@ -7,6 +7,7 @@
   query group maintenance dynamics, complaints
 - prevent freeriding, can't trust peers initially (rep must start at 0)
 - resistant to whitewashing
+- we're assuming everything is signed
 
 \section{Organization}
 - kademlia/p-grid-style dht
@@ -131,6 +132,8 @@ This system is also necessary if updates are done via gossiping (TODO why?).
 - all records are equally likely to be queried. would not hold in a real system,
   you'd need load-balancing: self-organizing with incentives, so you need the
   p-grid approach of being able to advertise more prefixes
+- focus on laziness, not sybil/collusion or actively sabotaging (but presenting
+  ideas)
 \subsection{Types}
 - cooperating (should refusing to answer count towards this, as the system
   calculates with peers being selfish?)

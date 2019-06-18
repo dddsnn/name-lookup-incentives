@@ -21,7 +21,6 @@
 \renewcommand{\bflabel}[1]{\aclabelfont{#1}}
 
 %\usepackage{acronym}
-\usepackage{subfigure}
 
 \usepackage{float}
 \floatstyle{ruled}
@@ -88,7 +87,7 @@
 %\captionsetup[lstlisting]{format=lstruled,singlelinecheck=false}
 
 %% mehrere Abbildungen in eine %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\usepackage{subfigure}
+\usepackage{subcaption}
 
 %% Packages für Formeln %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \usepackage{amsmath}
@@ -108,7 +107,7 @@
 %\usepackage{longtable} %%Für Tabellen, die eine Seite überschreiten
 \usepackage{lscape}
 \usepackage{rotating}
-%\usepackage[htt]{hyphenat} %Trennung von Typewriter-Schriften
+\usepackage[htt]{hyphenat} %Trennung von Typewriter-Schriften
 %\usepackage{listings}
 \usepackage{pstricks-add}
 \usepackage{tikz}
@@ -131,6 +130,15 @@
 % Command to provide a figure caption that also specifies a .settings file.
 \newcommand*{\captionsettings}[2]{%
   \caption[{#1}]{%
+    #1%
+    \\\hspace{\linewidth}%
+    \textcolor{gray}{\texttt{.settings} file: \texttt{#2}}%
+  }%
+}
+
+% Same thing for subcaptions.
+\newcommand*{\subcaptionsettings}[2]{%
+  \subcaption[{#1}]{%
     #1%
     \\\hspace{\linewidth}%
     \textcolor{gray}{\texttt{.settings} file: \texttt{#2}}%
