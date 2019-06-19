@@ -563,24 +563,148 @@ an alternative and wasn't very promising anyway.
 
 \section{Penalty Expectations}
 \label{sec:penalty_expectations}
-- turn off attenuation for demonstration; also has the same effect
-- reputation oscillating
-- peers need to expect penalties when they decide not to answer
-- implementation flaw: peers don't expect penalties if they need to query
-  further and it takes too long (recursive query problem). expecting a penalty
-  for a fail response doesn't make sense if the response had already timed out.
-- high buffer as workaround
-- looks like attenuation makes expectations somewhat superfluous
-- peers don't expect some penalties (not implemented): when a peer needs to
-  query further, but it takes too long, there is no timeout at which point the
-  peer expects a timeout penalty. the next time he looks at the query, it will
-  already be too late
-- no reward expectations
+Reputation attenuation, introduced in section~\ref{sec:attenuation}, as well as
+penalty expectations, introduced in this section, are enabled in the default
+settings. When both are disabled, quite severe oscillations in individual peer
+reputations can be observed that are also reflected in reputation percentiles of
+query groups.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.5\columnwidth]{figures/expectations_off_no_att_peer_reps_3_of_64}%
+\includegraphics[width=0.5\columnwidth]{figures/expectations_off_no_att_rep_percs_1_of_14}
+\captionsettings{Reputation oscillation of a peer and in the percentiles of a
+query group with penalty expectations and reputation attenuation
+off}{penalty\_expectations/expectations\_off\_no\_att.settings}
+\label{fig:penalty_expectations_off_no_att_peer_reps_percs}
+\end{figure}
+
+Figure~\ref{fig:penalty_expectations_off_no_att_peer_reps_percs} demonstrates
+this. The peer's reputation shown on the left fluctuates heavily, going down to
+or even below the no-penalty reputation (TODO terminology) of 10. This is in
+spite of the fact that the peers in the simulation try to stay above it. These
+oscillations are also visible in the per-query-group reputation percentiles
+shown on the right.
+
+This is because peers aren't taking into account that reputation updates take
+some time to be disseminated. They only respond to an incoming query if they are
+not reputation saturated. Once they let a query time out, the penalty they will
+receive is not applied immediately, due to the timeout on the side of the sender
+and the network delay. So peers think they are still reputation saturated and
+let following queries time out as well, until the first penalty hits. By that
+time, several penalties may have accrued which will be applied thereafter,
+crashing their reputation. In the peer reputation in
+figure~\ref{fig:penalty_expectations_off_no_att_peer_reps_percs} it can be seen
+that reputation decreases usually happen all at once after the peer has
+surpassed the saturation reputation of 14.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.5\columnwidth]{figures/expectations_off_no_att_high_buf_peer_reps_3_of_64}%
+\includegraphics[width=0.5\columnwidth]{figures/expectations_off_no_att_high_buf_rep_percs_1_of_14}
+\captionsettings{Reputation oscillation at a higher base level with increased
+reputation buffer of
+20}{penalty\_expectations/expectations\_off\_no\_att\_high\_buf.settings}
+\label{fig:penalty_expectations_off_no_att_high_buf_peer_reps_percs}
+\end{figure}
+
+A workaround for this is to increase peer's reputation buffers. The result is
+shown in
+figure~\ref{fig:penalty_expectations_off_no_att_high_buf_peer_reps_percs}, where
+the buffer has been increased from 4 to 20, meaning peers only let queries time
+out once they have accumulated 30 reputation, rather than 14. Both peer
+reputations and percentiles look similar, but have been shifted to a higher
+level. Peers' reputations still fluctuate, but because of the higher buffer
+doesn't dip below the no-penalty reputation (TODO terminology) of 10 anymore.
+
+However, this is not a good solution because the amount of buffer a peer needs
+is dependent on the amount of queries he is likely to receive at the same time,
+i.e. within the time between letting the first query time out or sending a fail
+response (TODO terminology) and the corresponding penalty arriving. Peers would
+need to adjust the buffer based on the activity in the query group. Some
+strategies for reputation attenuation presented in section~\ref{sec:attenuation}
+also make it more difficult to gain reputation for a peer the more he already
+has, so he may have to do much more work than necessary.
+
+The better solution to the problem is to make peers expect to receive a penalty
+when they do something they know is going to be penalized, and make their
+decisions based on their reputation with expected penalties already applied. In
+the implementation, peers make these expectations when they purposefully let a
+query time out, and when they send a fail response (TODO terminology).
+
+The expectations must themselves have a timeout, so that they can be removed in
+case the peer who was expected to apply a penalty doesn't do so. This could
+happen if either peer leaves the query group after the expectation has been
+stored.
+
+The implementation actually isn't ideal, as peers cannot expect timeout
+penalties due to the recursive query problem (TODO terminology): When Alice
+queries Bob, Bob may need to query Charlie in order to serve the query. If that
+second query to Charlie takes so long that Alice's query times out, ideally Bob
+would expect a timeout penalty. However, this is not implemented, and expecting
+a penalty once the response from Charlie arrives doesn't make sense, since at
+that point the penalty has likely already been applied.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.5\columnwidth]{figures/expectations_on_no_att_peer_reps_3_of_64}%
+\includegraphics[width=0.5\columnwidth]{figures/expectations_on_no_att_rep_percs_1_of_14}
+\captionsettings{Reduced reputation oscillation with expectations enabled, but
+attenuation still
+disabled}{penalty\_expectations/expectations\_on\_no\_att.settings}
+\label{fig:penalty_expectations_on_no_att_peer_reps_percs}
+\end{figure}
+
+Figure~\ref{fig:penalty_expectations_on_no_att_peer_reps_percs} shows the result
+of enabling penalty expectations, while reputation attenuation is still
+disabled. Peers are now able to stay above the no-penalty reputation (TODO
+terminology) without a large buffer.
+
+To clarify, enabled penalty expectations are part of the default settings and
+were used in the other simulations in this chapter.
+
+\subsection{Impact of Attenuation}
+Keeping penalty expectations disabled but enabling reputation attenuation also
+significantly improves the behavior of the system.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.5\columnwidth]{figures/expectations_off_peer_reps_16_of_64}%
+\includegraphics[width=0.5\columnwidth]{figures/expectations_off_rep_percs_1_of_14}
+\captionsettings{Reputation of one peer and percentiles of a query group with
+just attenuation enabled, expectations
+off}{penalty\_expectations/expectations\_off.settings}
+\label{fig:penalty_expectations_off_peer_reps_percs}
+\end{figure}
+
+Figure~\ref{fig:penalty_expectations_off_peer_reps_percs} gives an example of
+this. The reputation percentiles of the query group selected for it show almost
+all peers of the query group managing to stay above the no-penalty reputation
+(TODO terminology) almost all of the time. At first glance this suggests that
+penalty expectations are unnecessary if reputation attenuation is enabled.
+However, the problem solved by penalty expectations still exists when just
+attenuation is used: the individual reputations of the peer on the left show him
+dipping below the no-penalty reputation (TODO terminology) just after he became
+reputation saturated.
+
+Rather, the reason just adding attenuation already looks a lot more tidy is that
+it takes peers a lot longer to become reputation saturated. These are the
+trigger points when peers without expectations let more queries time out than
+they should. With fewer of them, peers don't lose reputation as often, making
+their reputation much more stable.
+
+Furthermore, reputation attenuation significantly reduces the number of timeouts
+and thereby the number of queries (since timed out queries are retried). This
+reduces, on average, the number of queries a peer lets time out before he
+realizes he has dropped below the reputation at which he is saturated (TODO
+confirm).
 
 \section{Reputation Attenuation}
-An important performance characteristic of the \ac{DHT} the reputation system
-supports is the likelihood that a peer responds to a query. Since we're assuming
-all peers are selfish and inherently lazy, this is by no means guaranteed.
+\label{sec:attenuation}
+An important performance characteristic of the \ac{DHT} which the reputation
+system supports is the likelihood that a peer responds to a query. Since we're
+assuming all peers are selfish and inherently lazy, this is by no means
+guaranteed.
 
 The implementation models the peer behavior in such a way that peers do their
 best to cooperate (i.e. respond to queries) until they reach the no-penalty
@@ -829,12 +953,12 @@ saturated.
 Without attenuation, some oscillation can be seen in the reputation percentiles,
 which reflects oscillation in individual peer reputations. Peers are also
 getting significantly above the reputation at which they are saturated (14). The
-reason is that, while peers expect penalties
-(see~\ref{sec:penalty_expectations}), they do not expect rewards. This leads to
-them answering multiple queries in a row, even though answering only the first
-would have made them saturated; the reputation update simply hasn't arrived yet.
-This is of course still true for the attenuated cases, but here it takes a lot
-more raw reputation to get to the saturated effective reputation.
+reason is that, while peers expect penalties (see
+section~\ref{sec:penalty_expectations}), they do not expect rewards. This leads
+to them answering multiple queries in a row, even though answering only the
+first would have made them saturated; the reputation update simply hasn't
+arrived yet.  This is of course still true for the attenuated cases, but here it
+takes a lot more raw reputation to get to the saturated effective reputation.
 
 There is no discernible difference between \emph{exponential} and
 \emph{harmonic} attenuation, which makes sense considering their similarity in
@@ -996,9 +1120,6 @@ much less time and letting their incoming queries time out, at which point the
 "unlucky" peers are chosen. The fundamental problem still exists though, the
 "unlucky" peers still have to wait.
 
-- TODO also sort of solves the oscillation problem that penalty expectations
-  addressed (by significantly reducing the amplitude)
-
 \section{Query Group Reevaluation}
 - incomplete implementation causes problems: peers first find their necessary
   query peers, but then they leave. potentially mitigated by running query peer
@@ -1022,6 +1143,9 @@ Established)}
 
 \section{Stuff that hasn't been looked into (TODO section name)}
 - making the relationship between reputation and penalty delay non-proportional
+
+\section{Large Simulation (TODO section name)}
+- TODO just do the whole thing with the "best" settings with at least 1024 peers
 
 
 -----------------------
