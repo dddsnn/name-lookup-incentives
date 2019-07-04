@@ -1,10 +1,19 @@
 \chapter{Performance}
 - define messages, estimate sizes, id lengths etc.
+    - remember signatures for size
+    - remember public key for size of a record (or use a separate record to map
+      key fingerprint to full key?)
+    - remember last changed time (to determine if a received record is very old
+      and to give a penalty in that case)
+    - remember (possibly?) ttl
     - reputation update regarding responses have to state which ID the query was
       for if peer selection overlap-rep-sorted is used, so that the lowest-rep
       peer can detect that he should have been sent a query
 - reputation updates could potentially be batched to save overhead
+- compare with tit-for-tat
 \section{Performance Indices}
 TODO
 \section{Comparison with Tor}
+- queries not optimizable for geography, worst case every hop towards the other
+  end of the planet
 TODO

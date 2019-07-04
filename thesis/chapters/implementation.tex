@@ -12,16 +12,17 @@ TODO
 - peer stop answering when their reputation is saturated
 - the lowest reputation in shared query groups counts
 - reputation buffer
+- penalty threshold 10, penalty delay is 10 - rep
 \section{Settings}
 TODO explain what settings files are
 
-specified: there are 64 peers with an ID length of 16 bit and a prefix length of
-4 bit, resulting in an average sync group size of 4 peers. Query group sizes are
-capped at 16 peers; there is no specific enforcement of this, peers simply don't
-join groups that already have 16 peers.
+specified: there are 64 peers with an ID length of 16 bit and a routing prefix
+length of 4 bit, resulting in an average sync group size of 4 peers. Query group
+sizes are capped at 16 peers; there is no specific enforcement of this, peers
+simply don't join groups that already have 16 peers.
 
-- prefix length is fixed and always actually a prefix of the peer ID (can't be
-  changed)
+- routing prefix length is fixed and always actually a prefix of the peer ID
+  (can't be changed)
 
 The reward for a successful query is 1 (reputation point), the penalty for a
 timeout is 2, the penalty for a failed query is 1. There is no reputation decay.
@@ -49,16 +50,16 @@ than 2 peers and send queries for these subprefixes. Once a successful response
 arrives, the peer information contained in it is introduced and a query group
 can be joined. This process is repeated every 10 seconds. In those queries,
 peers specify which peers covering the subprefix they already know, so that
-those peers will not occur in the response.  These queries are also special in
-that peers can select recipients where the overlap of the recipient's prefix
-with the target ID (TODO terminology: target of a query (can be an ID or a
-prefix)) is less than or equal to the peer's. This is usually disallowed to
+those peers will not occur in the response. These queries are also special in
+that peers can select recipients where the overlap of the recipient's routing
+prefix with the target ID (TODO terminology: target of a query (can be an ID or
+a prefix)) is less than or equal to the peer's. This is usually disallowed to
 prevent routing loops (ensuring queries terminate after at most as many hops as
-the prefix is long). However, when completing subprefix coverage, this may be
-necessary: if the peer doesn't know anyone closer to the desired subprefix (and
-that is the problem he is trying to solve), he must necessarily query someone
-who is not closer. There is no mechanism to prevent routing loops implemented
-(TODO).
+the routing prefix is long). However, when completing subprefix coverage, this
+may be necessary: if the peer doesn't know anyone closer to the desired
+subprefix (and that is the problem he is trying to solve), he must necessarily
+query someone who is not closer. There is no mechanism to prevent routing loops
+implemented (TODO).
 
 Peers broadcast reputation updates faithfully and honestly, i.e. when a response
 arrives or a timeout occurs, they send an update to each member in all the query
@@ -91,9 +92,21 @@ Peers don't go offline. (TODO does this belong into implementation?)
 - don't query sync peers for subprefixes
 - timeout 2
 - penalty expectations on
+- record ids are just peer ids, each peer only stores one record under its own
+  id
 \section{Simplifying Assumptions and Shortcomings}
 TODO
-- reputation updates are broadcast without incentive
+- reputation updates are broadcast without incentive. in particular, peers who
+  were wronged are not getting rep for broadcasting the reputation update with
+  the penalty. if this were implemented, such peers may be rep saturated, making
+  them too lazy to do the broadcast, meaning peers don't get penalties anymore.
+  this could lead to a chain reaction letting the whole system break down, which
+  relies on the threat of penalties (rep decay may help in this case).
+- there is no leeway given when checking another peer's reputation: when
+  deciding the penalty delay, the current reputation is used, even if the sender
+  of the query had more reputation when he sent it and is expecting a faster
+  response. seems to work anyway
+- no complaint system
 - some peers are forced to open new groups that no other than the initial 2
   peers join: little traffic means slow reputation gains.
   better implementation could let peers invite other useful peers, or make the
@@ -104,6 +117,19 @@ TODO
   potentially abusive behavior by peers who don't care about how long it takes
   (e.g. low-power embedded stuff), but it also may be necessary to find
   subprefix coverage
+- peers never answer too early, and don't check whether their answer arrived
+  early, consequentially also no penalties for this
+- peers never go offline, never update records
+- peers never need to join their sync group, are given all their sync peers
+  during initialization
+- peers only join their query groups once
+- peers only send one query at a time
+- peers don't lie about timestamps (relevant?)
+- queries evenly distributed
+- all peers send the same amount of queries (1 per second)
+- peers always broadcast reputation updates truthfully, even without incentive;
+  reward updates are broadcast by the peer giving the reward, not the one
+  receiving it
 
 \section{Peer Service (TODO title; the interface the Peer class provides)}
 - one query at a time

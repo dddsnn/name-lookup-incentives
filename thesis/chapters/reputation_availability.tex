@@ -1,4 +1,5 @@
 \chapter{Reputation Availability}
+\label{chap:rep_avail}
 The incentive system's goal is to provide a good level of service to those peers
 who abide by the rules of the system (TODO terminology: cooperating?). Since the
 system measures this via a reputation point system, cooperating (TODO) peers
@@ -31,7 +32,10 @@ value):
 \item Random seed: 5803379951609632196
 \item Number of peers: 64
 \item Length of IDs: 16 bit
-\item Length of prefixes: 4 bit (i.e. average sync group size of 4 peers)
+\item Length of routing prefixes: 4 bit (i.e. average sync group size of 4
+      peers) (TODO this is just called "prefix" in the implementation, but
+      "routing prefix" in the text to distinguish it from the general concept of
+      a prefix)
 \item Evenly sized sync groups are not ensured
 \item Sync groups are ensured to be non-empty
 \item Number of random introductions: 8
@@ -83,12 +87,13 @@ strategies have been implemented and are presented in the following.
 - TODO measure how often the recursive query problem occurs
 
 \subsection{Strategy: \emph{Overlap}}
+\label{sec:rep_avail_selection_overlap}
 This is the default selection strategy that was described in the implementation
 chapter (TODO link). Out of all possible recipients, the peer chooses one whose
-prefix overlaps maximally with the target ID (TODO link overlap definition in
-system description). Under the assumption that peers have complete subprefix
-coverage, this ensures that queries always terminate and no routing loops occur,
-since at each hop the distance to the target ID shrinks.
+routing prefix overlaps maximally with the target ID (TODO link overlap
+definition in system description). Under the assumption that peers have complete
+subprefix coverage, this ensures that queries always terminate and no routing
+loops occur, since at each hop the distance to the target ID shrinks.
 
 - TODO formalize overlap with target ID
 
@@ -159,8 +164,8 @@ that settle at a low level.
 - TODO call the sending peer sender or querying peer for clarity?
 This strategy is a modification of the \emph{overlap} strategy, but with a
 secondary criterion as a tie breaker. Peers still start out choosing a recipient
-based on the overlap of the recipient's prefix and the target ID, except they
-give potential recipients who are \emph{reputation saturated} the lowest
+based on the overlap of the recipient's routing prefix and the target ID, except
+they give potential recipients who are \emph{reputation saturated} the lowest
 priority.
 
 The peer considers a potential recipient \emph{reputation saturated} if the
@@ -285,15 +290,16 @@ last}}{selection\_strategy/selection\_overlap\_high\_rep\_last.settings}
 \end{figure}
 
 \subsection{Strategy: \emph{Overlap $\rightarrow$ Reputation Sorted}}
+\label{sec:rep_avail_selection_overlap_rep_sorted}
 This strategy is another modification of the \emph{overlap} strategy. The
 querying peer again takes all viable query peers (i.e. those that haven't been
 queried for the target ID already) and sorts them by the length of the overlap
-of their prefix with the target ID, longest first. As a secondary sorting
-criterion he uses the reputation the potential recipient has in any shared query
-group (TODO find a term for this, see definitions in system description
-chapter), lowest first. So effectively, out of all potential recipients he will
-only consider the subset consisting of those whose overlap is greatest and chose
-the one with the lowest reputation.
+of their routing prefix with the target ID, longest first. As a secondary
+sorting criterion he uses the reputation the potential recipient has in any
+shared query group (TODO find a term for this, see definitions in system
+description chapter), lowest first. So effectively, out of all potential
+recipients he will only consider the subset consisting of those whose overlap is
+greatest and chose the one with the lowest reputation.
 
 The strategy was designed to address the issue with \emph{overlap $\rightarrow$
 reputation saturated last}, namely that "unlucky" peers still have to wait for
@@ -305,9 +311,9 @@ potentially valuable contributors.
 By selecting the lowest-reputation peer (within the group with maximal overlap),
 the ability to gain reputation is supposed to be better distributed among all
 peers. It is of course still required for a peer to be useful to others in the
-query group, i.e. to serve a prefix subprefixes of which others query for
-(longer ones are better). This is what leads to the peer being in the group of
-considered peers with maximal overlap in the first place (TODO mention group
+query group, i.e. to serve a routing prefix subprefixes of which others query
+for (longer ones are better). This is what leads to the peer being in the group
+of considered peers with maximal overlap in the first place (TODO mention group
 switching section here?).
 
 - TODO number of queries received histogram
@@ -385,6 +391,7 @@ last}, where this was not necessarily the case.
   recipient, etc.
 
 \subsubsection{Content Peers}
+\label{sec:rep_avail_selection_rep_sorted_content}
 It must be pointed out that, in the simulation, all peers are willing to
 contribute for the best possible service, i.e. they do their best to answer
 queries until they are reputation saturated (TODO this assumption should have
@@ -515,7 +522,7 @@ lowest-reputation peer) which target ID he is interested in. But the querying
 peer may not want to do that, for whatever reason. Maybe he doesn't trust the
 peer (from previous experience, maybe he believes he is being followed), maybe
 he has already sent him plenty of queries in the past and doesn't want him to
-have too much information.
+have too much information (see section~\ref{sec:desc_stalking}).
 
 Peers who are very sensitive to this could of course be in many more query
 groups than is required for subprefix coverage, giving them a wider choice of
@@ -533,15 +540,16 @@ regarding responses must include the target ID, this is equivalent to
 broadcasting to the entire query group the target ID of each query, a much more
 severe infringement than the one described. Sure enough, for that purpose (to
 detect whether a query should also have been sent to the lowest-reputation
-peer) it would be enough to include only the prefix of the target ID, but this
-still leaks a lot of information. Luckily, the approach that required this has
-an alternative and wasn't very promising anyway.
+peer) it would be enough to include only the routing prefix of the target ID,
+but this still leaks a lot of information. Luckily, the approach that required
+this has an alternative and wasn't very promising anyway.
 
 \subsubsection{Possible Impact on Usefulness}
 - does this maybe remove incentive to find a query group in which one is useful
   (since the system guarantees some queries)? peers may only be good for one
   subprefix, but are getting all the queries for it
-- ref query group reevaluation section, explain what usefulness is
+- ref query group reevaluation section, explain what usefulness is (already done
+  in system description)
 - hasn't been implemented, not clear
 
 \subsection{Strategy: \emph{Reputation Sorted}}
@@ -560,6 +568,7 @@ an alternative and wasn't very promising anyway.
   stream of requests; need timeout penalties as main measure
 - possible solutions: vary decay rate with total reputation in group, or with
   average number of queries in a group or something
+- describe how it would be implemented
 
 \section{Penalty Expectations}
 \label{sec:penalty_expectations}
@@ -747,10 +756,11 @@ also not an option, since the purpose of it is to prevent whitewashing by
 requiring newcomers to put in some work before enjoying unpenalized service. The
 solution presented here is to make a distinction between these two phases,
 establishing oneself in the system while having less than the no-penalty
-reputation, and the steady state after. In the former, reputation is gained as
-usual, but in the latter, reputation earnings are attenuated by one of three
-strategies in a way that allows to regulate the response probability without
-impacting newcomers' ability to establish themselves.
+reputation (TODO terminology), and the steady state after. In the former,
+reputation is gained as usual, but in the latter, reputation earnings are
+attenuated by one of three strategies in a way that allows to regulate the
+response probability without impacting newcomers' ability to establish
+themselves.
 
 A distinction is made between \emph{raw reputation} $r_r$ and \emph{effective
 reputation} $r_e$, where \emph{raw reputation} is the reputation as previously,
@@ -1121,12 +1131,15 @@ much less time and letting their incoming queries time out, at which point the
 "unlucky" peers still have to wait.
 
 \section{Query Group Reevaluation}
+\label{sec:rep_avail_group_reeval}
 - incomplete implementation causes problems: peers first find their necessary
   query peers, but then they leave. potentially mitigated by running query peer
   discovery repeatedly now?
 
-\section{Getting Started in a Running System (TODO section name) (Becoming
-Established)}
+\section{Bootstrapping}
+\label{sec:rep_avail_bootstrapping}
+\subsection{Bootstrapping an Empty Network}
+\subsection{Becoming Establised in a Running System}
 - number of introductions needed to get subprefix coverage
 
 \section{Effect of Small Sync Groups}
@@ -1138,8 +1151,8 @@ Established)}
 - the problem with each peer in his own sync group is apparently that, once the
   first peers reach 14, they let queries time out, and this causes problems to
   other peers who were relying on them, crashing reputations. with longer
-  prefixes and deeper lookups (more hops), the likelihood of something timing
-  out on the way rises.
+  routing prefixes and deeper lookups (more hops), the likelihood of something
+  timing out on the way rises.
 
 \section{Stuff that hasn't been looked into (TODO section name)}
 - making the relationship between reputation and penalty delay non-proportional
@@ -1168,6 +1181,6 @@ Established)}
   to replication). this is confirmed by giving peers global knowledge of which
   sync groups exist and not having them query for those subprefixes, then
   everything works. even one missing sync group can screw everything up (see 64
-  peers/6 bit prefix case).
+  peers/6 bit routing prefix case).
 - number of introductions relative to the amount of peers has an effect on how
   easy it is for the system to get started (see 11/about)
