@@ -209,7 +209,7 @@ class Logger:
                                              key=lambda t: t[0]):
             time_axis = np.array(record[0])
             data_set = [(time_axis, np.array([r[i] for r in record[1]]),
-                         '{}%'.format(percentile_tuple[i]))
+                         '{}%'.format(percentile_tuple[i]), {'color': 'k'})
                         for i in range(len(percentile_tuple))]
             data_sets.append(('Query group {}'.format(query_group_id),
                               data_set))
@@ -535,11 +535,18 @@ def plot_steps(title, xlabel, ylabel, data_sets, show, file_prefix,
         data for one graph (axes in matplotlib) and is a tuple of title (for
         the individual graph) and a list of plot data. Each plot data contains
         data for one plot within the graph. It is a list of tuples of the form
-        (x, y, label), where x is a numpy ndarray containing x values,
-        similarly for y, and label is a label for the plot.
+        (x, y, label) or (x, y, label, kwargs), where x is a numpy ndarray
+        containing x values, similarly for y, and label is a label for the
+        plot. kwargs is an optional dictionary that will be passed to the step
+        function as keyword args.
     """
     def plotter(axes, plot_data):
-        axes.step(plot_data[0], plot_data[1], label=plot_data[2], where='post')
+        if len(plot_data) == 4:
+            axes.step(plot_data[0], plot_data[1], label=plot_data[2],
+                      where='post', **plot_data[3])
+        else:
+            axes.step(plot_data[0], plot_data[1], label=plot_data[2],
+                      where='post')
     plot_grid(title, xlabel, ylabel, data_sets, plotter, show, file_prefix,
               max_edge_length, axes_modifier)
 
