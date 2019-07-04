@@ -237,7 +237,7 @@ class TestRecvQuery(unittest.TestCase):
             mocked_behavior.on_query_external.assert_not_called()
             mocked_behavior.on_query_no_such_peer.assert_not_called()
         self.assertEqual(
-            peer_a.in_queries_map[queried_id][peer_a.peer_id].time, 5)
+            peer_a.in_queries_map[queried_id][peer_a.peer_id].response_time, 5)
 
     def test_only_updates_time_on_repeated_query(self):
         peer_a = self.helper.peer_with_prefix('0000')
@@ -246,13 +246,15 @@ class TestRecvQuery(unittest.TestCase):
         peer_a.in_queries_map.setdefault(queried_id, {}).setdefault(
             querying_peer_id, p.IncomingQuery(5, SBT()))
         with unittest.mock.patch.object(peer_a, 'behavior') as mocked_behavior:
+            mocked_behavior.decide_delay.return_value = 3
             peer_a.recv_query(querying_peer_id, queried_id, None)
             mocked_behavior.on_query_self.assert_not_called()
             mocked_behavior.on_query_sync.assert_not_called()
             mocked_behavior.on_query_external.assert_not_called()
             mocked_behavior.on_query_no_such_peer.assert_not_called()
         self.assertEqual(
-            peer_a.in_queries_map[queried_id][querying_peer_id].time, 0)
+            peer_a.in_queries_map[queried_id][querying_peer_id].response_time,
+            3)
 
     def test_doesnt_return_self_if_excluded(self):
         peer_a = self.helper.peer_with_prefix('')
@@ -1806,7 +1808,7 @@ class TestMatchingInQueries(unittest.TestCase):
         self.id_4 = bs.Bits('0b1100')
 
     def in_query_eq(self, other):
-        return (self.time == other.time
+        return (self.response_time == other.response_time
                 and self.excluded_peer_ids == other.excluded_peer_ids)
 
     p.IncomingQuery.__eq__ = in_query_eq

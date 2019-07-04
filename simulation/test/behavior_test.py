@@ -102,7 +102,8 @@ class TestOnQueryExternal(unittest.TestCase):
     def setUp(self):
         self.helper = TestHelper()
 
-    def test_adds_in_query_and_queries(self):
+    @unittest.mock.patch('peer.PeerBehavior.decide_delay')
+    def test_adds_in_query_and_queries(self, mocked_decide_delay):
         peer_a, behavior\
             = self.helper.mock_peer_and_behavior_with_prefix('1000')
         peer_b, _ = self.helper.mock_peer_and_behavior_with_prefix('1111')
@@ -111,10 +112,11 @@ class TestOnQueryExternal(unittest.TestCase):
         queried_id = self.helper.id_with_prefix('1111')
         excluded_id = self.helper.id_with_prefix('1111')
         peer_a.send_query.return_value = None
+        mocked_decide_delay.return_value = 3
         behavior.on_query_external(querying_peer_id, queried_id, None,
                                    excluded_peer_ids=SBT({excluded_id: None}))
         peer_a.add_in_query.assert_called_once_with(
-            querying_peer_id, queried_id, SBT({excluded_id: None}))
+            querying_peer_id, queried_id, SBT({excluded_id: None}), 3)
         peer_a.send_query.assert_called_once_with(
             peer_b.peer_id, queried_id, set((querying_peer_id,)), False, False,
             SBT({excluded_id: ANY}), ANY)
@@ -259,7 +261,7 @@ class TestOnQueryExternal(unittest.TestCase):
         peer_a.has_matching_out_queries.return_value = True
         behavior.on_query_external(querying_peer_id, queried_id, None)
         peer_a.add_in_query.assert_called_once_with(querying_peer_id,
-                                                    queried_id, SBT())
+                                                    queried_id, SBT(), ANY)
         peer_a.send_response.assert_not_called()
         peer_a.send_query.assert_not_called()
 
@@ -840,21 +842,24 @@ class TestRespondToInQueries(unittest.TestCase):
         query_peer = self.helper.peer_with_prefix('1010')
         query_group_id = self.helper.create_query_group(peer_a, query_peer)
         queried_id = self.helper.id_with_prefix('1111')
+        sync_peer_response_time = self.helper.settings['no_penalty_reputation']
+        query_peer_response_time =\
+            self.helper.settings['no_penalty_reputation'] - 4
         in_queries_map = {
-            queried_id: {sync_peer_id: p.IncomingQuery(0, SBT()),
-                         query_peer.peer_id: p.IncomingQuery(0, SBT())}
+            queried_id: {sync_peer_id: p.IncomingQuery(sync_peer_response_time,
+                                                       SBT()),
+                         query_peer.peer_id: p.IncomingQuery(
+                             query_peer_response_time, SBT())}
         }
         queried_peer_info = 'info'
         peer_a.query_groups[query_group_id][query_peer.peer_id].reputation = 4
         behavior.respond_to_in_queries(in_queries_map, queried_peer_info, None)
-        sync_peer_delay = self.helper.settings['no_penalty_reputation']
-        query_peer_delay = self.helper.settings['no_penalty_reputation'] - 4
         self.assertEqual(len(peer_a.send_response.call_args_list), 2)
         self.assertTrue(call(sync_peer_id, queried_id, queried_peer_info,
-                             ANY, delay=sync_peer_delay)
+                             ANY, delay=sync_peer_response_time)
                         in peer_a.send_response.call_args_list)
         self.assertTrue(call(query_peer.peer_id, queried_id, queried_peer_info,
-                             ANY, delay=query_peer_delay)
+                             ANY, delay=query_peer_response_time)
                         in peer_a.send_response.call_args_list)
 
     def test_expects_penalty(self):
@@ -863,16 +868,18 @@ class TestRespondToInQueries(unittest.TestCase):
         query_peer = self.helper.peer_with_prefix('1010')
         query_group_id = self.helper.create_query_group(peer_a, query_peer)
         queried_id = self.helper.id_with_prefix('1111')
+        response_time = self.helper.settings['no_penalty_reputation'] - 4
         in_queries_map = {
-            queried_id: {query_peer.peer_id: p.IncomingQuery(0, SBT())}
+            queried_id: {query_peer.peer_id: p.IncomingQuery(response_time,
+                                                             SBT())}
         }
         queried_peer_info = 'info'
         peer_a.query_groups[query_group_id][query_peer.peer_id].reputation = 4
         expected_penalty = 2
         behavior.respond_to_in_queries(in_queries_map, queried_peer_info, None,
                                        expected_penalty=expected_penalty)
-        timeout = (self.helper.settings['no_penalty_reputation'] - 4
-                   + self.helper.settings['expected_penalty_timeout_buffer'])
+        timeout = (self.helper.settings['expected_penalty_timeout_buffer']
+                   + response_time)
         peer_a.expect_penalty.assert_called_once_with(
             query_peer.peer_id, expected_penalty, timeout, ANY)
 

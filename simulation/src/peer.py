@@ -92,7 +92,8 @@ class PeerBehavior:
                 in_query.excluded_peer_ids.update(excluded_peer_ids)
             else:
                 self.peer.add_in_query(querying_peer_id, queried_id,
-                                       excluded_peer_ids)
+                                       excluded_peer_ids, self.peer.env.now
+                                       + self.decide_delay(querying_peer_id))
             return
         rep = self.peer.expected_min_reputation(querying_peer_id)
         enough_rep = (self.peer.settings['reputation_buffer']
@@ -122,7 +123,8 @@ class PeerBehavior:
                 in_query.excluded_peer_ids.update(excluded_peer_ids)
             else:
                 self.peer.add_in_query(querying_peer_id, queried_id,
-                                       excluded_peer_ids)
+                                       excluded_peer_ids, self.peer.env.now
+                                       + self.decide_delay(querying_peer_id))
             return
         # No known peer, query is impossible.
         if querying_peer_id == self.peer.peer_id:
@@ -256,9 +258,12 @@ class PeerBehavior:
                 # some outgoing queries that would answer this query. But they
                 # should only do so if the response is not likely going to be
                 # late.
-                time_taken = self.peer.env.now - in_query.time
-                delay = max(
-                    0, self.decide_delay(querying_peer_id) - time_taken)
+                delay = in_query.response_time - self.peer.env.now
+                if -delay > (self.peer.settings['query_timeout']
+                             - self.peer.settings['transmission_delay']):
+                    self.peer.log_recursive_query_problem(querying_peer_id,
+                                                          in_event_id)
+                delay = max(0, delay)
                 if (expected_penalty is not None
                         and self.peer.settings['expect_penalties']):
                     self.peer.expect_penalty(
@@ -985,11 +990,12 @@ class Peer:
                 # and fails ultimately (i.e. the other peer knows no other
                 # peer to send the query to). In that case, the peer forgets
                 # that he sent a query and is free to send it again for another
-                # request or query that he receives. Update the arrival time of
-                # the existing incoming query so that a response will be sent
-                # with a delay appropriate to the later query.
+                # request or query that he receives. Update the response time
+                # of the existing incoming query so that a response will be
+                # sent with a delay appropriate to the later query.
                 in_query = self.in_queries_map[queried_id][querying_peer_id]
-                in_query.time = self.env.now
+                in_query.response_time =\
+                    self.env.now + self.behavior.decide_delay(querying_peer_id)
                 return
         if (self.peer_id.startswith(queried_id)
                 and not excluded_peer_ids.has_prefix_of(self.peer_id)):
@@ -1377,10 +1383,11 @@ class Peer:
             i += 1
         return False
 
-    def add_in_query(self, querying_peer_id, queried_id, excluded_peer_ids):
+    def add_in_query(self, querying_peer_id, queried_id, excluded_peer_ids,
+                     response_time):
         assert not self.has_in_query(querying_peer_id, queried_id,
                                      util.SortedBitsTrie())
-        in_query = IncomingQuery(self.env.now, excluded_peer_ids)
+        in_query = IncomingQuery(response_time, excluded_peer_ids)
         self.in_queries_map.setdefault(queried_id, cl.OrderedDict())[
             querying_peer_id] = in_query
 
@@ -1488,6 +1495,10 @@ class Peer:
         else:
             for i in range(2 ** len_suffix):
                 yield bits + bs.Bits(uint=i, length=len_suffix)
+
+    def log_recursive_query_problem(self, querying_peer_id, in_event_id):
+        return self.logger.log(an.RecursiveQueryProblem(
+            self.env.now, querying_peer_id, in_event_id))
 
 
 def calculate_reputation(reward_attenuation_strategy, current_reputation,
@@ -1662,6 +1673,6 @@ class OutgoingQuery:
 
 
 class IncomingQuery:
-    def __init__(self, time, excluded_peer_ids):
-        self.time = copy.deepcopy(time)
+    def __init__(self, response_time, excluded_peer_ids):
+        self.response_time = copy.deepcopy(response_time)
         self.excluded_peer_ids = copy.deepcopy(excluded_peer_ids)

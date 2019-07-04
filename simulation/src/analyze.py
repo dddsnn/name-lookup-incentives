@@ -1136,3 +1136,10 @@ class QueryPeerVanished(Event):
         super().__init__(time, in_event_id)
         self.peer_id = peer_id
         self.updated_peer_id = updated_peer_id
+
+
+class RecursiveQueryProblem(Event):
+    """Event representing the recursive query problem occurring."""
+    def __init__(self, time, querying_peer_id, in_event_id):
+        super().__init__(time, in_event_id)
+        self.querying_peer_id = querying_peer_id
