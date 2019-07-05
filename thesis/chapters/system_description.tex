@@ -39,7 +39,7 @@ there?). Rather, the reputation buffer described in the implementation chapter
 ability to receive service.
 
 While this is the usual assumption about peer motivation, other types of peers
-are discussed (TODO ref types of peers in this chapter, also content peers,
+are discussed (TODO ref types of peers in this chapter, also contented peers,
 maybe something else?).
 
 The system should not have a negative impact on cooperating peers, i.e. peers
@@ -105,13 +105,13 @@ order to build profiles. This is briefly discussed in
 section~\ref{sec:desc_attacks_generous}, but otherwise out of the scope of this
 thesis.
 
-\subsubsection{Content}
-\label{sec:desc_content_peers}
-Content peers (as in satisfied) don't care about the quality of service they
+\subsubsection{Contented}
+\label{sec:desc_contented_peers}
+Contented peers (as in satisfied) don't care about the quality of service they
 receive and thus can't be incentivized via it. These could e.g. be running on
 slow devices without direct user interaction. If they appear in large numbers,
 they may cause problems.
-Section~\ref{sec:rep_avail_selection_rep_sorted_content} discusses one such
+Section~\ref{sec:rep_avail_selection_rep_sorted_contented} discusses one such
 problem, but other than that, this type of peers is considered out of scope.
 
 \subsubsection{Colluding/Sybils}
@@ -1464,8 +1464,8 @@ kept in mind, since they are ultimately the reason the system even exists.
 \subsection{Free Riding and Whitewashing}
 Free riding, or leeching, is peers using the service without contributing to it.
 Preventing it is the center of the reputation system and works, under the
-assumption that peers are interested in delay-free service. Content peers (see
-section~\ref{sec:desc_content_peers} don't meet that assumption, and could
+assumption that peers are interested in delay-free service. Contented peers (see
+section~\ref{sec:desc_contented_peers} don't meet that assumption, and could
 become a problem, since the promise of a good level of service is the only
 leverage the system has over peers.
 

@@ -390,50 +390,50 @@ last}, where this was not necessarily the case.
 - TODO abbreviations? lrp - lowest-rep peer, qp - querying peer, ar - actual
   recipient, etc.
 
-\subsubsection{Content Peers}
-\label{sec:rep_avail_selection_rep_sorted_content}
+\subsubsection{Contented Peers}
+\label{sec:rep_avail_selection_rep_sorted_contented}
 It must be pointed out that, in the simulation, all peers are willing to
 contribute for the best possible service, i.e. they do their best to answer
 queries until they are reputation saturated (TODO this assumption should have
 been stated in a previous chapter, description or implementation). Any peers who
-are not contributing because they are content with the lowest level of service
-(called \emph{content peers} for this discussion) would remain at 0 reputation.
-They would thus be strongly favored for selection, but the effort wasted on
-them, and queries remain unanswered.
+are not contributing because they are contented with the lowest level of service
+(called \emph{contented peers} for this discussion) would remain at 0
+reputation.  They would thus be strongly favored for selection, but the effort
+wasted on them, and queries remain unanswered.
 
 This could have desastrous results on overall performance for queries where the
-group of peers with maximal overlap contains a content peer. Firstly, in the
+group of peers with maximal overlap contains a contented peer. Firstly, in the
 case where querying peers only send one query, the first query is always going
 to fail, adding a timeout to the total lookup time.
 
 Secondly, in case the querying peer sends two (or more) queries, the one
-addressed to the content peer is wasted; it was meant to allow the
+addressed to the contented peer is wasted; it was meant to allow the
 lowest-reputation peer to gain reputation, but this opportunity is given to the
-content peer, who will not seize it. In this case, the purpose of this selection
-strategy, to enable low-reputation peers to get started and in effect to
-increase social value, is not served.
+contented peer, who will not seize it. In this case, the purpose of this
+selection strategy, to enable low-reputation peers to get started and in effect
+to increase social value, is not served.
 
-- TODO do a simulation with content peers
+- TODO do a simulation with contented peers
 
-Possible solutions to this problem could be based on treating the content peer
+Possible solutions to this problem could be based on treating the contented peer
 differently from the other peers. First, this requires detecting that the peer
-is indeed content. If he is nice, he could announce this upon joining the group
-(he may still be tolerated in the group if he gives rewards for successful
+is indeed contented. If he is nice, he could announce this upon joining the
+group (he may still be tolerated in the group if he gives rewards for successful
 queries). If he isn't, detection would have to be based on experience: a peer
-who never responds to queries is potentially content.
+who never responds to queries is potentially contented.
 
-- TODO is there really incentive to try to detect content peers? what's the
+- TODO is there really incentive to try to detect contented peers? what's the
   immediate benefit for the peer for going through that trouble?
 
-Once there is a suspicion that a peer is content, he, and any other content
+Once there is a suspicion that a peer is contented, he, and any other contented
 peers, can be skipped when selecting peers. That is, when making the list of
-viable potential recipients, content peers are excluded. If the peer really is
-content, he shouldn't mind not receiving the query, and certainly not complain,
-out of laziness (if he does complain, he would be better classified as
+viable potential recipients, contented peers are excluded. If the peer really is
+contented, he shouldn't mind not receiving the query, and certainly not
+complain, out of laziness (if he does complain, he would be better classified as
 malicious, since he takes action that is not to his own benefit, but to the
 detriment of the group).
 
-Content peers who are so lazy they don't even bother giving rewards for
+Contented peers who are so lazy they don't even bother giving rewards for
 succesful responses they received could be dealt with via the complaint system
 or the query group management (TODO ref system description). Peers who should
 have gotten a reward but didn't can complain or just make an effort to have the
@@ -484,17 +484,17 @@ issue. Then, if this leads to the lowest-reputation peer receiving compensation,
 the actual recipient would receive a reward as well, as a sort of finder's fee
 to incentivize the checking.
 
-This approach can cause trouble in the presence of content peers. The proposed
+This approach can cause trouble in the presence of contented peers. The proposed
 solution to dealing with those was to ignore them and not send them queries. But
 if another peer then notices this and starts the enforcement process, the
 querying peer may end up being penalized. This brings back all the problems of
-content peers blocking actually contributing peers from gaining reputation. A
+contented peers blocking actually contributing peers from gaining reputation. A
 possible modification of the enforcement could require the lowest-reputation
-peer (the content peer in this case) to make the complaint himself. Under the
-assumption that the content peer truly is content, he would be too lazy to even
-do that. In addition, if the actual recipient of the query who noticed the
-lacking query to the lowest-reputation peer is aware that he is content, he need
-not bother informing him, since there is no hope of a finder's fee anyway.
+peer (the contented peer in this case) to make the complaint himself. Under the
+assumption that the contented peer truly is contented, he would be too lazy to
+even do that. In addition, if the actual recipient of the query who noticed the
+lacking query to the lowest-reputation peer is aware that he is contented, he
+need not bother informing him, since there is no hope of a finder's fee anyway.
 
 The second stage of enforcement is coming to an agreement whether a penalty
 should be applied to the querying peer and compensation awarded to the
