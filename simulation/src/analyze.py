@@ -130,6 +130,17 @@ class Logger:
         print()
         self.print_strongly_connected_components_at(time)
 
+    def fraction_recursive_query_problem(self, peer_id=None):
+        def consider_peer(event):
+            return peer_id is None or event.recipient_id == peer_id
+        num_queries_recvd = sum(1 for e in self.events
+                                if isinstance(e, QueryReceived)
+                                and consider_peer(e))
+        num_rec_query_prob = sum(1 for e in self.events
+                                 if isinstance(e, QueryReceived)
+                                 and consider_peer(e))
+        return num_queries_recvd / num_rec_query_prob
+
     def peer_reputations_at(self, time, peer_id):
         """
         Get a peer's reputations at a point in time.
@@ -171,7 +182,7 @@ class Logger:
             append_step()
 
         data_set = [(np.array(record[0]), np.array(record[1]),
-                     query_group_id)
+                     query_group_id, {})
                     for query_group_id, record in sorted(reputations.items(),
                                                          key=lambda t: t[0])]
         if file_prefix is not None:
@@ -418,7 +429,7 @@ class Logger:
                                              key=lambda t: t[0]):
             time_axis = np.array(record[0])
             size_axis = np.array(record[1])
-            data_set = [(time_axis, size_axis, 'Number of peers')]
+            data_set = [(time_axis, size_axis, 'Number of peers', {})]
             data_sets.append(('Query group {}'.format(query_group_id),
                               data_set))
         if file_prefix is not None:
@@ -426,12 +437,21 @@ class Logger:
         plot_steps('Query group sizes', 'Time', 'Number of peers', data_sets,
                    show, file_prefix, max_edge_length)
 
-    def plot_peer_reputations_until(self, until_time, max_edge_length=3,
-                                    show=True, file_prefix=None):
-        """Plot peer reputations over time until some point."""
+    def plot_peer_reputations_until(
+            self, until_time, rqp_bars=False, rqp_bar_width=10,
+            max_edge_length=3, show=True, file_prefix=None):
+        """
+        Plot peer reputations over time until some point.
+
+        :param rqp_bars: If true, plot bars showing the percentage of queries
+            suffering from the recursive query problem.
+        :param rqp_bar_width: The width of the bars visualizing the recursive
+            query problem.
+        """
         reps = {}
         replay = Replay(self.events, {}, self.query_groups_event_processor)
         current_time = 0
+        final_time = 0
 
         def append_step():
             for query_group_id, query_group in replay.data.items():
@@ -448,19 +468,43 @@ class Logger:
             current_time = replay.step_next()
             if current_time is None or current_time > until_time:
                 break
+            final_time = current_time
             append_step()
 
         data_sets = []
         for peer_id, peer_reps in sorted(reps.items(),
                                          key=lambda t: t[0].uint):
-            data_set = []
+            rep_data_set = []
             for query_group_id, record in sorted(peer_reps.items(),
                                                  key=op.itemgetter(0)):
                 time_axis = np.array(record[0])
                 rep_axis = np.array(record[1])
-                data_set.append((time_axis, rep_axis,
-                                 'Group {}'.format(query_group_id)))
-            data_sets.append(('Peer {}'.format(peer_id.hex), data_set))
+                rep_data_set.append((time_axis, rep_axis,
+                                     'Group {}'.format(query_group_id), {}))
+            if rqp_bars:
+                xs = []
+                heights = []
+                widths = []
+                for i in range(0, final_time, rqp_bar_width):
+                    xs.append(i)
+                    num_resp = sum(1 for e in self.events
+                                   if isinstance(e, ResponseScheduled)
+                                   and e.sender_id == peer_id
+                                   and e.time >= i and e.time < final_time)
+                    num_rqp = sum(1 for e in self.events
+                                  if isinstance(e, RecursiveQueryProblem)
+                                  and e.recipient_id == peer_id
+                                  and e.time >= i and e.time < final_time)
+                    try:
+                        heights.append(num_rqp / num_resp)
+                    except ZeroDivisionError:
+                        heights.append(0)
+                    widths.append(min(rqp_bar_width, final_time - i))
+                data_sets.append(('Peer {}'.format(peer_id.hex), rep_data_set,
+                                  (np.array(xs), np.array(heights),
+                                   np.array(widths))))
+            else:
+                data_sets.append(('Peer {}'.format(peer_id.hex), rep_data_set))
 
         def axes_modifier(axes):
             npr = self.settings['no_penalty_reputation']
@@ -470,8 +514,16 @@ class Logger:
             axes.axhline(enough_rep, linestyle='--', color='k', alpha=0.2)
         if file_prefix is not None:
             file_prefix += '_peer_reps'
-        plot_steps('Peer reputations', 'Time', 'Reputation', data_sets, show,
-                   file_prefix, max_edge_length, axes_modifier)
+        if rqp_bars:
+            if file_prefix is not None:
+                file_prefix += '_with_rqp'
+            plot_steps_and_bars(
+                'Peer reputations and recursive query problems', 'Time',
+                'Reputation', 'Fraction of RQP', data_sets, show, file_prefix,
+                max_edge_length)
+        else:
+            plot_steps('Peer reputations', 'Time', 'Reputation', data_sets,
+                       show, file_prefix, max_edge_length, axes_modifier)
 
     def save_plots_until(self, until_time, file_prefix):
         self.plot_average_reputation_until(until_time, False, file_prefix)
@@ -487,6 +539,9 @@ class Logger:
                                           show=False, file_prefix=file_prefix)
         self.plot_peer_reputations_until(until_time, max_edge_length=1,
                                          show=False, file_prefix=file_prefix)
+        self.plot_peer_reputations_until(until_time, rqp_bars=True,
+                                         max_edge_length=1, show=False,
+                                         file_prefix=file_prefix)
 
     def query_groups_event_processor(self, data, event):
         """
@@ -535,20 +590,28 @@ def plot_steps(title, xlabel, ylabel, data_sets, show, file_prefix,
         data for one graph (axes in matplotlib) and is a tuple of title (for
         the individual graph) and a list of plot data. Each plot data contains
         data for one plot within the graph. It is a list of tuples of the form
-        (x, y, label) or (x, y, label, kwargs), where x is a numpy ndarray
-        containing x values, similarly for y, and label is a label for the
-        plot. kwargs is an optional dictionary that will be passed to the step
-        function as keyword args.
+        (x, y, label, kwargs), where x is a numpy ndarray containing x values,
+        similarly for y, and label is a label for the plot. kwargs is a
+        dictionary that will be passed to the step function as keyword args.
     """
-    def plotter(axes, plot_data):
-        if len(plot_data) == 4:
+    def plotter(axes, index, is_bottom_row, is_left_column, _):
+        if is_bottom_row:
+            axes.set_xlabel(xlabel)
+        if index >= len(data_sets):
+            return
+        if is_left_column:
+            axes.set_ylabel(ylabel)
+        axes_title, data_set = data_sets[index]
+        axes.set_title(axes_title)
+        if axes_modifier:
+            axes_modifier(axes)
+        for plot_data in data_set:
             axes.step(plot_data[0], plot_data[1], label=plot_data[2],
                       where='post', **plot_data[3])
-        else:
-            axes.step(plot_data[0], plot_data[1], label=plot_data[2],
-                      where='post')
-    plot_grid(title, xlabel, ylabel, data_sets, plotter, show, file_prefix,
-              max_edge_length, axes_modifier)
+        if index == 0 and axes.get_label():
+            axes.legend()
+    plot_grid(title, len(data_sets), plotter, show, file_prefix,
+              max_edge_length)
 
 
 def plot_hists(title, xlabel, ylabel, data_sets, num_bins, show, file_prefix,
@@ -564,69 +627,104 @@ def plot_hists(title, xlabel, ylabel, data_sets, num_bins, show, file_prefix,
         data for one plot within the graph. It is a list with one entry which
         is a numpy ndarray containing the values for the histogram.
     """
-    def plotter(axes, plot_data):
-        axes.hist(plot_data, num_bins)
-    plot_grid(title, xlabel, ylabel, data_sets, plotter, show, file_prefix,
+    def plotter(axes, index, is_bottom_row, is_left_column, _):
+        if is_bottom_row:
+            axes.set_xlabel(xlabel)
+        if index >= len(data_sets):
+            return
+        if is_left_column:
+            axes.set_ylabel(ylabel)
+        axes_title, data_set = data_sets[index]
+        axes.set_title(axes_title)
+        for plot_data in data_set:
+            axes.hist(plot_data, num_bins)
+        if index == 0 and axes.get_label():
+            axes.legend()
+    plot_grid(title, len(data_sets), plotter, show, file_prefix,
               max_edge_length)
 
 
-def plot_grid(title, xlabel, ylabel, data_sets, plotter, show, file_prefix,
-              max_edge_length=3, axes_modifier=None):
+def plot_steps_and_bars(
+        title, xlabel, ylabel_steps, ylabel_hists, data_sets, show,
+        file_prefix, max_edge_length=3):
+    """
+    Plot a grid of graphs combining a step graph and a bar plot.
+
+    See plot_grid().
+
+    :param data_sets: A list of data sets, in order. Each data set contains
+        data for one graph (axes in matplotlib) and is a tuple of title (for
+        the individual graph), a list of plot data for the step graph as in
+        plot_steps() and a list of plot data for the bar plot, each of which is
+        a tuple (x, h, w), where x, h and w are numpy ndarrays, x containing
+        the left lower corner of the bars, h their height and w their widths.
+    """
+    def plotter(axes, index, is_bottom_row, is_left_column, is_right_column):
+        axes_bar = axes.twinx()
+        axes_bar.set_ylim(0, 1)
+        if is_bottom_row:
+            axes.set_xlabel(xlabel)
+        if index >= len(data_sets):
+            return
+        if is_left_column:
+            axes.set_ylabel(ylabel_steps)
+        if is_right_column:
+            axes_bar.set_ylabel(ylabel_hists, horizontalalignment='right')
+        else:
+            axes_bar.set_yticklabels([])
+        axes_title, data_set_step, data_set_bar = data_sets[index]
+        axes.set_title(axes_title)
+        for plot_data in data_set_step:
+            axes.step(plot_data[0], plot_data[1], label=plot_data[2],
+                      where='post', **plot_data[3])
+        axes_bar.bar(data_set_bar[0], data_set_bar[1], data_set_bar[2],
+                     align='edge', color=(0, 0, 0, 0.2))
+        if index == 0 and axes.get_label():
+            axes.legend()
+            axes_bar.legend()
+    plot_grid(title, len(data_sets), plotter, show, file_prefix,
+              max_edge_length)
+
+
+def plot_grid(title, num_graphs, plotter, show, file_prefix,
+              max_edge_length=3):
     """
     Plot a grid of graphs.
 
     Creates one or more figures (basically images in matplotlib) and fills them
-    with graphs (axes in matplotlib) visualizing data from data_sets. Up to
+    with graphs (axes in matplotlib) for visualizing data. Up to
     max_edge_length**2 graphs are in one figure (in a square grid), but no more
-    than necessary.
-
-    A legend is shown only in the first graph of each figure.
+    than necessary. axes are created and passed to the plotter function
 
     :param title: Title for the overall figure.
-    :param xlabel: Label for the x axes. Only shown in the bottom row.
-    :param ylabel: Label for the y axes. Only shown in the left column.
-    :param data_sets: A list of data sets, in order. Each data set contains
-        data for one graph (axes in matplotlib) and is a tuple of title (for
-        the individual graph) and a list of plot data. Each plot data contains
-        data for one plot within the graph. It is passed to the plotter
-        function.
-    :param plotter: A function taking a matplotlib axes and one entry of the
-        plot data list that creates the plot.
+    :param num_graphs: The number of graphs in total.
+    :param plotter: A function taking a matplotlib axes and its index.
     :param show: Whether to show the plot.
     :param file_prefix: A prefix for a file name. If None, no file is written.
     :param max_edge_length: Maximum number of graphs to lay out along each
         edge of a figure. A figure will have no more than max_edge_length**2
         graphs.
-    :param axes_modifier: A function taking one parameter to which each axes
-        object is passed.
     """
-    edge_length = math.ceil(math.sqrt(len(data_sets)))
+    edge_length = math.ceil(math.sqrt(num_graphs))
     if edge_length > max_edge_length:
         edge_length = max_edge_length
     edge_length = max(1, edge_length)
-    num_figures = math.ceil(len(data_sets) / edge_length ** 2)
+    num_figures = math.ceil(num_graphs / edge_length ** 2)
     for figure_idx in range(num_figures):
         figure, axess = plt.subplots(edge_length, edge_length, sharex=True,
                                      sharey=True, squeeze=False)
         figure.suptitle('{} ({}/{})'.format(title, figure_idx + 1,
                                             num_figures))
         for axes_idx in range(edge_length ** 2):
-            data_set_idx = axes_idx + figure_idx * edge_length ** 2
-            if data_set_idx >= len(data_sets):
+            graph_idx = axes_idx + figure_idx * edge_length ** 2
+            if graph_idx >= num_graphs:
                 break
-            axes_title, data_set = data_sets[data_set_idx]
             axes = axess.flatten()[axes_idx]
-            axes.set_title(axes_title)
-            if axes_modifier:
-                axes_modifier(axes)
-            if not axes_idx % edge_length:
-                axes.set_ylabel(ylabel)
-            for plot_data in data_set:
-                plotter(axes, plot_data)
-            if axes_idx == 0 and axes.get_label():
-                axes.legend()
-        for axes in axess.flatten()[edge_length * (edge_length - 1):]:
-            axes.set_xlabel(xlabel)
+            is_bottom_row = graph_idx >= edge_length * (edge_length - 1)
+            is_left_column = not graph_idx % edge_length
+            is_right_column = graph_idx % edge_length == edge_length - 1
+            plotter(axes, graph_idx, is_bottom_row, is_left_column,
+                    is_right_column)
         if file_prefix:
             figure.savefig(file_prefix + '_{}_of_{}.pdf'.format(figure_idx + 1,
                                                                 num_figures))
@@ -1140,6 +1238,7 @@ class QueryPeerVanished(Event):
 
 class RecursiveQueryProblem(Event):
     """Event representing the recursive query problem occurring."""
-    def __init__(self, time, querying_peer_id, in_event_id):
+    def __init__(self, time, recipient_id, querying_peer_id, in_event_id):
         super().__init__(time, in_event_id)
+        self.recipient_id = recipient_id
         self.querying_peer_id = querying_peer_id

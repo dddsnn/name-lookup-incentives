@@ -1498,7 +1498,7 @@ class Peer:
 
     def log_recursive_query_problem(self, querying_peer_id, in_event_id):
         return self.logger.log(an.RecursiveQueryProblem(
-            self.env.now, querying_peer_id, in_event_id))
+            self.env.now, self.peer_id, querying_peer_id, in_event_id))
 
 
 def calculate_reputation(reward_attenuation_strategy, current_reputation,
