@@ -1,56 +1,8 @@
 \chapter{System Description}
-\section{Goal}
 - TODO for all the stuff that's out of scope, should i mention it in this
   chapter, or only in the implementation?
 
 - TODO choose a style for when to use footnotes, and when parentheses
-
-This thesis introduces a system that is meant to extend an existing \ac{DHT}
-such that peers wanting to access records stored in it in a timely manner have
-an incentive to contribute to the operation of the \ac{DHT}, i.e. to store
-records and to answer queries about them. Having many peers contributing is then
-supposed to allow users to choose whom they query out of many options, thus
-providing the privacy benefit described in the introduction (TODO ref).
-
-The motivating use case is that of a distributed name-lookup service, similar to
-DNS, which maps user identifiers to network addresses. Storing
-\emph{reachability information} (e.g. IP address) about oneself, where one's own
-user identifier is the key to the record is also the only use case
-considered\footnote{Other ones may be possible, but are considered out of scope
-for simplicity.}. Since this is a somewhat latency-sensitive
-application\footnote{"Somewhat latency-sensitive" here means "it would be
-annoying if it took longer than 500ms" rather than "it must happen within 20ms
-or the entire system breaks".}, the system should cause as few additional delays
-during lookup as possible. The records that are stored in the \ac{DHT} are
-assumed to be fairly small, i.e. the network delay doesn't have a significant
-impact on the total delay. Furthermore, it must be possible to update records,
-and for these updates to be disseminated throughout the \ac{DHT} within a
-reasonably short time.
-
-An underlying assumption for the most part of this thesis is that the users of
-the system are selfish agents who want to use the system and gain access to the
-many peers serving the \ac{DHT}, and with good performance. This means they want
-to expend as few resources as possible, including storage space, CPU time and
-network bandwidth. They only want to use these resources in order to, at all
-times, be very likely to be in a position to receive service quickly. There is
-no explicit valuation determining what "very likely" means to a peer (TODO isn't
-there?). Rather, the reputation buffer described in the implementation chapter
-(TODO ref) acts as a proxy for it, determining the reliability of a peer's
-ability to receive service.
-
-While this is the usual assumption about peer motivation, other types of peers
-are discussed (TODO ref types of peers in this chapter, also contented peers,
-maybe something else?).
-
-The system should not have a negative impact on cooperating peers, i.e. peers
-who are contributing in the way they are supposed to. Ideally, such peers should
-not notice the system being there at all, safe for some management overhead, and
-experience the \ac{DHT} as if all peers were cooperating as well.
-
-The system should prevent free riding and be resistant to whitewashing.
-Additionally, it should offer some protection against colluding peers trying to
-appear as cooperating peers when they are not, and against Sybil attacks (TODO
-ref background section for explanation).
 
 \section{Assumptions and Prerequisites}
 The system described in this chapter assumes that, for any pair of peers, there
