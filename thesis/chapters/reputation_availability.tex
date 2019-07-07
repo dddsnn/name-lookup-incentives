@@ -6,7 +6,7 @@ reputation point system, cooperative peers must be able to gain the required
 amount of reputation within a reasonable time frame. At the same time, they
 should not be so quickly contented with their level of reputation that they
 frequently lose the incentive to participate. This chapter examines under which
-circumstances this is the case.
+circumstances this is the case using simulations.
 
 \section{Setup}
 - TODO redo percentile graphs with all black lines, colors are meaningless
@@ -157,6 +157,7 @@ that settle at a low level.
 - TODO interaction with attenuation, would be worse without
 
 \subsection{Strategy: \emph{Overlap $\rightarrow$ Reputation Saturated Last}}
+- TODO try to make this section shorter
 - TODO call the sending peer sender or querying peer for clarity?
 This strategy is a modification of the \emph{overlap} strategy, but with a
 secondary criterion as a tie breaker. Peers still start out choosing a recipient
@@ -206,7 +207,7 @@ assumption to make about the potential recipients reputation saturation. (TODO
 this entire paragraph isn't completely accurate. a peer could want to be able to
 tolerate one tremble and then already have some reputation above 10 to get back
 to 12 in a shorter time, perhaps based on experience with his average tremble
-rate and reputation gain rate)
+rate and reputation gain rate) (TODO get rid off this paragraph)
 
 Since this strategy is based on the \emph{overlap} strategy, it also protects
 against routing loops under the previous assumption that the querying peer has
@@ -436,6 +437,7 @@ peer removed from the group.
 
 \subsubsection{Enforcement}
 \label{sec:selection_overlap_rep_sorted_enforcement}
+- TODO make shorter?
 The downside of this strategy is that there is no inherent incentive for peers
 to use it. It may provide good social value, but for any individual choice a
 querying peer could decide that the lowest-reputation peer is less likely to
@@ -547,14 +549,8 @@ this has an alternative and wasn't very promising anyway.
   in system description)
 - hasn't been implemented, not clear
 
-\subsection{Strategy: \emph{Reputation Sorted}}
-- no routing loop protection
-\subsection{Strategy: \emph{Random}}
-- no routing loop protection
-- time it takes to get to penalty threshold, dependent on who gets picked first
-- impact of allowing to not use maximal overlap peers: hop count, timeouts (due
-  to penalties, recursive queries), failures?
 \subsection{Uneven Query Distribution}
+- TODO remove? what was this even supposed to be?
 
 \section{Reputation Decay}
 - decay, necessary (see system description), but difficult
@@ -834,6 +830,8 @@ $l$ the upper reputation limit.
 \end{figure}
 
 \subsection{Strategy: \emph{Harmonic}}
+- TODO get rid off all harmonic stuff
+
 In this strategy, attenuation is done above the threshold by a coefficient that
 is harmonically decreasing. $a$ and $k$ are parameters, $t$ is the reputation
 threshold, $l$ the upper reputation limit. Essentially, raw reputation in the

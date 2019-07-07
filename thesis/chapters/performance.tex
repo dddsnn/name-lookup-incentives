@@ -14,6 +14,22 @@
 \section{Performance Indices}
 TODO
 \section{Comparison with Tor}
+- tor fully anonymizes tcp, stronger than what we do here
+    - specify hostname when establishing a connection, exit nodes does dns
+      lookup
+    - Remote hostname lookup is basically dns over the circuit, (but only A and
+      AAAA records)
+- latency is what's important to us, ignore tor's establishing a circuit and our
+  finding query groups, that can be done in the background
 - queries not optimizable for geography, worst case every hop towards the other
   end of the planet
+- ignore possible tcp delay from dropped packets, hol blocking, assume network
+  not congested?
+\subsection{Tor}
+- fixed-size cells of 512 bytes
+- assuming link protocol version 4
+- remote hostname lookup: 512 bytes fixed-length cell, query and response each
+- or let the exit node do the lookup and include the first payload. with a small
+  http request, lookup is basically free, same as a dns query
+- but tor has no incentives (cite tor perf improvements paper)
 TODO
