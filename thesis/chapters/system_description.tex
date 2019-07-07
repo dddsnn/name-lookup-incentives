@@ -102,7 +102,7 @@ of behavior. Section~\ref{sec:desc_rep_system} goes into more detail.
 
 Generous peers may actually be malicious, trying to attract a lot of traffic in
 order to build profiles. This is briefly discussed in
-section~\ref{sec:desc_attacks_generous}, but otherwise out of the scope of this
+Section~\ref{sec:desc_attacks_generous}, but otherwise out of the scope of this
 thesis.
 
 \subsubsection{Contented}
@@ -121,7 +121,7 @@ attack) (TODO cite sybil or ref background) are single peers acting under
 multiple identities trying to achieve the same thing.
 
 These are out of scope of the implementation, but some ideas are presented in
-section (TODO ref) on how they may be dealt with.
+Section (TODO ref) on how they may be dealt with.
 
 \subsubsection{Sabotaging}
 Sabotaging peers are motivated by causing harm to others. They are willing to
@@ -148,7 +148,7 @@ information on how to contact the peer.
 These IDs are bit strings of fixed length and routing takes place
 along a binary tree formed by them. It may be possible to adapt the system to
 work with \acp{DHT} using a different routing scheme, such as Chord. See
-section~\ref{sec:desc_querying} for details on how querying is handled in the
+Section~\ref{sec:desc_querying} for details on how querying is handled in the
 \ac{DHT} used by the system.
 
 Every peer stores a number of records of the \ac{DHT}, he is \emph{responsible}
@@ -156,7 +156,7 @@ for these records. Other peers are also responsible for these same records, and
 the peer stays in contact with them in a \emph{sync group}. In these groups,
 peers synchronize their information about stored records, like the creation of a
 new one, or the update of an existing one. See
-section~\ref{sec:desc_sync_groups} for details on sync groups.
+Section~\ref{sec:desc_sync_groups} for details on sync groups.
 
 The system implements a reputation system in which peers have a
 \emph{reputation} that is tracked within \emph{query groups}. A peer has a
@@ -167,7 +167,7 @@ them knows the current reputation of each of the other query peers. They are the
 ones to whom the peer forwards queries he can't answer himself. The way query
 groups are created, how they are managed, and what dynamics arise from this is
 not examined in this thesis, but there proposals and more details on query
-groups in section~\ref{sec:desc_query_groups}.
+groups in Section~\ref{sec:desc_query_groups}.
 
 A peer receives a \emph{reward}, i.e. an increase of his reputation in a query
 group if he performs a \emph{cooperative action} towards a peer in that group.
@@ -181,7 +181,7 @@ cooperative action is responding to a query with the correct answer within the
 time frame demanded by the system's \emph{rules} (the set of parameters).
 Examples of a defecting action are not responding to a query, responding with an
 answer that states that the query could not be resolved, or responding too early
-or too late. See section~\ref{sec:desc_rep_management} for details on how
+or too late. See Section~\ref{sec:desc_rep_management} for details on how
 reputation is tracked in query groups.
 
 The reputation peers earn is used to determine the quality of service they
@@ -209,7 +209,7 @@ rewards according to the rules, however, penalties are applied directly to the
 latter. In order to gain an amount of effective reputation, it takes a modified,
 usually greater, amount of raw reputation when attenuation is in effect. How the
 raw reputation is attenuated is determined by the attenuation stretegy. See
-section~\ref{sec:attenuation} for a more detailed description and an examination
+Section~\ref{sec:attenuation} for a more detailed description and an examination
 of different strategies.
 
 During operation, pairs of peers exchange messages without other peers knowing
@@ -223,7 +223,7 @@ system} needs to be in place that can make rulings in these situations. Such a
 system is not part of the implementation in this thesis, and there may be very
 complex dynamics arising from such a system that are not foreseeable without a
 simulation. However, a proposal (TODO multiple proposals?) is presented in
-section~\ref{sec:desc_complaints}.
+Section~\ref{sec:desc_complaints}.
 
 At many points, the system relies on messages being authenticated. It is assumed
 that all messages exchanged between peers are signed to prevent one peer
@@ -240,7 +240,7 @@ The different message types and their possible layout is presented in chapter
 (TODO ref performance chapter).
 
 Bootstrapping the system is examined in
-section~\ref{sec:rep_avail_bootstrapping}, as is the ease with which new peers
+Section~\ref{sec:rep_avail_bootstrapping}, as is the ease with which new peers
 can establishe themselves in an already running system. (TODO is this paragraph
 necessary? ref bootstrapping section in this chapter as well)
 
@@ -313,7 +313,7 @@ finite number of times, since the next peer queried must always be closer to the
 target ID, so eventually one is reached who is responsible for it. Once a
 response arrives at one of the peers in this chain of queries, it is used to
 respond to the peer who queried him. There are alternatives to this procedure
-discussed in section~\ref{sec:desc_recursive_vs_iterative}.
+discussed in Section~\ref{sec:desc_recursive_vs_iterative}.
 
 In this chain of queries, one of them may fail, e.g. because the recipient has
 only recently joined the system and isn't yet sure he has all the records he is
@@ -321,7 +321,7 @@ responsible for. He may also just ignore the query out of laziness, in which
 case the querying peer should, after a timeout, consider it failed. He should
 then retry the query with a different suitable peer. If he has exhausted all the
 possibilities, he should send a \emph{fail response}, indicating he is unable to
-respolve the query.
+resolve the query.
 
 Peers may elect to send multiple queries at once instead of waiting for one to
 fail first. This reduces the risk of letting the querying peer wait
@@ -341,7 +341,7 @@ Instead of querying for a complete ID, the target ID can be a prefix of an ID of
 arbitrary length (it can even be empty). A correct response to such a query is
 any record whose ID starts with the target ID. This is useful for learning about
 peers to complete one's subprefix coverage (see
-section~\ref{sec:desc_query_groups}). A response stating that no record with the
+Section~\ref{sec:desc_query_groups}). A response stating that no record with the
 target ID exists in this context means that no record exists in the entire
 \ac{DHT} whose ID starts with the target ID.
 
@@ -515,7 +515,7 @@ the lengths of the subprefixes he can serve for each peer (or e.g. the sum of
 squares, to give longer subprefixes a higher weight). This can serve as an
 estimator for how many queries he is likely to receive in that group, and thus
 how easily he can gain reputation (see chapter~\ref{chap:rep_avail},
-particularly section~\ref{sec:rep_avail_group_reeval}) (TODO is that section
+particularly Section~\ref{sec:rep_avail_group_reeval}) (TODO is that section
 still in?).
 
 \subsubsection{Inviting and Joining}
@@ -589,7 +589,7 @@ in order to make use of his new group.
 
 A peer completely new to the system needs some way of entering his first query
 group. He needs to know at least one peer already in the system to get started
-(see section~\ref{sec:desc_bootstrapping}), who must act as entry peer to at
+(see Section~\ref{sec:desc_bootstrapping}), who must act as entry peer to at
 least one query group.
 
 Again, it is not at all clear that this proposal would work in practice. If this
@@ -620,7 +620,7 @@ like to receive the reputation update is open to abuse: he could choose to
 receive a penalty in a group he doesn't really care about).
 
 Rewards and penalties are handled in different ways for incentive reasons
-(section~\ref{sec:desc_rationale} goes into more detail on peer incentives).
+(Section~\ref{sec:desc_rationale} goes into more detail on peer incentives).
 After a peer performs a cooperative action (one deserving a reward, e.g.
 successfully responding to a query) on another peer, the other peer sends him a
 \emph{cooperation confirmation}, which is a statement signed by the other peer
@@ -799,7 +799,7 @@ In P-Grid, this is done because peers are well-intentioned and willing to
 cooperate (TODO cite). Under the assumptions made by the system in this thesis,
 peers need an incentive to do so. They may have such an incentive because they
 are unable to gain reputation quickly enough because they aren't getting enough
-queries.  Taking on responsibility for a popular prefix can address this.
+queries. Taking on responsibility for a popular prefix can address this.
 
 A new kind of query could help peers decide which new prefixes to cover, in
 which they query for a prefix which receives a lot of traffic and the peers
@@ -940,7 +940,7 @@ not vengeful. They do not consider hurting someone who hurt them a benefit.
 
 For this to work, however, the complaint system is crucial. If the querying peer
 doesn't send the cooperation confirmation, and there is no recourse and no
-threat of penalty for it, selfish peers will not do it.  Similarly, it must not
+threat of penalty for it, selfish peers will not do it. Similarly, it must not
 be possible to apply penalties to other peers without cause, just for the
 benefit of the reward broadcasting it brings.
 
@@ -1068,7 +1068,7 @@ first place.
 
 The penalty for an incorrect response should be set sufficiently high to
 disincentivize giving them even if the likelihood of actually receiving it is
-low (see section~\ref{sec:desc_incentives_sync}).
+low (see Section~\ref{sec:desc_incentives_sync}).
 
 \subsection{Recursive vs. Iterative Queries}
 \label{sec:desc_recursive_vs_iterative}
@@ -1102,7 +1102,7 @@ reputation. Under unfortunate circumstances, one could imagine low reputation
 values in two query groups keeping each other down. This problem can also be
 observed in the simulation results, e.g. in
 figure~\ref{fig:selection_overlap_peer_reps} in
-section~\label{sec:rep_avail_selection_overlap} (TODO confirm it's the rec query
+Section~\label{sec:rep_avail_selection_overlap} (TODO confirm it's the rec query
 prob).
 
 While the recursive query problem can impede peers' ability to gain reputation,
@@ -1158,7 +1158,7 @@ B, and B complains about A.
 
 \subsubsection{Explicitly Advertised Quality of Service}
 Another alternative becomes possible if the extension described in
-section~\ref{sec:desc_load_balancing} is implemented. In it, the records a peer
+Section~\ref{sec:desc_load_balancing} is implemented. In it, the records a peer
 is responsible for is independent of the peer's ID. Peers are free to choose
 which prefixes they are responsible for and advertise this to other peers.
 
@@ -1181,7 +1181,7 @@ the system (e.g. per query) (TODO ref background). Once peers have gathered at
 least the penalty threshold reputation, they are entitled to delay-free service.
 They only lose this privilege if they incur a penalty, most notably for failing
 to respond properly to a query. As long as this doesn't happen, they can send as
-many queries as they like.  With this method, having reputation is seen as proof
+many queries as they like. With this method, having reputation is seen as proof
 that a peer is generally willing to contribute, to play a part of the whole. It
 is unnecessary to deduct this reputation, as querying someone else doesn't
 change that assessment.
@@ -1206,7 +1206,7 @@ Credit-debit could address this: Peers using the service more heavily have to
 contribute more, in effect taking load off of moderate consumers. But heavy
 users must also be given the opportunity to earn more reputation by increasing
 their contribution. Load balancing, described in
-section~\ref{sec:desc_load_balancing} has to be used to address this. Heavy
+Section~\ref{sec:desc_load_balancing} has to be used to address this. Heavy
 users have to take responsibility for more records in order to receive more
 queries, thus gaining the additional reputation they need in order to use the
 service to the extent that they wish.
@@ -1240,7 +1240,7 @@ for any peer whose ID starts with the target ID.
 ID is a prefix of the peer ID, i.e., the peer ID is a valid response for a query
 asking for the target ID.
 \item[Overlap $o(a, b)$:] The length of the longest common prefix of two bit
-strings.  Defined in section~\ref{sec:desc_query_groups} (TODO ref the
+strings. Defined in Section~\ref{sec:desc_query_groups} (TODO ref the
 definition itself as an equation? otherwise make sure it's actually defined in
 that section).
 \item[Being closer to an ID:] ID A is closer to ID X than ID B iff the overlap
@@ -1289,7 +1289,7 @@ complete subprefix coverage. Based on the length of subprefix B can serve for A,
 but can also incorporate the trust in A or how many other peers A knows also
 serving that subprefix. Used by B to estimate how many queries he is likely to
 get from A, or from an entire group of peers (see
-section~\ref{sec:desc_usefulness}).
+Section~\ref{sec:desc_usefulness}).
 \item[Reputation:] A non-negative, real number stored in every query group for
 each of its members. Earned by peers for better quality of service.
 \item[Reputation record:] The copy of all of a peer's query peers' reputation
@@ -1306,7 +1306,7 @@ caused by a congested network. (TODO also cite the paper introducing the term)
 confirming that he performed a cooperative action.
 \item[Reputation attenuation:] A reduction of the magnitude of rewards that
 takes effect once a peer's reputation passes a minimum (see
-section~\ref{sec:attenuation}).
+Section~\ref{sec:attenuation}).
 \item[Raw and effective reputation:] Reputation before and after
 \emph{reputation attenuation} takes effect.
 \item[Recursive query:] A query in which the recipient performs all further
@@ -1314,19 +1314,19 @@ querying on behalf of the sender and returns the final result.
 \item[Iterative query:] A query in which the recipient only indicates the next
 suitable peer to query, the sender must perform the query himself. Requires
 \emph{query vouchers} to provide a good level of service (see
-section~\ref{sec:desc_iterative_vouchers}).
+Section~\ref{sec:desc_iterative_vouchers}).
 \item[Query voucher:] A one-time-use statement entitling one peer to the level
 of service of another. Used for iterative queries.
 \item[Hop:] One step in a query.
 \item[Routing loop:] Failure in looking up a record in the \ac{DHT} caused by at
 least one peer in the chain of queries forwarding the query to a peer who is not
 \emph{closer to} the \emph{target ID}. The query is sent back to peers who
-originally sent it. See also section~\ref{sec:selection}.
+originally sent it. See also Section~\ref{sec:selection}.
 \item[Entry peer:] A peer who is a member of a query group and facilitates the
 joining of another peer into that group.
 \item[Recursive query problem:] An issue in which a peer's low reputation in one
 query group negatively affects his reputation in another (see
-section~\ref{sec:desc_rec_query_prob}).
+Section~\ref{sec:desc_rec_query_prob}).
 \item[Penalty delay:] The delay that is deliberately imposed before responding
 to a query to penalize the querying peer.
 \item[Penalty threshold reputation (short: penalty threshold):] The minimum
@@ -1379,13 +1379,13 @@ The only workaround that can be offered is to choose the routing prefix length
 in such a way that empty sync groups don't occur. It must be variable during
 operation anyway, in order to support changes in network size. This can be
 achieved e.g. through a system like the one described in
-section~\ref{sec:desc_load_balancing}, but maybe also a simpler one, in which
+Section~\ref{sec:desc_load_balancing}, but maybe also a simpler one, in which
 the routing prefix length is the same for all peers, but can be changed at
 runtime.
 
 Besides empty sync groups, groups with only very few peers cause problems as
 well, as they make peers' ability to gain reputation brittle, as described in
-section (TODO ref).
+Section (TODO ref).
 
 \subsection{Going Offline}
 The system so far doesn't consider that peers may want to go offline. If they
@@ -1442,7 +1442,7 @@ many peers to start with.
 \section{Possible Attacks}
 This section describes a few vectors attacks on the system that have been
 considered, but doesn't claim to be exhaustive. Some of them can be dealt with,
-other less so with the system as it has been proposed.  Two kinds of attack can
+other less so with the system as it has been proposed. Two kinds of attack can
 very broadly and clearly be distinguished:
 \begin{itemize}
 \item Trying to cheat the system into granting a better quality of service than
@@ -1465,7 +1465,7 @@ kept in mind, since they are ultimately the reason the system even exists.
 Free riding, or leeching, is peers using the service without contributing to it.
 Preventing it is the center of the reputation system and works, under the
 assumption that peers are interested in delay-free service. Contented peers (see
-section~\ref{sec:desc_contented_peers} don't meet that assumption, and could
+Section~\ref{sec:desc_contented_peers} don't meet that assumption, and could
 become a problem, since the promise of a good level of service is the only
 leverage the system has over peers.
 
@@ -1561,9 +1561,9 @@ effort.
 
 If all peers are willing to generate IDs in order to join the smallest sync
 group, this problem really fixes itself, performing load balancing. Otherwise, a
-credit-debit system (see section~\ref{sec:desc_credit_only_vs_credit_debit}) or
-reputation decay (see section~\ref{sec:desc_incentives_rep_mgmt}), together with
-explicitly advertised prefixes (see section~\ref{sec:desc_load_balancing}) may
+credit-debit system (see Section~\ref{sec:desc_credit_only_vs_credit_debit}) or
+reputation decay (see Section~\ref{sec:desc_incentives_rep_mgmt}), together with
+explicitly advertised prefixes (see Section~\ref{sec:desc_load_balancing}) may
 help.
 
 \subsection{Abusing the Complaint System}
@@ -1571,7 +1571,7 @@ help.
 
 \subsection{Generous Peers}
 \label{sec:desc_attacks_generous}
-Generous peers have been described in section~\ref{sec:desc_generous_peers}.
+Generous peers have been described in Section~\ref{sec:desc_generous_peers}.
 The motivation for their generosity may not be selfless. Firstly, responding
 without delay regardless of the querying peer's reputation attracts traffic from
 peers with low reputation. This counteracts one of the motivations for creating
@@ -1627,7 +1627,7 @@ To make this more likely, he must be useful to him, meaning he needs more
 observation peers with different IDs (serving the target's subprefixes) in the
 query group. The attacker's first peer can act as entry peer for them. If the
 query peer selection strategy \emph{overlap $\rightarrow$ reputation sorted}
-(see section~\ref{sec:rep_avail_selection_overlap_rep_sorted}) is mandated, the
+(see Section~\ref{sec:rep_avail_selection_overlap_rep_sorted}) is mandated, the
 attacker should aim for the observation peers to always be the lowest reputation
 peer for the given subprefix to make it likely to receive queries from the
 target\footnote{It's still not guaranteed since there may be another peer with a
@@ -1639,7 +1639,7 @@ the target is querying for.
 
 Getting all of the observation peers into the query group can be difficult
 already if the collusion countermeasures described in
-section~\ref{sec:desc_collusion_sybil_attacks} are implemented which make it
+Section~\ref{sec:desc_collusion_sybil_attacks} are implemented which make it
 harder to get multiple peers into a group at once. In that case, a paranoid
 target could make the attacker's life harder by switching query groups quickly
 so the attacker never gets a good foothold in any of them.
@@ -1693,7 +1693,7 @@ assuming the target is paranoid enough to check for this.
 To make generating all these IDs more time consuming, the length of the routing
 prefix could be extended, thus increasing the number of IDs required. However,
 this causes problems in the system, as explained in
-section~\ref{sec:desc_empty_sync_groups}. It also means everyone needs more
+Section~\ref{sec:desc_empty_sync_groups}. It also means everyone needs more
 query peers for a complete subprefix coverage.
 
 It could also be made harder to generate an ID itself. The ID is assumed to be

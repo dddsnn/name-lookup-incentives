@@ -104,7 +104,7 @@ to the new member, so that he also has the same iteration order. This leads to a
 problem where some "lucky" peers always get picked first, simply because of
 their position in the dictionary. Others in contrast have a difficult time
 getting any reputation because they don't receive queries (they may still
-receive some, e.g.  after a peer let a query time out).
+receive some, e.g. after a peer let a query time out).
 
 - TODO number of queries received histogram
 
@@ -239,7 +239,7 @@ able to eventually pass the no-penalty reputation. However, they take much
 longer to do it than peers of the higher percentiles. Both of these observations
 were to be expected, since "unlucky" peers (who previously were not selected
 first due to their position in the iteration order) are now given priority once
-the "lucky" ones are reputation saturated.  But this takes time, explaining the
+the "lucky" ones are reputation saturated. But this takes time, explaining the
 delay for the lower percentiles.
 
 \begin{figure}[t]
@@ -398,7 +398,7 @@ queries until they are reputation saturated (TODO this assumption should have
 been stated in a previous chapter, description or implementation). Any peers who
 are not contributing because they are contented with the lowest level of service
 (called \emph{contented peers} for this discussion) would remain at 0
-reputation.  They would thus be strongly favored for selection, but the effort
+reputation. They would thus be strongly favored for selection, but the effort
 wasted on them, and queries remain unanswered.
 
 This could have desastrous results on overall performance for queries where the
@@ -522,7 +522,7 @@ lowest-reputation peer) which target ID he is interested in. But the querying
 peer may not want to do that, for whatever reason. Maybe he doesn't trust the
 peer (from previous experience, maybe he believes he is being followed), maybe
 he has already sent him plenty of queries in the past and doesn't want him to
-have too much information (see section~\ref{sec:desc_stalking}).
+have too much information (see Section~\ref{sec:desc_stalking}).
 
 Peers who are very sensitive to this could of course be in many more query
 groups than is required for subprefix coverage, giving them a wider choice of
@@ -572,7 +572,7 @@ this has an alternative and wasn't very promising anyway.
 
 \section{Penalty Expectations}
 \label{sec:penalty_expectations}
-Reputation attenuation, introduced in section~\ref{sec:attenuation}, as well as
+Reputation attenuation, introduced in Section~\ref{sec:attenuation}, as well as
 penalty expectations, introduced in this section, are enabled in the default
 settings. When both are disabled, quite severe oscillations in individual peer
 reputations can be observed that are also reflected in reputation percentiles of
@@ -631,7 +631,7 @@ is dependent on the amount of queries he is likely to receive at the same time,
 i.e. within the time between letting the first query time out or sending a fail
 response (TODO terminology) and the corresponding penalty arriving. Peers would
 need to adjust the buffer based on the activity in the query group. Some
-strategies for reputation attenuation presented in section~\ref{sec:attenuation}
+strategies for reputation attenuation presented in Section~\ref{sec:attenuation}
 also make it more difficult to gain reputation for a peer the more he already
 has, so he may have to do much more work than necessary.
 
@@ -848,7 +848,7 @@ $l$ the upper reputation limit.
 \subsection{Strategy: \emph{Harmonic}}
 In this strategy, attenuation is done above the threshold by a coefficient that
 is harmonically decreasing. $a$ and $k$ are parameters, $t$ is the reputation
-threshold, $l$ the upper reputation limit.  Essentially, raw reputation in the
+threshold, $l$ the upper reputation limit. Essentially, raw reputation in the
 interval $[t + i, t + i + 1], i \in \mathbb{N}$ is attenuated by the coefficient
 $\frac{1}{a + i \cdot k}$.
 
@@ -964,10 +964,10 @@ Without attenuation, some oscillation can be seen in the reputation percentiles,
 which reflects oscillation in individual peer reputations. Peers are also
 getting significantly above the reputation at which they are saturated (14). The
 reason is that, while peers expect penalties (see
-section~\ref{sec:penalty_expectations}), they do not expect rewards. This leads
+Section~\ref{sec:penalty_expectations}), they do not expect rewards. This leads
 to them answering multiple queries in a row, even though answering only the
 first would have made them saturated; the reputation update simply hasn't
-arrived yet.  This is of course still true for the attenuated cases, but here it
+arrived yet. This is of course still true for the attenuated cases, but here it
 takes a lot more raw reputation to get to the saturated effective reputation.
 
 There is no discernible difference between \emph{exponential} and
@@ -1043,7 +1043,7 @@ The reputation cap (the upper limit of effective reputation that can't be
 surpassed) is meant to ensure activity in the query groups by preventing peers
 from collecting a lot of reputation up front and then not responding to queries
 for prolonged periods. In the simulations, this didn't become relevant because
-all peers let queries time out once 14 effective reputation are reached.  With
+all peers let queries time out once 14 effective reputation are reached. With
 \emph{exponential} or \emph{harmonic} attenuation, it's not a viable strategy
 anyway, since effective reputation gets more and more "expensive". But with
 \emph{constant} attenuation an upper limit may well become necessary.
@@ -1118,7 +1118,7 @@ group}{attenuation/attenuation\_no\_attenuation\_selection\_overlap.settings}
 Figure~\ref{fig:attenuation_no_att_selection_overlap_rep_percs} shows reputation
 percentiles with no attenuation and the peer selection strategy \emph{overlap}.
 The same settings were used and the same query group shown as in
-figure~\ref{fig:selection_overlap_rep_percs} from section~\ref{sec:selection}
+figure~\ref{fig:selection_overlap_rep_percs} from Section~\ref{sec:selection}
 covering selection strategies, except that attenuation has been turned off
 (previously, the default \emph{exponential} attenuation was used).
 
