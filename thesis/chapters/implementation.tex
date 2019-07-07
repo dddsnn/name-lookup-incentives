@@ -130,6 +130,9 @@ TODO
 - peers always broadcast reputation updates truthfully, even without incentive;
   reward updates are broadcast by the peer giving the reward, not the one
   receiving it
+- major requirements unimplemented and unexplored:
+    - complaint system
+    - query group finding system
 
 \section{Peer Service (TODO title; the interface the Peer class provides)}
 - one query at a time
@@ -143,3 +146,6 @@ TODO
 - explain why unmatched queries occur: a sends b a query, times out at a, b
   answers anyway
 - reputation graphs show no-penalty rep and rep-saturated rep
+- measuring rec query prob: log whenever a peer tries to respond and notices
+  that his response should have arrived in the past. uses the query_timeout
+  and transmission delay that's valid for all peers, so should be exact

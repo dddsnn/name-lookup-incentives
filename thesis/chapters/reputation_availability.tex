@@ -1,16 +1,12 @@
 \chapter{Reputation Availability}
 \label{chap:rep_avail}
 The incentive system's goal is to provide a good level of service to those peers
-who abide by the rules of the system (TODO terminology: cooperating?). Since the
-system measures this via a reputation point system, cooperating (TODO) peers
-must be able to gain the required amount of reputation within a reasonable time
-frame. At the same time, they should not be so quickly contented with their
-level of reputation that they frequently lose the incentive to participate (TODO
-are they still "cooperating" in this case?).
-
-- being able to gain rep basically means being sent enough queries regularly
-
-This chapter examines under which circumstances this is the case.
+who abide by the rules of the system. Since the system measures this via a
+reputation point system, cooperative peers must be able to gain the required
+amount of reputation within a reasonable time frame. At the same time, they
+should not be so quickly contented with their level of reputation that they
+frequently lose the incentive to participate. This chapter examines under which
+circumstances this is the case.
 
 \section{Setup}
 - TODO redo percentile graphs with all black lines, colors are meaningless
@@ -41,15 +37,14 @@ value):
 \item Number of random introductions: 8
 \item Subprefix coverage check interval: 10 seconds (TODO make sure it's clear
       what this is)
-\item Sync peers are not queried when finding subprefix coverage (TODO
-      terminology "finding coverage")
+\item Sync peers are not queried when completing their subprefix coverage
 \item Maximum query group size: 16
 \item Minimum desired number of query peers: 2
 \item Reward for a successful query: 1 reputation point
 \item Penalty for a failed query: 1 reputation point
 \item Penalty for a timeout: 2 reputation points
 \item No reputation decay
-\item No-penalty reputation (TODO terminology): 10 reputation points
+\item Penalty threshold reputation: 10 reputation points
 \item Request generation: 1 per second per peer (TODO possibly more complex
       request generation?)
 \item Reputation attenuation: exponential with exponent 0.35, coefficient 1,
@@ -73,8 +68,9 @@ Simulations usually (TODO usually or always?) last 200 seconds.
 \label{sec:selection}
 Many requests or incoming queries make it necessary for a peer to send a query
 to a query peer. The peer must then choose the recipient of the query. How peers
-decide this influences the reputation availability in the system. 5 different
-strategies have been implemented and are presented in the following.
+decide this influences the reputation availability in the system. Three
+different strategies (TODO are they 3?) have been implemented and are presented
+in the following.
 
 - all peers use the same strategy
 - should strategies not avoiding loops be penalized? (i.e. give penaltes for
@@ -97,8 +93,8 @@ loops occur, since at each hop the distance to the target ID shrinks.
 
 - TODO formalize overlap with target ID
 
-The strategy does not specify a tie breaker. In the simulation query groups are
-maintainer as Python \texttt{OrderedDict} objects, which are always iterated
+The strategy does not specify a tie breaker. In the simulation, query groups are
+maintained as Python \texttt{OrderedDict} objects, which are always iterated
 over in a predictable order. Upon entering a query group, this object is copied
 to the new member, so that he also has the same iteration order. This leads to a
 problem where some "lucky" peers always get picked first, simply because of
@@ -124,7 +120,7 @@ The underlying problem is that peers have no consideration for which peers could
 use queries in order to gain reputation, nor do they have any incentive to.
 There end up being "rich" peers and "poor" peers because of this.
 
-While this is cause by an artifact of the implementation, it is by no means
+While this is caused by an artifact of the implementation, it is by no means
 certain that this problem couldn't occur in a real system. Peers may use an
 implementation that also tends to favor some peers over others for lack of a tie
 breaker.
@@ -172,7 +168,7 @@ The peer considers a potential recipient \emph{reputation saturated} if the
 lowest reputation the potential recipient has in any query group shared with the
 peer is greater or equal than the reputation at which the potential recipient
 would let the query time out out of laziness. In the simulation, this is the
-no-penalty reputation (TODO terminology) plus the reputation buffer.
+penalty threshold plus the reputation buffer.
 
 Effectively, the peer makes a list of all known query peers (TODO only those he
 hasn't queried before. make that clear, possibly somewhere before) and sorts it
@@ -201,16 +197,16 @@ correspond to the number of trembles a peer can tolerate. E.g., in the default
 settings, the reputation buffer is 4, for a total of 14 reputation, which allows
 a peer to let one query time out for a penalty of 2 and still have 12
 reputation. An unintentional timeout after that would leave the peer still at or
-above the 10 no-penalty (TODO terminology) reputation. Another rational choice
-would be a reputation buffer of 3, which would allow a peer to tolerate a failed
-query penalty (of 1). But a reputation buffer of e.g. 3.5 doesn't make sense,
-since it doesn't give the peer a possibility he wouldn't have with a buffer of
-3 (there is no penalty of 1.5 in the rules). So the peer has some indication
-about what assumption to make about the potential recipients reputation
-saturation. (TODO this entire paragraph isn't completely accurate. a peer could
-want to be able to tolerate one tremble and then already have some reputation
-above 10 to get back to 12 in a shorter time, perhaps based on experience with
-his average tremble rate and reputation gain rate)
+above the 10 reputation of the penalty threshold. Another rational choice would
+be a reputation buffer of 3, which would allow a peer to tolerate a failed query
+penalty (of 1). But a reputation buffer of e.g. 3.5 doesn't make sense, since it
+doesn't give the peer a possibility he wouldn't have with a buffer of 3 (there
+is no penalty of 1.5 in the rules). So the peer has some indication about what
+assumption to make about the potential recipients reputation saturation. (TODO
+this entire paragraph isn't completely accurate. a peer could want to be able to
+tolerate one tremble and then already have some reputation above 10 to get back
+to 12 in a shorter time, perhaps based on experience with his average tremble
+rate and reputation gain rate)
 
 Since this strategy is based on the \emph{overlap} strategy, it also protects
 against routing loops under the previous assumption that the querying peer has
@@ -235,12 +231,12 @@ being answered at all.
 Figure~\ref{fig:selection_overlap_high_rep_last_rep_percs} shows the reputation
 percentiles of 2 query groups. The ability for peers of the lowest percentiles
 to gain reputation compares favorably to the \emph{overlap} strategy, they are
-able to eventually pass the no-penalty reputation. However, they take much
-longer to do it than peers of the higher percentiles. Both of these observations
-were to be expected, since "unlucky" peers (who previously were not selected
-first due to their position in the iteration order) are now given priority once
-the "lucky" ones are reputation saturated. But this takes time, explaining the
-delay for the lower percentiles.
+able to eventually pass the penalty threshold. However, they take much longer to
+do it than peers of the higher percentiles. Both of these observations were to
+be expected, since "unlucky" peers (who previously were not selected first due
+to their position in the iteration order) are now given priority once the
+"lucky" ones are reputation saturated. But this takes time, explaining the delay
+for the lower percentiles.
 
 \begin{figure}[t]
 \centering
@@ -277,8 +273,8 @@ response statuses over time. Compared with the \emph{overlap} strategy, there
 are a few more timeouts and unmatched queries. The difference isn't big, but can
 be explained by the possibility of selecting unsuitable peers. The possibility
 of routing loops was discussed, but they may also happen if queries are sent to
-recipients suffering from the recursive query problem (TODO terminology). (TODO
-confirm from the log)
+recipients suffering from the recursive query problem. (TODO confirm from the
+log)
 
 \begin{figure}[t]
 \centering
@@ -325,10 +321,10 @@ switching section here?).
 
 Figure~\ref{fig:selection_overlap_rep_sorted_rep_percs} shows reputation
 percentiles in 2 query groups. One in which reputation is gained easily gained
-by all peers, one in which the 5th percentile can't quite maintain the
-no-penalty reputation for a while (TODO likely from recursive query problem,
-with one peer in a small query group where getting to 10 takes a long time.
-check that) (TODO clarify that this is good).
+by all peers, one in which the 5th percentile can't quite maintain the penalty
+threshold reputation for a while (TODO likely from recursive query problem, with
+one peer in a small query group where getting to 10 takes a long time.  check
+that) (TODO clarify that this is good).
 
 \begin{figure}[t]
 \centering
@@ -343,8 +339,8 @@ groups}{selection\_strategy/selection\_overlap\_rep\_sorted.settings}
 Figure~\ref{fig:selection_overlap_rep_sorted_peer_reps} shows the reputation
 development of 2 peers. The one on the left has it very easy to gain reputation,
 the one on the right struggles for a while in 2 of his 3 query groups, but can
-eventually gain and maintain beyond the no-penalty reputation. This is about the
-worst case as well (TODO excluding peers in very small groups).
+eventually gain and maintain beyond the penalty threshold reputation. This is
+about the worst case as well (TODO excluding peers in very small groups).
 
 The left graph very clearly shows a sort of sawtooth pattern that stems from the
 peer letting a query time out once he is reputation saturated at 14 reputation,
@@ -364,9 +360,8 @@ The frequencies of response statuses presented in
 figure~\ref{fig:selection_overlap_rep_sorted_resp_statuses} shows this
 strategy to be better than the other \emph{overlap} strategies in terms of query
 success rate. The fact that peers can quickly gain reputation and receive
-penalty-free service makes the recursive query problem (TODO terminology) less
-likely (TODO confirm by measuring how often it happens), leading to fewer
-timeouts.
+penalty-free service makes the recursive query problem less likely (TODO confirm
+by measuring how often it happens), leading to fewer timeouts.
 
 \begin{figure}[t]
 \centering
@@ -447,7 +442,7 @@ querying peer could decide that the lowest-reputation peer is less likely to
 answer, or likely to take more time, than some other one. This could be from
 previous experience, or from the assumption that a peer with low reputation in
 one query group also has low reputation in other query groups, leading to the
-recursive query problem (TODO terminology) and longer response times.
+recursive query problem and longer response times.
 
 So in order for this strategy to be implemented in a real system, the rules of
 the system must make querying the lowest-reputation peer mandatory. The querying
@@ -529,9 +524,9 @@ groups than is required for subprefix coverage, giving them a wider choice of
 peers to query and making it less likely they feel forced into a bad situation.
 
 A modification alleviating this issue is to only require a peer to query the
-lowest-reputation peer if he has less than the no-penalty reputation (getting
-everyone above that threshold quickly is the purpose of the strategy, after
-all). Assuming that peers generally do well, this would further reduce the
+lowest-reputation peer if he has less than the penalty threshold reputation
+(getting everyone above that threshold quickly is the purpose of the strategy,
+after all). Assuming that peers generally do well, this would further reduce the
 number of instances of having to send unwanted queries.
 
 There is another issue that was mentioned in
@@ -556,7 +551,7 @@ this has an alternative and wasn't very promising anyway.
 - no routing loop protection
 \subsection{Strategy: \emph{Random}}
 - no routing loop protection
-- time it takes to get to no-penalty rep, dependent on who gets picked first
+- time it takes to get to penalty threshold, dependent on who gets picked first
 - impact of allowing to not use maximal overlap peers: hop count, timeouts (due
   to penalties, recursive queries), failures?
 \subsection{Uneven Query Distribution}
@@ -590,10 +585,9 @@ off}{penalty\_expectations/expectations\_off\_no\_att.settings}
 
 Figure~\ref{fig:penalty_expectations_off_no_att_peer_reps_percs} demonstrates
 this. The peer's reputation shown on the left fluctuates heavily, going down to
-or even below the no-penalty reputation (TODO terminology) of 10. This is in
-spite of the fact that the peers in the simulation try to stay above it. These
-oscillations are also visible in the per-query-group reputation percentiles
-shown on the right.
+or even below the penalty threshold of 10. This is in spite of the fact that the
+peers in the simulation try to stay above it. These oscillations are also
+visible in the per-query-group reputation percentiles shown on the right.
 
 This is because peers aren't taking into account that reputation updates take
 some time to be disseminated. They only respond to an incoming query if they are
@@ -624,22 +618,22 @@ the buffer has been increased from 4 to 20, meaning peers only let queries time
 out once they have accumulated 30 reputation, rather than 14. Both peer
 reputations and percentiles look similar, but have been shifted to a higher
 level. Peers' reputations still fluctuate, but because of the higher buffer
-doesn't dip below the no-penalty reputation (TODO terminology) of 10 anymore.
+doesn't dip below the penalty threshold of 10 anymore.
 
 However, this is not a good solution because the amount of buffer a peer needs
 is dependent on the amount of queries he is likely to receive at the same time,
 i.e. within the time between letting the first query time out or sending a fail
-response (TODO terminology) and the corresponding penalty arriving. Peers would
-need to adjust the buffer based on the activity in the query group. Some
-strategies for reputation attenuation presented in Section~\ref{sec:attenuation}
-also make it more difficult to gain reputation for a peer the more he already
-has, so he may have to do much more work than necessary.
+response and the corresponding penalty arriving. Peers would need to adjust the
+buffer based on the activity in the query group. Some strategies for reputation
+attenuation presented in Section~\ref{sec:attenuation} also make it more
+difficult to gain reputation for a peer the more he already has, so he may have
+to do much more work than necessary.
 
 The better solution to the problem is to make peers expect to receive a penalty
 when they do something they know is going to be penalized, and make their
 decisions based on their reputation with expected penalties already applied. In
 the implementation, peers make these expectations when they purposefully let a
-query time out, and when they send a fail response (TODO terminology).
+query time out, and when they send a fail response.
 
 The expectations must themselves have a timeout, so that they can be removed in
 case the peer who was expected to apply a penalty doesn't do so. This could
@@ -647,12 +641,12 @@ happen if either peer leaves the query group after the expectation has been
 stored.
 
 The implementation actually isn't ideal, as peers cannot expect timeout
-penalties due to the recursive query problem (TODO terminology): When Alice
-queries Bob, Bob may need to query Charlie in order to serve the query. If that
-second query to Charlie takes so long that Alice's query times out, ideally Bob
-would expect a timeout penalty. However, this is not implemented, and expecting
-a penalty once the response from Charlie arrives doesn't make sense, since at
-that point the penalty has likely already been applied.
+penalties due to the recursive query problem: When Alice queries Bob, Bob may
+need to query Charlie in order to serve the query. If that second query to
+Charlie takes so long that Alice's query times out, ideally Bob would expect a
+timeout penalty. However, this is not implemented, and expecting a penalty once
+the response from Charlie arrives doesn't make sense, since at that point the
+penalty has likely already been applied.
 
 \begin{figure}[t]
 \centering
@@ -666,8 +660,8 @@ disabled}{penalty\_expectations/expectations\_on\_no\_att.settings}
 
 Figure~\ref{fig:penalty_expectations_on_no_att_peer_reps_percs} shows the result
 of enabling penalty expectations, while reputation attenuation is still
-disabled. Peers are now able to stay above the no-penalty reputation (TODO
-terminology) without a large buffer.
+disabled. Peers are now able to stay above the penalty threshold without a large
+buffer.
 
 To clarify, enabled penalty expectations are part of the default settings and
 were used in the other simulations in this chapter.
@@ -688,13 +682,12 @@ off}{penalty\_expectations/expectations\_off.settings}
 
 Figure~\ref{fig:penalty_expectations_off_peer_reps_percs} gives an example of
 this. The reputation percentiles of the query group selected for it show almost
-all peers of the query group managing to stay above the no-penalty reputation
-(TODO terminology) almost all of the time. At first glance this suggests that
-penalty expectations are unnecessary if reputation attenuation is enabled.
-However, the problem solved by penalty expectations still exists when just
-attenuation is used: the individual reputations of the peer on the left show him
-dipping below the no-penalty reputation (TODO terminology) just after he became
-reputation saturated.
+all peers of the query group managing to stay above the penalty threshold almost
+all of the time. At first glance this suggests that penalty expectations are
+unnecessary if reputation attenuation is enabled.  However, the problem solved
+by penalty expectations still exists when just attenuation is used: the
+individual reputations of the peer on the left show him dipping below the
+penalty threshold just after he became reputation saturated.
 
 Rather, the reason just adding attenuation already looks a lot more tidy is that
 it takes peers a lot longer to become reputation saturated. These are the
@@ -715,10 +708,9 @@ system supports is the likelihood that a peer responds to a query. Since we're
 assuming all peers are selfish and inherently lazy, this is by no means
 guaranteed.
 
-The implementation models the peer behavior in such a way that peers do their
-best to cooperate (i.e. respond to queries) until they reach the no-penalty
-reputation plus a buffer (TODO term for this, e.g. no-work reputation? also for
-expectation section) to be able to tolerate trembles, which in the default
+The implementation models the peer behavior in such a way that peers are
+cooperative until they reach the penalty threshold, plus a buffer (i.e. they are
+reputation saturated) to be able to tolerate trembles, which in the default
 settings are 10 and 4, respectively. (TODO the following is probably just a
 recap by now. necessary?) That means peers play nice and gather reputation until
 they have 14, then decide that they have enough. The next time they're required
@@ -726,48 +718,44 @@ to do something, e.g. respond to a query, they ignore this, incurring a penalty.
 This puts them below their no-work reputation and they cooperate again until
 they reach it again.
 
-The amount of good deeds (TODO terminology, there should be a term for
-reward-worthy actions as well as penalty-worthy ones) a peer has to perform to
-get back up to the no-work reputation (TODO terminology) ultimately determines
-his response probability. It is determined by the magnitude of the penalty he
-receives when he drops below his no-work reputation (TODO terminology) and that
-of the rewards he receives as he works his way back up (TODO this is phrased
-abstractly as good and bad deeds, but the only relevant things implemented are
-successful responses and timeouts. make it concrete?). So the response
-probability of the system can be adjusted via the penalties and rewards, with $1
-- \frac{reward}{penalty} = response probability$ (TODO do this properly, define
-response/timeout prob).
+The amount of cooperative actions a peer has to perform to get back up to his
+saturation reputation ultimately determines his response probability. It is
+determined by the magnitude of the penalty he receives when he drops below his
+saturation reputation and that of the rewards he receives as he works his way
+back up (TODO this is phrased abstractly as good and bad deeds, but the only
+relevant things implemented are successful responses and timeouts. make it
+concrete?). So the response probability of the system can be adjusted via the
+penalties and rewards, with $1 - \frac{reward}{penalty} = response probability$
+(TODO do this properly, define response/timeout prob).
 
-However, this assumes that all peers are already above the no-penalty reputation
-(TODO terminology) and well-established in the system. But the larger the
-difference between reward and penalty is, the more difficult it becomes for a
-newcomer to the system to become established (TODO ref becoming established
-section). It also assumes that trembles happen relatively rarely, since
-otherwise peers may be unlucky and tremble repeatedly without being able to make
-up for it in between, crashing their reputation. The recursive query problem
-(TODO terminology) may make it impossible for newcomers to become established.,
-For example, assuming a target response probability of 95\%, the ratio of reward
-to penalty would have to be 1:20, so newcomers would have to earn more than 20
-rewards for every penalty they incur in order to make progress towards the
-no-penalty reputation (TODO terminology).
+However, this assumes that all peers are already above the penalty threshold and
+well-established in the system. But the larger the difference between reward and
+penalty is, the more difficult it becomes for a newcomer to the system to become
+established (TODO ref becoming established section). It also assumes that
+trembles happen relatively rarely, since otherwise peers may be unlucky and
+tremble repeatedly without being able to make up for it in between, crashing
+their reputation. The recursive query problem may make it impossible for
+newcomers to become established. For example, assuming a target response
+probability of 95\%, the ratio of reward to penalty would have to be 1:20, so
+newcomers would have to earn more than 20 rewards for every penalty they incur
+in order to make progress towards the penalty threshold.
 
-Removing the no-penalty reputation (TODO terminology)(i.e. setting it to 0) is
-also not an option, since the purpose of it is to prevent whitewashing by
-requiring newcomers to put in some work before enjoying unpenalized service. The
-solution presented here is to make a distinction between these two phases,
-establishing oneself in the system while having less than the no-penalty
-reputation (TODO terminology), and the steady state after. In the former,
-reputation is gained as usual, but in the latter, reputation earnings are
-attenuated by one of three strategies in a way that allows to regulate the
-response probability without impacting newcomers' ability to establish
-themselves.
+Removing the penalty threshold (i.e. setting it to 0) is also not an option,
+since the purpose of it is to prevent whitewashing by requiring newcomers to put
+in some work before enjoying unpenalized service. The solution presented here is
+to make a distinction between these two phases, establishing oneself in the
+system while having less than the penalty threshold reputation, and the steady
+state after. In the former, reputation is gained as usual, but in the latter,
+reputation earnings are attenuated by one of three strategies in a way that
+allows to regulate the response probability without impacting newcomers' ability
+to establish themselves.
 
 A distinction is made between \emph{raw reputation} $r_r$ and \emph{effective
 reputation} $r_e$, where \emph{raw reputation} is the reputation as previously,
 and \emph{effective reputation} is the result of applying an attenuation
 function $att$ to the raw reputation. The effective reputation is what is used
 when a decision has to be made based on a peer's reputation, e.g. how much of a
-penalty delay (TODO terminology) to impose.
+penalty delay to impose.
 
 When updating a peer's reputation, rewards are applied to the raw reputation,
 while penalties are applied to the effective reputation:
@@ -788,10 +776,10 @@ have, while maintaining the same threat for misbehavior.
 
 In all of the strategies, there is an \emph{attenuation threshold}, which is the
 amount of reputation below which reputation is unmodified, i.e. $att$ is the
-identity function for input values below the threshold. The threshold by default
-is the no-penalty reputation. An upper limit on the reputation which peers can't
-surpass is also implemented, but has no influence since peers don't reach it in
-the simulations.
+identity function for input values below the threshold. That threshold by
+default is the same as the penalty threshold. An upper limit on the reputation
+which peers can't surpass is also implemented, but has no influence since peers
+don't reach it in the simulations.
 
 \subsection{Strategy: \emph{Constant}}
 The first strategy simply multiplies all raw reputation above the threshold by a
@@ -943,13 +931,13 @@ same time.
 \end{figure}
 
 In the case of no attenuation (figure~\ref{fig:attenuation_no_att_percs}) the
-5th percentile doesn't make it above the no-penalty reputation. This is due to
-one peer\footnote{Since this query group contains 16 peers, the 5th percentile
-is just the one peer.} (TODO peer id 8961) who is suffering from the recursive
-query problem (TODO terminology). Over the course of the simulation, he receives
-140 penalties, all of them for timeouts. There are also 132 responses sent by
-him that were unmatched at the receiver (TODO late instead of unmatched, if that
-gets implemented), meaning they were sent after the timeout was triggered at the
+5th percentile doesn't make it above the penalty threshold. This is due to one
+peer\footnote{Since this query group contains 16 peers, the 5th percentile is
+just the one peer.} (TODO peer id 8961) who is suffering from the recursive
+query problem. Over the course of the simulation, he receives 140 penalties, all
+of them for timeouts. There are also 132 responses sent by him that were
+unmatched at the receiver (TODO late instead of unmatched, if that gets
+implemented), meaning they were sent after the timeout was triggered at the
 receiver. So the peer tried, but was frequently too late (TODO confirm by
 archiving timed out queries and implementing a metric measuring how many
 too-late recursive queries there are).
@@ -982,15 +970,14 @@ rises. For \emph{harmonic}, the first point above the attenuation threshold is
 not attenuated at all, for \emph{exponential}, attenuation just above the
 threshold is actually negative, i.e. the effective reputation yielded is greater
 than the raw reputation. This makes it easier for peers to gain reputation just
-above the no-penalty reputation (TODO terminology) in order to be able to
-tolerate a tremble. This is demonstrated by the simulations: the 5th percentile
-(the struggling peer) manages to reliably stay above the no-penalty reputation
-with \emph{exponential} or \emph{harmonic} attenuation
-(figures~\ref{fig:attenuation_exp_percs} and
+above the penalty threshold in order to be able to tolerate a tremble. This is
+demonstrated by the simulations: the 5th percentile (the struggling peer)
+manages to reliably stay above the penalty threshold with \emph{exponential} or
+\emph{harmonic} attenuation (figures~\ref{fig:attenuation_exp_percs} and
 \ref{fig:attenuation_harmonic_percs}), while he dips below it once more for the
 \emph{constant} case (figure~\ref{fig:attenuation_constant_percs}). And the 25th
-percentile is also "stuck" at around the no-penalty reputation (TODO
-terminology) for a lot longer in the \emph{constant} case.
+percentile is also "stuck" at around the penalty threshold for a lot longer in
+the \emph{constant} case.
 
 \begin{figure}[t]
 \centering
@@ -1002,8 +989,8 @@ attenuation with higher threshold ($c = 0.0417$, $t =
 \end{figure}
 
 A possibility to address this is to set the attenuation threshold above the
-no-penalty reputation, allowing peers to e.g. to gain enough reputation to
-tolerate a tremble without attenuation kicking in. This is shown in
+penalty threshold, allowing peers to e.g. to gain enough reputation to tolerate
+a tremble without attenuation kicking in. This is shown in
 figure~\ref{fig:attenuation_0.0417_constant_12_threshold_percs}: \emph{constant}
 attenuation is used but the threshold is set to 12, and the coefficient is
 adjusted to 0.0417, so that it still takes 50 raw reputation to get from 10 to
