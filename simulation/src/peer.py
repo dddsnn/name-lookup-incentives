@@ -128,7 +128,7 @@ class PeerBehavior:
             return
         # No known peer, query is impossible.
         if querying_peer_id == self.peer.peer_id:
-            self.peer.finalize_own_query('impossible', in_event_id)
+            self.peer.finalize_own_query('impossible', None, in_event_id)
         else:
             if self.peer.settings['expect_penalties']:
                 self.peer.expect_penalty(
@@ -982,7 +982,7 @@ class Peer:
                 # Peers may "send" a query to themselves again before receiving
                 # an answer as part of handling the request. Just log this and
                 # ignore.
-                self.finalize_own_query('pending', in_event_id)
+                self.finalize_own_query('pending', None, in_event_id)
                 return
             else:
                 # Another peer may send a query for the exact same ID again
@@ -990,10 +990,12 @@ class Peer:
                 # and fails ultimately (i.e. the other peer knows no other
                 # peer to send the query to). In that case, the peer forgets
                 # that he sent a query and is free to send it again for another
-                # request or query that he receives. Update the response time
-                # of the existing incoming query so that a response will be
-                # sent with a delay appropriate to the later query.
+                # request or query that he receives. Update the start and
+                # response times of the existing incoming query so that a
+                # response will be sent with a delay appropriate to the later
+                # query.
                 in_query = self.in_queries_map[queried_id][querying_peer_id]
+                in_query.start_time = self.env.now
                 in_query.response_time =\
                     self.env.now + self.behavior.decide_delay(querying_peer_id)
                 return
@@ -1387,7 +1389,8 @@ class Peer:
                      response_time):
         assert not self.has_in_query(querying_peer_id, queried_id,
                                      util.SortedBitsTrie())
-        in_query = IncomingQuery(response_time, excluded_peer_ids)
+        in_query = IncomingQuery(self.env.now, response_time,
+                                 excluded_peer_ids)
         self.in_queries_map.setdefault(queried_id, cl.OrderedDict())[
             querying_peer_id] = in_query
 
@@ -1465,9 +1468,10 @@ class Peer:
                                       self.out_queries_map[queried_id].keys())
         return util.SortedIterSet()
 
-    def finalize_own_query(self, status, in_event_id):
-        self.logger.log(an.QueryFinalized(self.env.now, self.peer_id, status,
-                                          in_event_id))
+    def finalize_own_query(self, status, start_time, in_event_id):
+        assert status != 'success' or start_time is not None
+        self.logger.log(an.QueryFinalized(
+            self.env.now, start_time, self.peer_id, status, in_event_id))
 
     def finalize_in_queries(self, in_queries_map, status, in_event_id):
         """
@@ -1478,8 +1482,12 @@ class Peer:
             matching_in_queries()).
         """
         for queried_id, in_queries in in_queries_map.items():
-            if self.peer_id in in_queries:
-                self.finalize_own_query(status, in_event_id)
+            try:
+                in_query = in_queries[self.peer_id]
+                self.finalize_own_query(status, in_query.start_time,
+                                        in_event_id)
+            except KeyError:
+                pass
             del self.in_queries_map[queried_id]
 
     def prefixes_for(self, bits):
@@ -1673,6 +1681,7 @@ class OutgoingQuery:
 
 
 class IncomingQuery:
-    def __init__(self, response_time, excluded_peer_ids):
+    def __init__(self, start_time, response_time, excluded_peer_ids):
+        self.start_time = start_time
         self.response_time = copy.deepcopy(response_time)
         self.excluded_peer_ids = copy.deepcopy(excluded_peer_ids)

@@ -130,7 +130,7 @@ class TestOnQueryExternal(unittest.TestCase):
         queried_id = self.helper.id_with_prefix('1111')
         excluded_id = self.helper.id_with_prefix('1111')
         peer_a.send_query.return_value = None
-        in_query = p.IncomingQuery(0, SBT())
+        in_query = p.IncomingQuery(0, 0, SBT())
         peer_a.get_in_query.return_value = in_query
         behavior.on_query_external(querying_peer_id, queried_id, None,
                                    excluded_peer_ids=SBT({excluded_id: None}))
@@ -151,7 +151,7 @@ class TestOnQueryExternal(unittest.TestCase):
         queried_id = self.helper.id_with_prefix('1111')
         excluded_id = self.helper.id_with_prefix('1111')
         peer_a.send_query.return_value = None
-        in_query = p.IncomingQuery(0, SBT())
+        in_query = p.IncomingQuery(0, 0, SBT())
         peer_a.get_in_query.return_value = in_query
         peer_a.has_matching_out_queries.return_value = True
         behavior.on_query_external(querying_peer_id, queried_id, None,
@@ -212,7 +212,7 @@ class TestOnQueryExternal(unittest.TestCase):
         peer_a.send_response.assert_not_called()
         peer_a.send_query.assert_not_called()
         peer_a.add_in_query.assert_not_called()
-        peer_a.finalize_own_query.assert_called_with('impossible', ANY)
+        peer_a.finalize_own_query.assert_called_with('impossible', None, ANY)
 
     def test_informs_querying_peers_of_impossible_query(self):
         peer_a, behavior = self.helper.mock_peer_and_behavior_with_prefix('')
@@ -354,11 +354,12 @@ class TestOnResponseSuccess(unittest.TestCase):
         queried_peer_info = queried_peer.info()
         matching_in_queries = {
             queried_peer.peer_id: {
-                peer_b.peer_id: p.IncomingQuery(0, SBT({excluded_id: None})),
-                peer_c.peer_id: p.IncomingQuery(0, SBT({excluded_id: None}))
+                peer_b.peer_id: p.IncomingQuery(
+                    0, 0, SBT({excluded_id: None})),
+                peer_c.peer_id: p.IncomingQuery(0, 0, SBT({excluded_id: None}))
             },
             queried_peer.peer_id[:-4]: {
-                peer_b.peer_id: p.IncomingQuery(0, SBT({excluded_id: None}))
+                peer_b.peer_id: p.IncomingQuery(0, 0, SBT({excluded_id: None}))
             }
         }
         peer_a.matching_in_queries.return_value = matching_in_queries
@@ -386,7 +387,8 @@ class TestOnResponseSuccess(unittest.TestCase):
         responding_peer_id = self.helper.id_with_prefix('1111')
         queried_peer = self.helper.peer_with_prefix('1111')
         matching_in_queries = {
-            queried_peer.peer_id: {peer_b.peer_id: p.IncomingQuery(0, SBT())}
+            queried_peer.peer_id: {peer_b.peer_id: p.IncomingQuery(
+                0, 0, SBT())}
         }
         peer_a.matching_in_queries.return_value = matching_in_queries
         peer_a.finalize_in_queries.return_value = None
@@ -422,7 +424,7 @@ class TestOnResponseFailure(unittest.TestCase):
         excluded_id = self.helper.id_with_prefix('1111')
         peer_a.matching_in_queries.return_value = {
             queried_id: {
-                peer_b.peer_id: p.IncomingQuery(0, SBT({excluded_id: None}))
+                peer_b.peer_id: p.IncomingQuery(0, 0, SBT({excluded_id: None}))
             }
         }
         behavior.on_response_failure(responding_peer_id, queried_id,
@@ -440,7 +442,7 @@ class TestOnResponseFailure(unittest.TestCase):
         responding_peer_id = self.helper.id_with_prefix('1111')
         queried_id = self.helper.id_with_prefix('1111')
         peer_a.matching_in_queries.return_value = {
-            queried_id: {peer_b.peer_id: p.IncomingQuery(0, SBT())}
+            queried_id: {peer_b.peer_id: p.IncomingQuery(0, 0, SBT())}
         }
         behavior.on_response_failure(responding_peer_id, queried_id,
                                      set(), False, False, SBT(), None)
@@ -468,7 +470,7 @@ class TestOnResponseFailure(unittest.TestCase):
         responding_peer_id = self.helper.id_with_prefix('1111')
         queried_id = self.helper.id_with_prefix('1111')
         peer_a.matching_in_queries.return_value = {
-            queried_id: {peer_b.peer_id: p.IncomingQuery(0, SBT())}
+            queried_id: {peer_b.peer_id: p.IncomingQuery(0, 0, SBT())}
         }
         peer_a.finalize_in_queries.return_value = None
         behavior.on_response_failure(
@@ -485,7 +487,7 @@ class TestOnResponseFailure(unittest.TestCase):
         responding_peer_id = self.helper.id_with_prefix('1111')
         queried_id = self.helper.id_with_prefix('1111')
         peer_a.matching_in_queries.return_value = {
-            queried_id: {peer_b.peer_id: p.IncomingQuery(0, SBT())}
+            queried_id: {peer_b.peer_id: p.IncomingQuery(0, 0, SBT())}
         }
         peer_a.finalize_in_queries.return_value = None
         behavior.on_response_failure(
@@ -502,7 +504,7 @@ class TestOnResponseFailure(unittest.TestCase):
         responding_peer_id = self.helper.id_with_prefix('1111')
         queried_id = self.helper.id_with_prefix('1111')
         peer_a.matching_in_queries.return_value = {
-            queried_id: {peer_b.peer_id: p.IncomingQuery(0, SBT())}
+            queried_id: {peer_b.peer_id: p.IncomingQuery(0, 0, SBT())}
         }
         peer_a.finalize_in_queries.return_value = None
         behavior.on_response_failure(
@@ -520,7 +522,7 @@ class TestOnResponseFailure(unittest.TestCase):
         queried_id = self.helper.id_with_prefix('1111')
         excluded_id = self.helper.id_with_prefix('1111')
         peer_a.matching_in_queries.return_value = {
-            queried_id: {peer_b.peer_id: p.IncomingQuery(0, SBT())}
+            queried_id: {peer_b.peer_id: p.IncomingQuery(0, 0, SBT())}
         }
         peer_a.finalize_in_queries.return_value = None
         behavior.on_response_failure(
@@ -538,9 +540,9 @@ class TestOnResponseFailure(unittest.TestCase):
         responding_peer_id = self.helper.id_with_prefix('1111')
         queried_id = self.helper.id_with_prefix('1111')
         matching_in_queries = {
-            queried_id: {peer_b.peer_id: p.IncomingQuery(0, SBT()),
-                         peer_c.peer_id: p.IncomingQuery(0, SBT())},
-            queried_id[:-4]: {peer_b.peer_id: p.IncomingQuery(0, SBT())}
+            queried_id: {peer_b.peer_id: p.IncomingQuery(0, 0, SBT()),
+                         peer_c.peer_id: p.IncomingQuery(0, 0, SBT())},
+            queried_id[:-4]: {peer_b.peer_id: p.IncomingQuery(0, 0, SBT())}
         }
         peer_a.matching_in_queries.return_value = matching_in_queries
         peer_a.finalize_in_queries.return_value = None
@@ -564,7 +566,7 @@ class TestOnResponseFailure(unittest.TestCase):
         responding_peer_id = self.helper.id_with_prefix('1111')
         queried_id = self.helper.id_with_prefix('1111')
         matching_in_queries = {
-            queried_id: {peer_b.peer_id: p.IncomingQuery(0, SBT())}
+            queried_id: {peer_b.peer_id: p.IncomingQuery(0, 0, SBT())}
         }
         peer_a.matching_in_queries.return_value = matching_in_queries
         peer_a.finalize_in_queries.return_value = None
@@ -582,7 +584,7 @@ class TestOnResponseFailure(unittest.TestCase):
         out_query_peer_id = self.helper.id_with_prefix('1100')
         queried_id = self.helper.id_with_prefix('1111')
         peer_a.matching_in_queries.return_value = {
-            queried_id: {peer_b.peer_id: p.IncomingQuery(0, SBT())}
+            queried_id: {peer_b.peer_id: p.IncomingQuery(0, 0, SBT())}
         }
         peer_a.out_query_recipients.return_value = set((out_query_peer_id,))
         peer_a.send_query.return_value = None
@@ -618,7 +620,7 @@ class TestOnTimeout(unittest.TestCase):
         responding_peer_id = self.helper.id_with_prefix('1111')
         queried_id = self.helper.id_with_prefix('1111')
         peer_a.matching_in_queries.return_value = {
-            queried_id: {peer_b.peer_id: p.IncomingQuery(0, SBT())}
+            queried_id: {peer_b.peer_id: p.IncomingQuery(0, 0, SBT())}
         }
         behavior.on_timeout(responding_peer_id, queried_id, set(), False,
                             False, SBT(), None)
@@ -637,7 +639,7 @@ class TestOnTimeout(unittest.TestCase):
         excluded_id = self.helper.id_with_prefix('1111')
         peer_a.matching_in_queries.return_value = {
             queried_id: {
-                peer_b.peer_id: p.IncomingQuery(0, SBT({excluded_id: None}))
+                peer_b.peer_id: p.IncomingQuery(0, 0, SBT({excluded_id: None}))
             }
         }
         behavior.on_timeout(responding_peer_id, queried_id, set(), False,
@@ -665,7 +667,7 @@ class TestOnTimeout(unittest.TestCase):
         responding_peer_id = self.helper.id_with_prefix('1111')
         queried_id = self.helper.id_with_prefix('1111')
         peer_a.matching_in_queries.return_value = {
-            queried_id: {peer_b.peer_id: p.IncomingQuery(0, SBT())}
+            queried_id: {peer_b.peer_id: p.IncomingQuery(0, 0, SBT())}
         }
         peer_a.finalize_in_queries.return_value = None
         behavior.on_timeout(
@@ -682,7 +684,7 @@ class TestOnTimeout(unittest.TestCase):
         responding_peer_id = self.helper.id_with_prefix('1111')
         queried_id = self.helper.id_with_prefix('1111')
         peer_a.matching_in_queries.return_value = {
-            queried_id: {peer_b.peer_id: p.IncomingQuery(0, SBT())}
+            queried_id: {peer_b.peer_id: p.IncomingQuery(0, 0, SBT())}
         }
         peer_a.finalize_in_queries.return_value = None
         behavior.on_timeout(
@@ -699,7 +701,7 @@ class TestOnTimeout(unittest.TestCase):
         responding_peer_id = self.helper.id_with_prefix('1111')
         queried_id = self.helper.id_with_prefix('1111')
         peer_a.matching_in_queries.return_value = {
-            queried_id: {peer_b.peer_id: p.IncomingQuery(0, SBT())}
+            queried_id: {peer_b.peer_id: p.IncomingQuery(0, 0, SBT())}
         }
         peer_a.finalize_in_queries.return_value = None
         behavior.on_timeout(
@@ -718,7 +720,7 @@ class TestOnTimeout(unittest.TestCase):
         queried_id = self.helper.id_with_prefix('1111')
         excluded_id = self.helper.id_with_prefix('1111')
         peer_a.matching_in_queries.return_value = {
-            queried_id: {peer_b.peer_id: p.IncomingQuery(0, SBT())}
+            queried_id: {peer_b.peer_id: p.IncomingQuery(0, 0, SBT())}
         }
         peer_a.finalize_in_queries.return_value = None
         behavior.on_timeout(
@@ -736,9 +738,9 @@ class TestOnTimeout(unittest.TestCase):
         responding_peer_id = self.helper.id_with_prefix('1111')
         queried_id = self.helper.id_with_prefix('1111')
         matching_in_queries = {
-            queried_id: {peer_b.peer_id: p.IncomingQuery(0, SBT()),
-                         peer_c.peer_id: p.IncomingQuery(0, SBT())},
-            queried_id[:-4]: {peer_b.peer_id: p.IncomingQuery(0, SBT())}
+            queried_id: {peer_b.peer_id: p.IncomingQuery(0, 0, SBT()),
+                         peer_c.peer_id: p.IncomingQuery(0, 0, SBT())},
+            queried_id[:-4]: {peer_b.peer_id: p.IncomingQuery(0, 0, SBT())}
         }
         peer_a.matching_in_queries.return_value = matching_in_queries
         peer_a.finalize_in_queries.return_value = None
@@ -762,7 +764,7 @@ class TestOnTimeout(unittest.TestCase):
         responding_peer_id = self.helper.id_with_prefix('1111')
         queried_id = self.helper.id_with_prefix('1111')
         matching_in_queries = {
-            queried_id: {peer_b.peer_id: p.IncomingQuery(0, SBT())}
+            queried_id: {peer_b.peer_id: p.IncomingQuery(0, 0, SBT())}
         }
         peer_a.matching_in_queries.return_value = matching_in_queries
         peer_a.finalize_in_queries.return_value = None
@@ -780,7 +782,7 @@ class TestOnTimeout(unittest.TestCase):
         out_query_peer_id = self.helper.id_with_prefix('1100')
         queried_id = self.helper.id_with_prefix('1111')
         peer_a.matching_in_queries.return_value = {
-            queried_id: {peer_b.peer_id: p.IncomingQuery(0, SBT())}
+            queried_id: {peer_b.peer_id: p.IncomingQuery(0, 0, SBT())}
         }
         peer_a.out_query_recipients.return_value = set((out_query_peer_id,))
         peer_a.send_query.return_value = None
@@ -803,8 +805,8 @@ class TestRespondToInQueries(unittest.TestCase):
         querying_peer_id_b = self.helper.id_with_prefix('')
         queried_id = self.helper.id_with_prefix('1111')
         in_queries_map = {
-            queried_id: {querying_peer_id_a: p.IncomingQuery(0, SBT()),
-                         querying_peer_id_b: p.IncomingQuery(0, SBT())}
+            queried_id: {querying_peer_id_a: p.IncomingQuery(0, 0, SBT()),
+                         querying_peer_id_b: p.IncomingQuery(0, 0, SBT())}
         }
         queried_peer_info = 'info'
         behavior.respond_to_in_queries(in_queries_map, queried_peer_info, None)
@@ -822,8 +824,8 @@ class TestRespondToInQueries(unittest.TestCase):
         querying_peer_id = self.helper.id_with_prefix('')
         queried_id = self.helper.id_with_prefix('1111')
         in_queries_map = {
-            queried_id: {querying_peer_id: p.IncomingQuery(0, SBT())},
-            queried_id[:-4]: {querying_peer_id: p.IncomingQuery(0, SBT())}
+            queried_id: {querying_peer_id: p.IncomingQuery(0, 0, SBT())},
+            queried_id[:-4]: {querying_peer_id: p.IncomingQuery(0, 0, SBT())}
         }
         queried_peer_info = 'info'
         behavior.respond_to_in_queries(in_queries_map, queried_peer_info, None)
@@ -846,10 +848,11 @@ class TestRespondToInQueries(unittest.TestCase):
         query_peer_response_time =\
             self.helper.settings['no_penalty_reputation'] - 4
         in_queries_map = {
-            queried_id: {sync_peer_id: p.IncomingQuery(sync_peer_response_time,
+            queried_id: {sync_peer_id: p.IncomingQuery(0,
+                                                       sync_peer_response_time,
                                                        SBT()),
                          query_peer.peer_id: p.IncomingQuery(
-                             query_peer_response_time, SBT())}
+                             0, query_peer_response_time, SBT())}
         }
         queried_peer_info = 'info'
         peer_a.query_groups[query_group_id][query_peer.peer_id].reputation = 4
@@ -870,7 +873,7 @@ class TestRespondToInQueries(unittest.TestCase):
         queried_id = self.helper.id_with_prefix('1111')
         response_time = self.helper.settings['no_penalty_reputation'] - 4
         in_queries_map = {
-            queried_id: {query_peer.peer_id: p.IncomingQuery(response_time,
+            queried_id: {query_peer.peer_id: p.IncomingQuery(0, response_time,
                                                              SBT())}
         }
         queried_peer_info = 'info'

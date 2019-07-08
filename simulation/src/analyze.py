@@ -1101,8 +1101,10 @@ class QueryFinalized(Event):
     A query is finalized if a response has arrived at or a timeout occurred at
     the peer the originally issued it because of a request.
     """
-    def __init__(self, time, peer_id, status, in_event_id):
+    def __init__(self, time, start_time, peer_id, status, in_event_id):
         """
+        :param start_time: The time the query that is now finalized was
+            started. May be None for statuses 'pending' and 'impossible'.
         :param peer_id: ID of the peer the query belongs to.
         :param status: Status of the query. Must be one of
             * 'success': Query was successful
@@ -1112,6 +1114,7 @@ class QueryFinalized(Event):
             * 'impossible': The peer didn't know any peers to send a query to.
         """
         super().__init__(time, in_event_id)
+        self.start_time = start_time
         self.peer_id = peer_id
         if status not in ('success', 'failure', 'timeout', 'pending',
                           'impossible'):
