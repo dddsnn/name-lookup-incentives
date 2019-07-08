@@ -520,7 +520,7 @@ class Logger:
             plot_steps_and_bars(
                 'Peer reputations and recursive query problems', 'Time',
                 'Reputation', 'Fraction of RQP', data_sets, show, file_prefix,
-                max_edge_length)
+                max_edge_length, axes_modifier)
         else:
             plot_steps('Peer reputations', 'Time', 'Reputation', data_sets,
                        show, file_prefix, max_edge_length, axes_modifier)
@@ -646,7 +646,7 @@ def plot_hists(title, xlabel, ylabel, data_sets, num_bins, show, file_prefix,
 
 def plot_steps_and_bars(
         title, xlabel, ylabel_steps, ylabel_hists, data_sets, show,
-        file_prefix, max_edge_length=3):
+        file_prefix, max_edge_length=3, axes_modifier=None):
     """
     Plot a grid of graphs combining a step graph and a bar plot.
 
@@ -674,6 +674,8 @@ def plot_steps_and_bars(
             axes_bar.set_yticklabels([])
         axes_title, data_set_step, data_set_bar = data_sets[index]
         axes.set_title(axes_title)
+        if axes_modifier:
+            axes_modifier(axes)
         for plot_data in data_set_step:
             axes.step(plot_data[0], plot_data[1], label=plot_data[2],
                       where='post', **plot_data[3])
