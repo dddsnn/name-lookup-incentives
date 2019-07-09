@@ -485,7 +485,7 @@ class Logger:
                 xs = []
                 heights = []
                 widths = []
-                for i in range(0, final_time, rqp_bar_width):
+                for i in range(0, math.ceil(final_time), rqp_bar_width):
                     xs.append(i)
                     num_resp = sum(1 for e in self.events
                                    if isinstance(e, ResponseScheduled)
