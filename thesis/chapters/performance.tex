@@ -15,6 +15,8 @@
 \section{Performance Indices}
 TODO
 \section{Comparison with Plain DNS}
+\section{Comparison with a Simple Proxy}
+- tor with a single relay?
 \section{Comparison with Tor}
 - tor fully anonymizes tcp, stronger than what we do here
     - specify hostname when establishing a connection, exit nodes does dns
@@ -23,15 +25,38 @@ TODO
       AAAA records)
 - latency is what's important to us, ignore tor's establishing a circuit and our
   finding query groups, that can be done in the background
+- but circuit creation is costly, also with respect to computation (crypto)
+- overhead of circuit creation dependent on user's paranoia, how many queries
+  he's willing to use a circuit for. in the extreme case, only one query per
+  circuit. see
+  https://github.com/torproject/torspec/blob/master/proposals/216-ntor-handshake.txt
+  for cost
 - queries not optimizable for geography, worst case every hop towards the other
   end of the planet
 - ignore possible tcp delay from dropped packets, hol blocking, assume network
   not congested?
-\subsection{Tor}
-- fixed-size cells of 512 bytes
+- fixed-size cells of 512 bytes, can probably fit the entire response (but not
+  necessarily. don't know what happens in that case, don't think it's possible
+  to receive 2 cells as response)
 - assuming link protocol version 4
 - remote hostname lookup: 512 bytes fixed-length cell, query and response each
 - or let the exit node do the lookup and include the first payload. with a small
   http request, lookup is basically free, same as a dns query
 - but tor has no incentives (cite tor perf improvements paper)
+- use end-to-end latency from performance.torproject.org, gives the rtt of a
+  http request/response to a destination server, use this as an approximation
+  for the rtt to a dns server, then add the actual dns query time
+    - but exitnode to specific destination server should be expected to be at
+      least as long as exitnode to any dns server. exitnode uses his own dns
+      server, is likely to be close and have low rtt, so the values from
+      metrics.tor... are probably a little higher than what can be expected for
+      relay\_resolve
+- TODO what is typical dns query time?
+- %https://2019.www.torproject.org/docs/faq.html.en#SendPadding tor sends
+  padding on idle circuits, up to 103b/s
+  (https://github.com/torproject/torspec/blob/master/padding-spec.txt)
+- relay\_resolve doesn't include any dnssec or anything, so we have to trust the
+  exitnode. a simple udp proxy is more useful than tor in this case. figure
+  that.
+    - alternative: do DoT via Tor
 TODO

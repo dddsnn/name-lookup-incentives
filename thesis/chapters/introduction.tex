@@ -1,14 +1,15 @@
 \chapter{Introduction}
 - TODO update submission date?
+- TODO a very short summary here, explain the main goal for someone who hasn't
+  read the abstract
 
 \section{Privacy in Name-Lookup}
-The domain name system (DNS) is an service essential for the Internet, its
+The domain name system (DNS) is a service essential for the Internet, its
 primary purpose being the mapping of domain names to IP addresses. In general, a
 name mapping service that allows looking up the network address associated with
 a name belonging to some entity (e.g. a server, or a user identity) is
 indispensable for any large network. Using the network addresses themselves is
-impractical because they are not easy to remember, and they may not be
-permanently assigned.
+impractical because they are often not permanently assigned.
 
 The way name resolution is typically handled for private end users is that they
 send all their lookups to one DNS server that they were made aware of by their
@@ -19,6 +20,9 @@ operating system or their browser, but the DNS server still gets at least an
 initial request and knows which host they are likely communicating with. Thus,
 DNS requests are privacy-sensitive data that allow the server to build user
 profiles.
+
+- TODO state the main problem here before stating that just encrypting doesn't
+  help (cause, doesn't help what?)
 
 Just encrypting traffic with the DNS server of course doesn't help, the problem
 isn't eavesdroppers on the connection, it's all of a user's DNS meta data
@@ -35,16 +39,17 @@ significantly increase the work needed to gather a relevant amount of data. The
 thinking is that a foreign party having access to a little bit of
 privacy-sensitive data is relatively benign, and they are only able to build a
 meaningful profile once they have acquired a considerable volume. With many
-lookup servers available, peers are able to choose themselves how far they want
+lookup servers available, users are able to choose themselves how far they want
 to spread out their requests.
 
 \section{Goal}
 There needs to be a great number of servers for this to work. This thesis
 introduces a system in which these servers are the nodes of a \ac{DHT}, and the
-mapping from name to network address the \emph{records} stored in it. To ensure
-their great number, the main focus will be on incentivizing every user of the
-lookup service to not just use it, but to become a \emph{peer} (i.e. a node of
-the \ac{DHT}) that also contributes resources to providing it.
+mapping from name to network address the \emph{records} stored in it. The main
+purpose of this system is to ensure that there is a great number of nodes. To
+achieve this, its main focus lies on incentivizing every user of the lookup
+service to not just use it, but to become a \emph{peer}, i.e. a node of the
+\ac{DHT} that also contributes resources to providing it.
 
 A good motivating use case, and one that's useful to keep in mind, is a
 peer-to-peer chat system. Every peer has a fixed \emph{ID} by which he is known
@@ -68,17 +73,18 @@ that the records are fairly small, containing just an ID, an address, and maybe
 some additional information.
 
 The system is likely capable of supporting other applications than such a chat
-system, ones with fewer limiting assumptions. But they are out of scope of this
-thesis.
+system, notably ones with fewer of the limiting assumptions. But for the sake of
+simplicity, and to focus on the more interesting aspects, they are kept in place
+here.
 
 Another underlying assumption is that the users are selfish. They want to expend
-as little storage space, CPU time and network bandwidth as possible. But they
-want to use the service and enjoy the benefit of having many peers to choose
-from to do their lookups. Without any addition to the \ac{DHT}, they can do that
-whether or not they contribute themselves; one more node is not going to make a
-big difference in the grand scheme, and certainly not provide them a benefit.
-This is the point of attack of the system: peers who aren't contributing must be
-given a worse quality of service.
+as little storage space, CPU time and network bandwidth as possible. Without any
+addition to the \ac{DHT}, they can do that whether or not they contribute
+themselves; one more node is not going to make a big difference in the grand
+scheme, and certainly not provide them a benefit. But they want to use the
+service and enjoy the benefit of having many peers to choose from to do their
+lookups. This is the leverage the system exploits: peers who aren't contributing
+are given a worse quality of service.
 
 - TODO incorporate the following into goal section, along with other possible
   attacks?
@@ -95,6 +101,8 @@ records containing reachability information and responding to queries concerning
 them only takes little resources. Given that, it's not unreasonable to be
 optimistic and believe that people wishing to use such a service are willing to
 contribute to it.
+
+- TODO don't use cites as nouns, must be possible to leave them out completely
 
 In fact, \cite{mcgee2004gifting} surveys the motivation of users of a
 peer-to-peer file sharing service to "gift", i.e. to seed without reward. The
@@ -138,7 +146,11 @@ worst.
 
 \section{Outline}
 - TODO check this for accuracy
-- TODO is this necessary?
+- TODO explain the structure of the thesis, explain *why* it is structured in
+  such a way, why the chapter are arranged in this order (and how they build on
+  each other)
+
+Chapter~\ref{chap:related_work} TODO
 
 Chapter~\ref{chap:background} gives brief introductions into techniques and
 concepts that are the basis of the work presented in this thesis.
