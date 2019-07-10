@@ -21,26 +21,24 @@ initial request and knows which host they are likely communicating with. Thus,
 DNS requests are privacy-sensitive data that allow the server to build user
 profiles.
 
-- TODO state the main problem here before stating that just encrypting doesn't
-  help (cause, doesn't help what?)
+This issue, the accumulation of sensitive name resolution queries at central
+locations, is the motivation behind this thesis. Note that just encrypting
+traffic with DNS servers doesn't help, the issue isn't eavesdroppers on the
+connection, it's all of a user's DNS meta data heaping up at one central server.
+The operator of the DNS server doesn't even have to have malicious intentions,
+or in fact any intentions to use the data. Simply the fact that data from many
+users accumulates there makes the server a worthwhile target for infiltration by
+malicious agents.
 
-Just encrypting traffic with the DNS server of course doesn't help, the problem
-isn't eavesdroppers on the connection, it's all of a user's DNS meta data
-heaping up at one central server. The operator of the DNS server doesn't even
-have to have malicious intentions, or in fact any intentions to use the data.
-Simply the fact that data from many users accumulates there makes the server a
-worthwhile target for infiltration by malicious agents.
-
-Preventing a buildup of large amounts of privacy-sensitive data on relatively
-centralized servers is the motivation behind this thesis. The chosen approach is
-to spread out name-lookup requests to many servers rather than using just one
-resolver. This doesn't make incursions on users' privacy impossible, but should
-significantly increase the work needed to gather a relevant amount of data. The
-thinking is that a foreign party having access to a little bit of
-privacy-sensitive data is relatively benign, and they are only able to build a
-meaningful profile once they have acquired a considerable volume. With many
-lookup servers available, users are able to choose themselves how far they want
-to spread out their requests.
+The chosen approach to address the issue is to spread out name-lookup requests
+to many servers rather than using just one resolver. This doesn't make
+incursions on users' privacy impossible, but should significantly increase the
+work needed to gather a relevant amount of data, especially when attempted on a
+large scale targeting many users at once. The thinking is that a foreign party
+having access to a little bit of privacy-sensitive data is relatively benign,
+that they are only able to build a meaningful profile once they have acquired a
+considerable volume. With many lookup servers available, users are able to
+choose themselves how far they want to spread out their requests.
 
 \section{Goal}
 There needs to be a great number of servers for this to work. This thesis
@@ -104,42 +102,42 @@ contribute to it.
 
 - TODO don't use cites as nouns, must be possible to leave them out completely
 
-In fact, \cite{mcgee2004gifting} surveys the motivation of users of a
-peer-to-peer file sharing service to "gift", i.e. to seed without reward. The
-authors find that there are users motivated by ideology ("information wants to
-be free"), as well as ones acting altruistically, i.e. for whom the act of
+In fact, McGee and Sk{\aa}geby\cite{mcgee2004gifting} survey the motivation of
+users of a peer-to-peer file sharing service to "gift", i.e. to seed without
+reward. They find that there are users motivated by ideology ("information wants
+to be free"), as well as ones acting altruistically, i.e. for whom the act of
 sharing files itself is the motivation.
 
-The later paper \cite{ripeanu2006gifting} examines motivations for gifting in
-BitTorrent. The authors find that social characteristics strongly influence
-sharing behavior, a user base that has a culture of sharing outside the file
-sharing application will gift more in file sharing. They also find that a small
-subset of the most active uploaders is responsible for a majority of the uploads
-(in 95\% of torrents, over half the file is uploaded by the top 10\% of
+A later paper\cite{ripeanu2006gifting} related to this examines motivations for
+gifting in BitTorrent. The authors find that social characteristics strongly
+influence sharing behavior, a user base that has a culture of sharing outside
+the file sharing application will gift more in file sharing. They also find that
+a small subset of the most active uploaders is responsible for a majority of the
+uploads (in 95\% of torrents, over half the file is uploaded by the top 10\% of
 uploaders).
 
 This suggests that, while gifting, or generous behavior, in peer-to-peer
 applications exists, relying on it may not be suitable for the system proposed
 in this thesis. It could be suggested to peers that participating in offering
 the service makes it better, in hopes of inviting generous peers' contributions,
-as proposed in \cite{arma2009incentive_tor} for Tor. The problem is that this
-may mostly just encourage the small subset of the most generous peers. But the
-system absolutely needs many peers participating so users can spread out their
-queries. Few peers doing most of the work is actually counterproductive to the
-privacy goal.
+as proposed in a blog post of the Tor Project\cite{arma2009incentive_tor}. The
+problem is that this may mostly just encourage the small subset of the most
+generous peers. But the system absolutely needs many peers participating so
+users can spread out their queries. Few peers doing most of the work is actually
+counterproductive to the privacy goal.
 
 One could also argue that it should be sufficient to write an implementation of
 the \ac{DHT} in which peers contribute by default, perhaps with no option of
 disabling it. The overhead of this is small, so users wouldn't change the
-software for a small benefit. \cite{ripeanu2006gifting} even recognizes the
-difficulty of configuring a BitTorrent client to freeride as a contribution to
-the low levels of freeriding. But then a problem will arise if an alternative
-implementation leaves out the contribution, e.g. out of laziness or for security
-reasons (less code means less space for vulnerabilities).
+software for a small benefit. Ripeanu et al.\cite{ripeanu2006gifting} even
+recognize the difficulty of configuring a BitTorrent client to freeride as a
+contribution to the low levels of freeriding. But then a problem will arise if
+an alternative implementation leaves out the contribution, e.g. out of laziness
+or for security reasons (less code means less space for vulnerabilities).
 
 While there is no certainty that incentives are absolutely necessary, there are
-some indications that they are. \cite{cox2002serving}, which explores the
-possibility of serving DNS via peer-to-peer also states "We need to find models
+some indications that they are. Cox et al.\cite{cox2002serving}, who explore the
+possibility of serving DNS via peer-to-peer also state "We need to find models
 in which people have incentives to run servers rather than just take free rides
 on others’ servers.". In the end, it may be best just to be prepared for the
 worst.

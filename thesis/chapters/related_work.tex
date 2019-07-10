@@ -5,17 +5,18 @@
 The very initial motivation of this thesis was to address the privacy problem a
 user has when he sends all his name resolution requests to a single server. This
 problem goes away entirely if the server answers the requests satisfactorily but
-is unable to tell which name the user queried for. This is the essence of
-private information retrieval (PIR), \cite{gasarch2004survey} gives an overview.
+is unable to tell which name the user queried for. This exactly is the essence
+of private information retrieval (PIR)\cite{gasarch2004survey}.
 
 Trivially, PIR is achieved if the server responds with the entire database, no
 matter the query. More complex PIR schemes offer less prohibitively expensive
 communication complexity, even more so computationally private information
-retrieval (cPIR) like \cite{cachin1999computationally}, a relaxation using the
-assumption attackers can only perform polynomial computations. However, even
-they are impractical for the purpose of this thesis, since the server must
-process the entire database for every query. If he didn't he could infer that
-the record the user was looking for was in the part he didn't process.
+retrieval (cPIR), a relaxation using the assumption attackers can only perform
+polynomial computations. An example is the work of Cachin et
+al.\cite{cachin1999computationally}. However, even they are impractical for the
+purpose of this thesis, since the server must process the entire database for
+every query. If he didn't, he could infer that the record the user was looking
+for was in the part he didn't process.
 
 DNS over TLS (DoT)\cite{RFC7858} encrypts traffic to DNS servers. As stated
 previously, this doesn't solve the problem of privacy-sensitive data
@@ -49,12 +50,12 @@ that routing takes place along a binary tree.
 - that paper that found trusting peers initially, based on the trustworthiness
   of recent joiners, is sane
 
-The NICE system presented in \cite{sherwood2006cooperative} is a distributed
-trust inference system for peer-to-peer applications in general. It views them
-as a set of two-party interactions, after each of which the two peers exchange a
-signed statment, called cookie, about the quality of the interaction, basically
-giving a rating. These can later be used by peers to prove to others that they
-had a satisfactory interaction before and should therefore trust them now. If no
+The NICE system\cite{sherwood2006cooperative} is a distributed trust inference
+system for peer-to-peer applications in general. It views them as a set of
+two-party interactions, after each of which the two peers exchange a signed
+statment, called cookie, about the quality of the interaction, basically giving
+a rating. These can later be used by peers to prove to others that they had a
+satisfactory interaction before and should therefore trust them now. If no
 direct interaction took place, a chain of trust through mutual acquaintances can
 also be presented as evidence of trustworthiness.
 
