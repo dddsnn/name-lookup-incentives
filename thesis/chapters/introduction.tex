@@ -1,80 +1,226 @@
 \chapter{Introduction}
+- TODO update submission date?
+
 \section{Privacy in Name-Lookup}
+The domain name system (DNS) is an service essential for the Internet, its
+primary purpose being the mapping of domain names to IP addresses. In general, a
+name mapping service that allows looking up the network address associated with
+a name belonging to some entity (e.g. a server, or a user identity) is
+indispensable for any large network. Using the network addresses themselves is
+impractical because they are not easy to remember, and they may not be
+permanently assigned.
 
+The way name resolution is typically handled for private end users is that they
+send all their lookups to one DNS server that they were made aware of by their
+internet service provider. When they communicate with another host for the first
+time, e.g. to access a web site or send an email, they send a DNS request to
+that server. The response is then likely cached for a while by their
+operating system or their browser, but the DNS server still gets at least an
+initial request and knows which host they are likely communicating with. Thus,
+DNS requests are privacy-sensitive data that allow the server to build user
+profiles.
 
-- dns-like name-lookup, names to ips in mind, but could have other applications
-- dns basically centralized, privacy issue, dns server can profile
-- distribute service, make it harder for a single party to profile
-- users can decide how far they spread out requests
-- not a guaranteed privacy protection, just makes it a lot harder to track
-  everyone
-- need a lot of servers -> dht, users should contribute resources
-- have no inherent incentive, service still available if they're lazy
-- paper "serving dns using p2p lookup" also states "but who's gonna run the
-  nodes?"
+Just encrypting traffic with the DNS server of course doesn't help, the problem
+isn't eavesdroppers on the connection, it's all of a user's DNS meta data
+heaping up at one central server. The operator of the DNS server doesn't even
+have to have malicious intentions, or in fact any intentions to use the data.
+Simply the fact that data from many users accumulates there makes the server a
+worthwhile target for infiltration by malicious agents.
 
-\section{Necessity}
-- why is this even necessary?
-- maybe it isn't, best to be prepared
-- user bases in other p2p usually small, maybe just the minority that's
-  relatively selfless
+Preventing a buildup of large amounts of privacy-sensitive data on relatively
+centralized servers is the motivation behind this thesis. The chosen approach is
+to spread out name-lookup requests to many servers rather than using just one
+resolver. This doesn't make incursions on users' privacy impossible, but should
+significantly increase the work needed to gather a relevant amount of data. The
+thinking is that a foreign party having access to a little bit of
+privacy-sensitive data is relatively benign, and they are only able to build a
+meaningful profile once they have acquired a considerable volume. With many
+lookup servers available, peers are able to choose themselves how far they want
+to spread out their requests.
 
 \section{Goal}
-- example: chat system or something
+There needs to be a great number of servers for this to work. This thesis
+introduces a system in which these servers are the nodes of a \ac{DHT}, and the
+mapping from name to network address the \emph{records} stored in it. To ensure
+their great number, the main focus will be on incentivizing every user of the
+lookup service to not just use it, but to become a \emph{peer} (i.e. a node of
+the \ac{DHT}) that also contributes resources to providing it.
 
-This thesis introduces a system that is meant to extend an existing \ac{DHT}
-such that peers wanting to access records stored in it in a timely manner have
-an incentive to contribute to the operation of the \ac{DHT}, i.e. to store
-records and to answer queries about them. Having many peers contributing is then
-supposed to allow users to choose whom they query out of many options, thus
-providing the privacy benefit described in the introduction (TODO ref).
+A good motivating use case, and one that's useful to keep in mind, is a
+peer-to-peer chat system. Every peer has a fixed \emph{ID} by which he is known
+to the others, but the network addresses can change frequently. The \ac{DHT} is
+used to store the mapping from ID to network address. In fact, the rest of the
+thesis assumes that each peer stores exactly one record containing his
+\emph{reachability information} in the \ac{DHT}, where the key is equal to his
+own peer ID (the key of a record is also referred to as the ID of the record).
 
-The motivating use case is that of a distributed name-lookup service, similar to
-DNS, which maps user identifiers to network addresses. Storing
-\emph{reachability information} (e.g. IP address) about oneself, where one's own
-user identifier is the key to the record is also the only use case
-considered\footnote{Other ones may be possible, but are considered out of scope
-for simplicity.}. Since this is a somewhat latency-sensitive
-application\footnote{"Somewhat latency-sensitive" here means "it would be
-annoying if it took longer than 500ms" rather than "it must happen within 20ms
-or the entire system breaks".}, the system should cause as few additional delays
-during lookup as possible. The records that are stored in the \ac{DHT} are
-assumed to be fairly small, i.e. the network delay doesn't have a significant
-impact on the total delay. Furthermore, it must be possible to update records,
-and for these updates to be disseminated throughout the \ac{DHT} within a
-reasonably short time.
+Since network addresses change, peers frequently need to look up the current
+addresses of others they want to chat with. Sending all these lookups to one
+central server would give that server a pretty good picture of what a peer is
+doing. Spreading them throughout the \ac{DHT} means a lot of people know a
+little, but no single party knows enough to be useful.
 
-An underlying assumption for the most part of this thesis is that the users of
-the system are selfish agents who want to use the system and gain access to the
-many peers serving the \ac{DHT}, and with good performance. This means they want
-to expend as few resources as possible, including storage space, CPU time and
-network bandwidth. They only want to use these resources in order to, at all
-times, be very likely to be in a position to receive service quickly. There is
-no explicit valuation determining what "very likely" means to a peer (TODO isn't
-there?). Rather, the reputation buffer described in the implementation chapter
-(TODO ref) acts as a proxy for it, determining the reliability of a peer's
-ability to receive service.
+Accessing a record is somewhat latency sensitive. While it is not a real-time
+application, it becomes annoying if the lookup before sending a message takes
+too long. Furthermore, it must be possible to update records, and for these
+updates to be disseminated throughout the \ac{DHT} quickly. But we can assume
+that the records are fairly small, containing just an ID, an address, and maybe
+some additional information.
 
-While this is the usual assumption about peer motivation, other types of peers
-are discussed (TODO ref types of peers in this chapter, also contented peers,
-maybe something else?).
+The system is likely capable of supporting other applications than such a chat
+system, ones with fewer limiting assumptions. But they are out of scope of this
+thesis.
 
-The system should not have a negative impact on cooperating peers, i.e. peers
-who are contributing in the way they are supposed to. Ideally, such peers should
-not notice the system being there at all, safe for some management overhead, and
-experience the \ac{DHT} as if all peers were cooperating as well.
+Another underlying assumption is that the users are selfish. They want to expend
+as little storage space, CPU time and network bandwidth as possible. But they
+want to use the service and enjoy the benefit of having many peers to choose
+from to do their lookups. Without any addition to the \ac{DHT}, they can do that
+whether or not they contribute themselves; one more node is not going to make a
+big difference in the grand scheme, and certainly not provide them a benefit.
+This is the point of attack of the system: peers who aren't contributing must be
+given a worse quality of service.
 
+- TODO incorporate the following into goal section, along with other possible
+  attacks?
 The system should prevent free riding and be resistant to whitewashing.
 Additionally, it should offer some protection against colluding peers trying to
 appear as cooperating peers when they are not, and against Sybil attacks (TODO
 ref background section for explanation).
 
+\section{Necessity of Incentives}
+The assumption that all peers are entirely selfish and need to be made to see a
+benefit to themselves for every action required of them is very pessimistic. It
+begs the question whether such a system is even necessary. Storing a few small
+records containing reachability information and responding to queries concerning
+them only takes little resources. Given that, it's not unreasonable to be
+optimistic and believe that people wishing to use such a service are willing to
+contribute to it.
+
+In fact, \cite{mcgee2004gifting} surveys the motivation of users of a
+peer-to-peer file sharing service to "gift", i.e. to seed without reward. The
+authors find that there are users motivated by ideology ("information wants to
+be free"), as well as ones acting altruistically, i.e. for whom the act of
+sharing files itself is the motivation.
+
+The later paper \cite{ripeanu2006gifting} examines motivations for gifting in
+BitTorrent. The authors find that social characteristics strongly influence
+sharing behavior, a user base that has a culture of sharing outside the file
+sharing application will gift more in file sharing. They also find that a small
+subset of the most active uploaders is responsible for a majority of the uploads
+(in 95\% of torrents, over half the file is uploaded by the top 10\% of
+uploaders).
+
+This suggests that, while gifting, or generous behavior, in peer-to-peer
+applications exists, relying on it may not be suitable for the system proposed
+in this thesis. It could be suggested to peers that participating in offering
+the service makes it better, in hopes of inviting generous peers' contributions,
+as proposed in \cite{arma2009incentive_tor} for Tor. The problem is that this
+may mostly just encourage the small subset of the most generous peers. But the
+system absolutely needs many peers participating so users can spread out their
+queries. Few peers doing most of the work is actually counterproductive to the
+privacy goal.
+
+One could also argue that it should be sufficient to write an implementation of
+the \ac{DHT} in which peers contribute by default, perhaps with no option of
+disabling it. The overhead of this is small, so users wouldn't change the
+software for a small benefit. \cite{ripeanu2006gifting} even recognizes the
+difficulty of configuring a BitTorrent client to freeride as a contribution to
+the low levels of freeriding. But then a problem will arise if an alternative
+implementation leaves out the contribution, e.g. out of laziness or for security
+reasons (less code means less space for vulnerabilities).
+
+While there is no certainty that incentives are absolutely necessary, there are
+some indications that they are. \cite{cox2002serving}, which explores the
+possibility of serving DNS via peer-to-peer also states "We need to find models
+in which people have incentives to run servers rather than just take free rides
+on others’ servers.". In the end, it may be best just to be prepared for the
+worst.
+
 \section{Outline}
+- TODO check this for accuracy
+- TODO is this necessary?
+
+Chapter~\ref{chap:background} gives brief introductions into techniques and
+concepts that are the basis of the work presented in this thesis.
+
+Chapter~\ref{chap:system_description} describes the incentive system in detail.
+
+Chapter~\ref{chap:implementation} describes the implementation of a simplified
+implementation of the system, and a simulation used to evaluate it.
+
+Chapter~\ref{chap:rep_avail} presents an evaluation of the system with regard to
+the ability of cooperative peers to quickly establish themselves in the system
+and enjoy use of the service without hindrance.
+
+Chapter~\ref{chap:performance} examines the performance achievable by the system
+theoretically and compares it with alternatives.
+
+Chapter~\ref{chap:conclusion} concludes and gives an outlook towards interesting
+open problems concerning the system.
 
 \section{Related Work}
-- (computationally) private information retrieval
+- TODO
+
+The very initial motivation of this thesis was to address the privacy problem a
+user has when he sends all his name resolution requests to a single server. This
+problem goes away entirely if the server answers the requests satisfactorily but
+is unable to tell which name the user queried for. This is the essence of
+private information retrieval (PIR), \cite{gasarch2004survey} gives an overview.
+
+Trivially, PIR is achieved if the server responds with the entire database, no
+matter the query. More complex PIR schemes offer less prohibitively expensive
+communication complexity, even more so computationally private information
+retrieval (cPIR) like \cite{cachin1999computationally}, a relaxation using the
+assumption attackers can only perform polynomial computations. However, even
+they are impractical for the purpose of this thesis, since the server must
+process the entire database for every query. If he didn't he could infer that
+the record the user was looking for was in the part he didn't process.
+
+DNS over TLS (DoT)\cite{RFC7858} encrypts traffic to DNS servers. As stated
+previously, this doesn't solve the problem of privacy-sensitive data
+accumulating in a central location.
+
+DNS over HTTPS (DoH)\cite{RFC8484} does this as well, but has the potential to
+also address the other problem. In conjunction with HTTP/2's server
+push\cite{RFC7540}, a web server serving a web page can proactively include DNS
+resolutions for the domain names linked in the page. The user then doesn't need
+to resolve them himself. But this only really works for web browsing or similar
+applications, where the server can reasonably anticipate which DNS resolutions a
+client needs. It doesn't transfer to the chat system example from earlier.
+
+The \ac{DHT} used in this thesis is a simplified variant of
+P-Grid\cite{aberer2001pgrid}. One of the central promises of P-Grid is its
+self-organizing load balancing, achieved by making peer identifiers independent
+of the records a peer stores (the peer's path), as well as a cooperative
+distributed algorithm extending or shrinking a peer's responsibility. This
+functionality is not used in this thesis, but it is potentially useful in future
+work.
+
+The better known Kademlia\cite{maymounkov2002kademlia} is of a similar style, in
+that routing takes place along a binary tree.
+
+- various trust management
+- various incentives
+- freeriding, whitewashing, sybil attack etc.
 - peers with utility functions that have a price for privacy
-- that paper that found that not all peers to be selfish
+- that paper that found not all peers to be selfish
 - that paper that looked at patterns of collusion
 - that paper that found trusting peers initially, based on the trustworthiness
   of recent joiners, is sane
+
+The NICE system presented in \cite{sherwood2006cooperative} is a distributed
+trust inference system for peer-to-peer applications in general. It views them
+as a set of two-party interactions, after each of which the two peers exchange a
+signed statment, called cookie, about the quality of the interaction, basically
+giving a rating. These can later be used by peers to prove to others that they
+had a satisfactory interaction before and should therefore trust them now. If no
+direct interaction took place, a chain of trust through mutual acquaintances can
+also be presented as evidence of trustworthiness.
+
+The purpose of NICE is to ensure that each peer only interacts with other
+cooperative peers, whereas this thesis requires the system to also make sure
+there are many cooperative peers to choose from. Otherwise, in an extreme case,
+one peer could serve all queries and collect everyone's data.
+
+- treat-before-trick
+- gifting technologies paper (already mentioned above)

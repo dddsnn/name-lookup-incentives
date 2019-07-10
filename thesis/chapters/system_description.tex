@@ -1,4 +1,5 @@
 \chapter{System Description}
+\label{chap:system_description}
 - TODO for all the stuff that's out of scope, should i mention it in this
   chapter, or only in the implementation?
 
@@ -32,16 +33,19 @@ assumptions not holding.
 \subsection{Types of Peers}
 \subsubsection{Selfish}
 Selfish peers are the central type of peer this thesis focuses on, and the one
-discussions are about unless otherwise indicated. They are lazy
-and unwilling to expend any resources (network bandwidth, CPU time, memory)
-unless there is a benefit in it for them.
+discussions are about unless otherwise indicated. They are lazy and only willing
+to expend resources (network bandwidth, CPU time, memory) for their own benefit.
+They only want to use them in order to, at all times, be very likely to be in a
+position to receive service quickly. There is no explicit valuation determining
+what "very likely" means to a peer (TODO isn't there?). Rather, the reputation
+buffer described in the implementation chapter (TODO ref) acts as a proxy for
+it, determining the reliability of a peer's ability to receive service.
 
-As long as they see a benefit, they are willing to cooperate with other peers,
-but when they don't, they stop taking actions, even if a protocol should require
-them to. Finding incentives for this type of peer is a central part of this
-thesis, and achieved by threatening to lower the quality of service.
-Section~\ref{sec:desc_rationale} goes into more detail on the motivation of
-selfish peers.
+When they don't see a benefit for themselves in taking a particular action they
+won't do it, even if the protocol should require them to. Finding incentives for
+this type of peer is a central part of this thesis, and achieved by threatening
+to lower the quality of service. Section~\ref{sec:desc_rationale} goes into more
+detail on the motivation of selfish peers.
 
 \subsubsection{Generous}
 \label{sec:desc_generous_peers}
@@ -719,6 +723,9 @@ due to the complex dynamics that will likely arise.
 - at some point, it's best for a peer whose complaints keep getting rejected, to
   leave the group
 - complex dynamics
+
+- TODO paper Optimizing an Incentives’ Mechanism for Truthful Feedback in
+  Virtual Communities may be the solution
 
 \subsection{Load Balancing}
 \label{sec:desc_load_balancing}
