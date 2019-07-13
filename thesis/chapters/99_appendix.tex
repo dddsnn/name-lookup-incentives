@@ -1,1 +1,119 @@
 \chapter{Appendix}
+\section{Default Settings}
+\label{sec:app_default_settings}
+Table~\ref{tab:default_settings} lists the values for a selection of the most
+important parameters in the default settings. Below, some of the ones that
+aren't quite self-explanatory are explained more closely. All possible
+parameters are available in the code repository in the commented default
+settings file \texttt{simulation/default.settings}, relative to the repository
+root (TODO check).
+
+- TODO include decay or not?
+\begin{longtable}{|l|l|}
+\hline
+\rowcolor{slightgray} \T Key & Value \B\\
+\hline
+\cellcolor{slightgray}\T \texttt{rng\_seed} & 5803379951609632196 \B\\
+\hline
+\cellcolor{slightgray}\T \texttt{peer\_batches} & \texttt{[(0, 64, \{\})]} \B\\
+\hline
+\cellcolor{slightgray}\T \texttt{num\_random\_introductions} & 8 \B\\
+\hline
+\cellcolor{slightgray}\T \texttt{even\_sync\_groups} & \texttt{False} \B\\
+\hline
+\cellcolor{slightgray}\T \texttt{initial\_reputation} & 0 \B\\
+\hline
+\cellcolor{slightgray}\T \texttt{force\_one\_group} & \texttt{False} \B\\
+\hline
+\cellcolor{slightgray}\T \texttt{ensure\_non\_empty\_sync\_groups} & \texttt{True} \B\\
+\hline
+\cellcolor{slightgray}\T \texttt{id\_length} & 16 \B\\
+\hline
+\cellcolor{slightgray}\T \texttt{prefix\_length} & 4 \B\\
+\hline
+\cellcolor{slightgray}\T \texttt{ignore\_non\_existent\_subprefixes} & \texttt{False} \B\\
+\hline
+\cellcolor{slightgray}\T \texttt{transmission\_delay} & 0.1 \B\\
+\hline
+\cellcolor{slightgray}\T \texttt{successful\_query\_reward} & 1 \B\\
+\hline
+\cellcolor{slightgray}\T \texttt{failed\_query\_penalty} & -1 \B\\
+\hline
+\cellcolor{slightgray}\T \texttt{timeout\_query\_penalty} & -2 \B\\
+\hline
+\cellcolor{slightgray}\T \texttt{no\_penalty\_reputation} & 10 \B\\
+\hline
+\cellcolor{slightgray}\T \texttt{decay\_timestep} & \texttt{inf} \B\\% (TODO necessary)
+\hline
+\cellcolor{slightgray}\T \texttt{decay\_per\_time\_unit} & 0 \B\\% (TODO necessary)
+\hline
+\cellcolor{slightgray}\T \texttt{reward\_attenuation $\rightarrow$ type} & \texttt{exponential} \B\\
+\hline
+\cellcolor{slightgray}\T \texttt{reward\_attenuation $\rightarrow$ exponent} & 0.35 \B\\
+\hline
+\cellcolor{slightgray}\T \texttt{reward\_attenuation $\rightarrow$ coefficient} & 1 \B\\
+\hline
+\cellcolor{slightgray}\T \texttt{reward\_attenuation $\rightarrow$ lower\_bound} & 10 \B\\
+\hline
+\cellcolor{slightgray}\T \texttt{reward\_attenuation $\rightarrow$ upper\_bound} & 15 \B\\
+\hline
+\cellcolor{slightgray}\T \texttt{reputation\_buffer} & 4 \B\\
+\hline
+\cellcolor{slightgray}\T \texttt{query\_peer\_selection} & \texttt{overlap\_rep\_sorted} \B\\
+\hline
+\cellcolor{slightgray}\T \texttt{query\_sync\_for\_subprefixes} & \texttt{False} \B\\
+\hline
+\cellcolor{slightgray}\T \texttt{uncovered\_subprefix\_interval} & 10 \B\\
+\hline
+\cellcolor{slightgray}\T \texttt{min\_desired\_query\_peers} & 2 \B\\
+\hline
+\cellcolor{slightgray}\T \texttt{max\_desired\_group\_size} & 16 \B\\
+\hline
+\cellcolor{slightgray}\T \texttt{query\_timeout} & 2 \B\\
+\hline
+\cellcolor{slightgray}\T \texttt{expect\_penalties} & \texttt{True} \B\\
+\hline
+\caption{Default values of a selection of settings.}
+\label{tab:default_settings}
+\end{longtable}
+
+\begin{description}
+\item[\texttt{peer\_batches}] A list of tuples \texttt{(time, number\_of\_peers,
+settings)} that allows to add peers at different times and with individual
+settings.
+\item[\texttt{num\_random\_introductions}] Upon initialization, each peer is
+introduced to a random sample of peers. This is the size of that sample.
+\item[\texttt{even\_sync\_groups}] If \texttt{True}, initialization will take
+care to make all sync groups the same size. This can be helpful in ruling out
+unevenly sized sync groups as the cause of some observed effect.
+\item[\texttt{force\_one\_group}] If \texttt{True}, all peers will be forced
+into one query group. Can be helpful e.g. to rule out the recursive query
+problem as the cause of some effect.
+\item[\texttt{ensure\_non\_empty\_sync\_groups}] If \texttt{True},
+initialization takes care that each sync group contains at least one peer.
+\item[\texttt{prefix\_length}] Length of the routing prefix, which is just
+called prefix in the simulation.
+\item[\texttt{ignore\_non\_existent\_subprefixes}] If \texttt{True}, peers make
+use of global information they are given in the beginning in order to not query
+for subprefixes for which there doesn't exist a peer (i.e. the sync group is
+empty) when they are completing their subprefix coverage. This is useful in
+preventing ongoing querying for IDs that will never lead to a successful
+response.
+\item[\texttt{no\_penalty\_reputation}] The penalty threshold reputation.
+\item[\texttt{decay\_timestep}] The interval in which the reputation decay
+process is executed, which subtracts reputation from all peers. (TODO
+necessary?)
+\item[\texttt{decay\_per\_time\_unit}] The amount by which reputation decays
+every second. (TODO necessary?)
+\item[\texttt{reputation\_buffer}] The amount of reputation above the penalty
+threshold peers need to have in order to consider themselves reputation
+saturated.
+\item[\texttt{query\_sync\_for\_subprefixes}] If \texttt{True}, peers will also
+send queries to their sync peers (even if they are not query peers) when they
+are completing their subprefix coverage.
+\item[\texttt{uncovered\_subprefix\_interval}] Peers repeatedly check whether
+they have complete subprefix coverage and send queries in order to complete it
+if they don't. This is the time interval between checking.
+\item[\texttt{expect\_penalties}] If \texttt{True}, peers expect to be penalized
+when they perform a defecting action.
+\end{description}

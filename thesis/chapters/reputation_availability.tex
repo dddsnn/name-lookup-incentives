@@ -16,48 +16,12 @@ reproducing these results should be distributed along with this thesis in the
 \texttt{thesis/simulation\_runs/} subdirectory. The \texttt{.settings} file name
 for each result is given relative to that directory (TODO).
 
-Most (TODO most or all?) of the simulation runs are based on the default
-configuration (\texttt{default.settings} (TODO check that it's still current)).
-For information on the meaning of the parameters, see the implementation chapter
-(TODO link).
-
-The most important parameters of the default settings are these (TODO move to
-implementation, make into a table, explain the reason or significance of each
-value):
-\begin{itemize}
-\item Random seed: 5803379951609632196
-\item Number of peers: 64
-\item Length of IDs: 16 bit
-\item Length of routing prefixes: 4 bit (i.e. average sync group size of 4
-      peers) (TODO this is just called "prefix" in the implementation, but
-      "routing prefix" in the text to distinguish it from the general concept of
-      a prefix)
-\item Evenly sized sync groups are not ensured
-\item Sync groups are ensured to be non-empty
-\item Number of random introductions: 8
-\item Subprefix coverage check interval: 10 seconds (TODO make sure it's clear
-      what this is)
-\item Sync peers are not queried when completing their subprefix coverage
-\item Maximum query group size: 16
-\item Minimum desired number of query peers: 2
-\item Reward for a successful query: 1 reputation point
-\item Penalty for a failed query: 1 reputation point
-\item Penalty for a timeout: 2 reputation points
-\item No reputation decay
-\item Penalty threshold reputation: 10 reputation points
-\item Request generation: 1 per second per peer (TODO possibly more complex
-      request generation?)
-\item Reputation attenuation: exponential with exponent 0.35, coefficient 1,
-      lower bound 10 and upper bound 15
-\item Transmission delay: 0.1 seconds
-\item Network timeout: 2 seconds
-\item Initial reputation: 0
-\item Reputation buffer: 4 reputation points (meaning a tolerance of 2 timeout
-      penalties (TODO still correct?))
-\item Peer selection strategy: \emph{overlap $\rightarrow$ reputation sorted}
-\item Group switching is disabled
-\item Penalty expectations are enabled
-\end{itemize}
+The simulation runs are based on the default configuration
+(\texttt{default.settings} (TODO check that it's still current)).  The most
+relevant parameters are listed in the appendix
+(Section~\ref{sec:app_default_settings}) along with a short explanation.  For
+detailed information on the meaning of the parameters, see
+Chapter~\ref{chap:implementation}.
 
 Simulations usually (TODO usually or always?) last 200 seconds.
 
