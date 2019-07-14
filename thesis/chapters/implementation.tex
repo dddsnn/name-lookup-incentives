@@ -1,152 +1,191 @@
 \chapter{Implementation}
 \label{chap:implementation}
-TODO
-- write a README
-- put on github and link
-- should be deterministic
-- possibly not the same results on different machines due to floats
-- network abstraction (addresses)
-- time units <-> seconds
+- TODO write a README
 
-\section{Model}
-TODO
-- peer stop answering when their reputation is saturated
-- the lowest reputation in shared query groups counts
-- reputation buffer
-- penalty threshold 10, penalty delay is 10 - rep
-\section{Settings}
-TODO explain what settings files are
+A simulation has been implemented using the Simpy discrete event simulation
+framework (TODO put on github and link). It simulates a network of selfish peers
+providing and accessing a \ac{DHT} implementing the system described in the
+previous chapter (TODO still the previous chapter?).
 
-specified: there are 64 peers with an ID length of 16 bit and a routing prefix
-length of 4 bit, resulting in an average sync group size of 4 peers. Query group
-sizes are capped at 16 peers; there is no specific enforcement of this, peers
-simply don't join groups that already have 16 peers.
+Parameters of the simulation are set via a \texttt{.settings} file, which is
+supposed to make results of simulation runs reproducible\footnote{The simulation
+uses floating-point arithmetic, which is a possible source of indeterminism
+between different systems\cite{dawson2013determinism}. On the same system,
+results should be reproducible.}. Parameters for the default settings, along
+with some explanation, can be found in Section~\ref{sec:app_default_settings}.
+They are chosen in such a way that the dimensionless time units of the
+framework can be viewed as seconds.
 
-- routing prefix length is fixed and always actually a prefix of the peer ID
-  (can't be changed)
+\section{Initialization}
+Before the simulation starts, the environment is initialized. This involves
+generating IDs for all the peers, creating the peer objects, and introducing
+each peer to a few others.
 
-The reward for a successful query is 1 (reputation point), the penalty for a
-timeout is 2, the penalty for a failed query is 1. There is no reputation decay.
+The IDs are generated randomly, although there are some options that can
+influence this by forcing all sync groups to be non-empty, or even have the same
+sizes (sync groups are determined by the routing prefix, which is a part of the
+ID).
 
-During initialization, peers with random IDs are generated and registered with
-the network abstraction. Every peer is then introduced to 8 randomly selected
-peers (i.e. given their ID and address so to be able to contact him) as well as
-to all peers in his sync group (those 2 sets may overlap).
+Once all peers are created, they are introduced to other peers, i.e. given their
+ID and network address such that they can communicate with them. Each peer is
+introduced to all of his sync peers as well as a number of randomly selected
+peers with which he may from query groups (the random sample may also contain
+sync peers and himself). Afterwards, every peer's process to complete the
+subprefix coverage is queued up to run once the simulation starts.
 
-When introduced to another peer, a peer checks which of his subprefixes the
-other peer serves. If he doesn't already know this peer from a query group he is
-in and doesn't already know at least 2 peers serving that subprefix from his
-query groups, he will join a query group with the newly introduced peer. This
-mechanism is simplified: for this purpose, peers have access to a list of all
-query groups. The peer will first check if there is a query group the other peer
-is in that is not full (i.e. has less than 16 members). If so, he will add
-himself to that group. Otherwise, he will check if any of his own query groups
-is not full and, if so, add the other peer to it. Otherwise, he will create a
-new query group containing just himself and the other peer. (TODO does this
-belong into implementation?)
+Finally, another process is started that facilitates traffic. Every second, one
+request for a full ID is generated at every peer. A request represents a user
+interacting with the protocol stack. It may lead to the peer needing to send out
+a query in order to resolve it, but it may not (if the peer already knows the
+answer, e.g. if the requested ID is in the same sync group). The requested ID is
+randomly chosen with equal distribution from all existing peer IDs and may be
+the peer's own ID.
 
-The first thing every peer does when the simulation starts is completing their
-subprefix coverage: they check for which of their subprefixes they know less
-than 2 peers and send queries for these subprefixes. Once a successful response
-arrives, the peer information contained in it is introduced and a query group
-can be joined. This process is repeated every 10 seconds. In those queries,
-peers specify which peers covering the subprefix they already know, so that
-those peers will not occur in the response. These queries are also special in
-that peers can select recipients where the overlap of the recipient's routing
-prefix with the target ID (TODO terminology: target of a query (can be an ID or
-a prefix)) is less than or equal to the peer's. This is usually disallowed to
-prevent routing loops (ensuring queries terminate after at most as many hops as
-the routing prefix is long). However, when completing subprefix coverage, this
-may be necessary: if the peer doesn't know anyone closer to the desired
-subprefix (and that is the problem he is trying to solve), he must necessarily
-query someone who is not closer. There is no mechanism to prevent routing loops
-implemented (TODO).
+\section{Peer Behavior Model}
+\subsection{Completing Subprefix Coverage}
+Peers are introduced to a number of other peers once during initialization, but
+every time they receive a successful response they are introduced to the peer
+whose information is contained in the response.
 
-Peers broadcast reputation updates faithfully and honestly, i.e. when a response
-arrives or a timeout occurs, they send an update to each member in all the query
-groups they share with the responder. (TODO does this belong into
-implementation?)
+When a peer is introduced to another one he doesn't already know, he checks
+which of his subprefixes the other peer serves. If he already knows enough peers
+serving that subprefix, he doesn't do anything. Otherwise, he will join a query
+group with the new peer.
 
-In order to facilitate traffic, every second the simulation generates 1 request
-for a full ID at every peer. A request represents a user interacting with the
-protocol stack. It may lead to the peer needing to send out a query in order to
-resolve it, and it may not (if the peer already knows the answer, e.g. if the
-requested ID is in the same sync group). The requested ID is randomly chosen
-with equal distribution from all existing peer IDs and may be the peer's own ID.
+This process of joining a query group is simplified: All peers have access to a
+list of all query groups. The peer will first check if there is a query group
+the other peer is in that is not full. If so, he will add himself to that group.
+Otherwise, he will check if any of his own query groups is not full and, if so,
+add the other peer to it. Otherwise, he will create a new query group containing
+just himself and the other peer. A query group is considered full once its size
+reaches a number adjustable in the settings, which is the same for all peers.
+There is no further mechanism to prevent query groups from becoming too big.
 
-Peers only send one query at a time in order to resolve a request or an incoming
-query. (TODO does this belong into implementation?)
+Each peer repeatedly, after a fixed interval, runs a process that attempts to
+complete the peer's subprefix coverage. The peer for which of his subprefixes he
+knows fewer peers than he'd like and sends queries for these subprefixes. Once a
+successful response arrives, the peer information contained in it is introduced
+and a query group can be joined. In those queries, the peer specifies which
+peers covering the subprefix he already knows, so they will not occur in the
+response. The queries are also special in that peers can select recipients that
+are further away from the target ID. This is usually disallowed to prevent
+routing loops. However, when completing subprefix coverage, they may be
+necessary: if the peer doesn't know anyone closer to the desired subprefix (and
+that is the problem he is trying to solve), he must necessarily query someone
+who is not closer. There is no mechanism to prevent routing loops implemented.
 
-Peers don't go offline. (TODO does this belong into implementation?)
+\section{Cooperative/Defecting Behavior}
+Peers are modeled to be selfish with regards to their willingness to cooperate.
+They behave cooperatively and do their best to respond to incoming queries
+within the correct time window while they are not yet reputation saturated.
+They are saturated once their reputation in the relevant query group (the one
+shared with the peer sending a query) is at least the penalty threshold
+reputation plus the \emph{reputation buffer}. If they share more than one query
+group with the querying peer, they consider their minimum reputation, since they
+will receive rewards and penalties in all those groups.
 
-- seed
-- attenuation
-- 200 seconds
-- transmission delay
-- no pen reputation
-- no even sync groups
-- initial rep
-- ensure non-empty sync groups
-- reputation buffer
-- selection strat
-- no group switching
-- don't query sync peers for subprefixes
-- timeout 2
-- penalty expectations on
-- record ids are just peer ids, each peer only stores one record under its own
-  id
-\section{Simplifying Assumptions and Shortcomings}
-TODO
-- reputation updates are broadcast without incentive. in particular, peers who
-  were wronged are not getting rep for broadcasting the reputation update with
-  the penalty. if this were implemented, such peers may be rep saturated, making
-  them too lazy to do the broadcast, meaning peers don't get penalties anymore.
-  this could lead to a chain reaction letting the whole system break down, which
-  relies on the threat of penalties (rep decay may help in this case).
-- there is no leeway given when checking another peer's reputation: when
-  deciding the penalty delay, the current reputation is used, even if the sender
-  of the query had more reputation when he sent it and is expecting a faster
-  response. seems to work anyway
-- no complaint system
-- some peers are forced to open new groups that no other than the initial 2
-  peers join: little traffic means slow reputation gains.
-  better implementation could let peers invite other useful peers, or make the
-  no-penalty reputation relative to e.g. total reputation in the group.
-- very small query groups have weird behavior (slow rep gain), they're not
-  shown, not considered interesting. a proper query group finding is necessary
-- queries are always answered, if only after a long delay. this enables
-  potentially abusive behavior by peers who don't care about how long it takes
-  (e.g. low-power embedded stuff), but it also may be necessary to find
-  subprefix coverage
-- peers never answer too early, and don't check whether their answer arrived
-  early, consequentially also no penalties for this
-- peers never go offline, never update records
-- peers never need to join their sync group, are given all their sync peers
-  during initialization
-- peers only join their query groups once
-- peers only send one query at a time
-- peers don't lie about timestamps (relevant?)
-- queries evenly distributed
-- all peers send the same amount of queries (1 per second)
-- peers always broadcast reputation updates truthfully, even without incentive;
-  reward updates are broadcast by the peer giving the reward, not the one
-  receiving it
-- major requirements unimplemented and unexplored:
-    - complaint system
-    - query group finding system
+If they receive a query and are reputation saturated, they will ignore it
+(eventually causing a timeout at the sender), but expect to receive a penalty
+for doing this. That means they store an expectation in all the relevant query
+groups that their reputation there will be reduced by a penalty in the future.
+Once the penalty is actually applied, they delete the record of the expectation.
+When determining whether they are reputation saturated, they take into account
+the expectations they have stored. In effect, once they ignore a query, they
+expect a penalty and thus are immediately not saturated anymore.
 
-\section{Peer Service (TODO title; the interface the Peer class provides)}
-- one query at a time
-- for each outgoing query, every peer notes the peers he has already queried and
-  doesn't try them again
+The reputation buffer is a configurable parameter determining how long peers
+stay cooperative before they defect for the first time. It is a simplification
+that acts as a proxy both for the peers' valuation of reputation, as well as the
+cost of cooperating. Essentially, peers give reputation infinitely high value
+while they have less than the saturation reputation, and no value otherwise.
+This makes it impossible for them to factor the cost of the action requested of
+them into their decision.
+
+When peers are trying to resolve a target ID, they only send one query at a
+time. Only once that query has failed do they send a query to the next viable
+peer. For each target ID they are trying to resolve, they note which peers they
+have already queried and don't try them again. If all viable peers have been
+tried, they consider the query to have failed.
+
+No complaint system has been implemented, so simplified reputation updates are
+used: Peers simply broadcast reputation updates faithfully and honestly, not
+considering any incentive for doing so. When a response arrives or a timeout
+occurs, they send an update to each member in all the query groups they share
+with the responder. Contrary to the system description, even for successful
+responses it is the peer who sent the query that broadcasts the reputation
+update, not the one who responded successfully.
+
+\section{Simplifications}
+The implementation contains a number of simplifications compared to the system
+described in Chapter~\ref{chap:system_description}.
+
+\begin{itemize}
+\item As already mentioned, there is no complaint system. Any actions that may
+require it, like reputation updates, are always executed faithfully.
+
+\item Query group creation and joining is simplified in that peers can simply
+add themselves to any query group they like, and even add other peers to an
+existing query group without that peer having any say in this. For this purpose,
+peers have access to a complete list of all existing query groups that is shared
+among all peers. Creating a new query group is done by placing a new object in
+that list.
+
+\item There is no way for peers to join query groups other than through the
+mechanism to complete their subprefix coverage. There is also no way at all to
+leave a query group. This leads to some very small groups, usually a few with
+just two peers. In these groups, reputation gains are very slow because of the
+low amount of traffic.
+
+\item Peers never go offline, change their addresses or update the record they
+store in the \ac{DHT}.
+
+\item Peers respond to all queries, even from peers they don't share a query
+group with. For those, they apply the maximum penalty delay.
+
+\item Peers never respond too early, and hence there is no mechanism implemented
+to penalize this.
+
+\item Peers don't give any leeway when checking another peer's reputation. When
+deciding the penalty delay, the current reputation is used, even if e.g. the
+sender of the query had more reputation when he sent it and is thus expecting a
+faster response.
+
+\item No encryption or signing of messages is actually taking place.
+\end{itemize}
+
 \section{Analysis Module}
-- graph types, what do the colors mean in each (maybe make all black for
-  percentiles?)
-- percentiles: since query groups usually capped at 16, the 5th and 95th
-  percentile pretty much represent exactly one peer
-- explain why unmatched queries occur: a sends b a query, times out at a, b
-  answers anyway
+When the simulation is running, a log is kept of all interesting events like
+queries or responses being sent or timing out. Once the simulation is done, this
+log is written to a file that allows to examine the behavior of the system.
+
+The \texttt{analyze} module is capable of creating various plots concerning the
+system behavior.
+\begin{description}
+\item[Reputation percentiles] Illustrates the development of reputation of the
+members of one query group over time. The reputation of the 5th, 25th, 50th,
+75th and 95th percentile of reputation is plotted with one graph each. Note that
+in many cases, query groups have 16 members, and so the 5th and the 95th
+percentile represent only one peer.
+\item[Peer reputations] Illustrates the reputation values of one peer in all of
+the query groups he is in over time. The reputation for each group is shown as a
+separate graph. Optionally, a bar graph in the background shows the fraction of
+the peer's responses that suffers from the recursive query problem (i.e. the
+peer tried to respond, but once he was able, it was too late already).
 - reputation graphs show no-penalty rep and rep-saturated rep
-- measuring rec query prob: log whenever a peer tries to respond and notices
-  that his response should have arrived in the past. uses the query\_timeout
-  and transmission delay that's valid for all peers, so should be exact
+- can include recursive query prob
+\item[Response statuses] Illustrates the status of responses within the
+simulation over time. The statuses \emph{success}, \emph{failure} and
+\emph{timeout} should be self-explanatory. A response can be \emph{unmatched} if
+peer A sends a query to peer B, the query then times out at A, but B responds
+(late) anyway. By that time, A has deleted the record of having sent a query to
+B and thus can't match the response to an outgoing query. This frequently occurs
+with the recursive query problem. The status \emph{returned\_excluded\_peer}
+denotes the situation where a query was sent where certain IDs were excluded,
+i.e.  unwanted as a response, but returned in the response anyway. This doesn't
+happen in the simulation.
+\end{description}
+
+- TODO measuring rec query prob: log whenever a peer tries to respond and
+  notices that his response should have arrived in the past. uses the
+  query\_timeout and transmission delay that's valid for all peers, so should be
+  exact
