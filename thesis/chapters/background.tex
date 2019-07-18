@@ -15,7 +15,7 @@ thesis, it is \emph{responsible for} them. The key of a record determines who is
 responsible for it, and there is a distance metric measuring how far a node is
 to being responsible for a record. In the DHT used in this thesis every node has
 an ID that has the same format as the keys in the DHT. Nodes are responsible for
-those records the keys of which have the same prefix as their ID>
+those records the keys of which have the same prefix as their ID.
 
 A node in the network needs not know all other nodes, but for any key it must
 know another node closer to that node. Then it is possible to route to any
@@ -39,7 +39,48 @@ then made responsible for the records that generate a lot of traffic.
 - TODO explain routing in p-grid/kademlia style dht (picture with the tree)
 
 \section{Discrete Event Simulation}
-TODO
+A discrete event simulation framework simulates a system by processing events at
+discrete times. This can be implemented deterministically, making the
+simulations reproducible.
+
+In execution, the framework maintains the current
+\emph{simulated time}, i.e. the time within the simulation, which counts up as
+the simulation progresses. The central part of the framework is the event queue,
+which contains events, each together with the time at which it should be
+triggered.
+
+An event is the unit of action in the framework and models something taking
+place. This can for example be a message being sent over the network. Events can
+be \emph{triggered}, meaning the action they represent is executed. They can
+then mutate the state of the system, as well as place new events on the event
+queue. For example, the message-sent event could modify the sender's state for
+outbound messages and place a message-received event in the event queue a little
+bit in the future.
+
+The simulation is initialized by placing at least one event in the queue. When
+it is started, the framework continually pops the next event (the one with the
+lowest trigger time) from the event queue, forwards the simulated time to the
+event's trigger time, and triggers the event.
+
+If the last event taken from the queue doesn't place any new events, the
+simulation ends. But there are also other useful termination criteria, like
+reaching a (wall clock) time limit, reaching a simulated time limit, or e.g.
+reaching a certain number of events processed.
+
+The procedure described is serial, i.e. single-threaded. Discrete event
+simulations can be parallelized, but this takes some effort. Race conditions can
+occur if two successive events are removed from the event queue and triggered
+concurrently. These must be detected, the system rolled back, and the events
+processed again sequentially. This issue can be made less likely by distributing
+events across threads such that events that are likely to cause race conditions
+are processed in the same thread.
+
+In this thesis, the SimPy framework~\cite{simpy} was used. It is written in
+Python, allowing for quick iteration of the model. However, it can't be
+parallelized, so the simulation is strictly single-threaded. Parallelizing was
+considered difficult considering that the point of the system is that everyone
+is able to spread out messages to a lot of other users. Thus, there would likely
+not be clusters that could be assigned to one thread.
 
 \section{Game Theory}
 TODO
