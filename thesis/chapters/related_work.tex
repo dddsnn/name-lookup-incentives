@@ -2,6 +2,7 @@
 \label{chap:related_work}
 - TODO
 
+\paragraph{Private Information Retrieval}
 The very initial motivation of this thesis was to address the privacy problem a
 user has when he sends all his name resolution requests to a single server. This
 problem goes away entirely if the server answers the requests satisfactorily but
@@ -18,18 +19,25 @@ purpose of this thesis, since the server must process the entire database for
 every query. If he didn't, he could infer that the record the user was looking
 for was in the part he didn't process.
 
-DNS over TLS (DoT)\cite{RFC7858} encrypts traffic to DNS servers. As stated
-previously, this doesn't solve the problem of privacy-sensitive data
-accumulating in a central location.
+\paragraph{DNS Extensions}
+DNS over HTTPS (DoH)\cite{RFC8484} principally encrypts DNS traffic, but also
+has the potential to address the problem of user data accumulating, at least in
+part. In conjunction with HTTP/2's server push\cite{RFC7540}, a web server
+serving a web page can proactively include DNS resolutions for the domain names
+linked in the page. The user then doesn't need to resolve them himself. But this
+only really works for web browsing or similar applications, where the server can
+reasonably anticipate which DNS resolutions a client needs. It doesn't transfer
+to the chat system example from earlier.
 
-DNS over HTTPS (DoH)\cite{RFC8484} does this as well, but has the potential to
-also address the other problem. In conjunction with HTTP/2's server
-push\cite{RFC7540}, a web server serving a web page can proactively include DNS
-resolutions for the domain names linked in the page. The user then doesn't need
-to resolve them himself. But this only really works for web browsing or similar
-applications, where the server can reasonably anticipate which DNS resolutions a
-client needs. It doesn't transfer to the chat system example from earlier.
+DNS over TLS (DoT)\cite{RFC7858} only encrypts DNS traffic and isn't by itself
+useful to us. But it can be used to allow DNS lookups via
+Tor\cite{dingledine2004tor} (which doesn't support UDP connections).
 
+\cite{cox2002serving}
+Serving DNS Using a Peer-to-Peer Lookup-Service
+- TODO
+
+\paragraph{DHTs}
 The \ac{DHT} used in this thesis is a simplified variant of
 P-Grid\cite{aberer2001pgrid}. One of the central promises of P-Grid is its
 self-organizing load balancing, achieved by making peer identifiers independent
@@ -41,14 +49,47 @@ work.
 The better known Kademlia\cite{maymounkov2002kademlia} is of a similar style, in
 that routing takes place along a binary tree.
 
-- various trust management
-- various incentives
-- freeriding, whitewashing, sybil attack etc.
-- peers with utility functions that have a price for privacy
-- that paper that found not all peers to be selfish
-- that paper that looked at patterns of collusion
-- that paper that found trusting peers initially, based on the trustworthiness
-  of recent joiners, is sane
+\paragraph{User Behavior}
+McGee and Sk{\aa}geby\cite{mcgee2004gifting} survey the motivation of users of a
+real file sharing system to contribute in a way that doesn't promise an
+immediate benefit to them, which they call \emph{gifting}. They classify the
+motivations, as well as two other dimensions of gifting they found, openness and
+proactivity. One kind of openness, restrictive gifters, may choose not to upload
+to certain peers, but do so for the good of the system. For example, some may
+restrict uploading only to users who contact them personally, to foster social
+interaction within the community and thereby increase cooperation. A similar
+kind of logic, deliberately treating others badly to enforce better behavior, is
+systematized in this thesis.
+
+Ripeanu et al.\cite{ripeanu2006gifting} examine the gifting behavior and
+freeriding (not contributing at all, only consuming the service provided by
+others) in different BitTorrent communities. They find a very low amount of
+freeriders compared to other file sharing applications and attribute this
+firstly to user's perception that BitTorrent has effective penalties for
+freeriders, and secondly to the fact that most BitTorrent clients are not easily
+configured for freeriding. They also find contribution to be very unevenly
+distributed (few users uploading a lot), and can't explain this by difference in
+bandwidth alone. They see this as evidence that incentives in BitTorrent are not
+the only influence on how much a user contributes.
+
+\paragraph{Reputation and Incentives}
+- TODO much of the existing work proposes reputation tracking that helps answer
+  the question "is this peer going to be good to me", or incentive systems that
+  make sure peers are good to others. but i also need to detect or incentivize
+  them to be bad to bad peers
+- TODO some of these (or all?) are also not applicable to a system where peers
+  can't necessarily reciprocate. in bittorrent, everyone in a swarm wants the
+  same file, so you can swap pieces. but in a dht, a wants a record from b, but
+  b is probably not interested in any of a's records (certainly not right then)
+
+Obreiter and Nimis\cite{obreiter2003taxonomy} firstly present a taxonomy of
+uncooperative behavior, which is more closely explained in a previous
+paper\cite{obreiter2003stimulating}. It crucially distinguishes profitable from
+malicious misbehavior, the former of which grants the one employing it some
+advantage, while the other does not. This thesis is principally concerned with
+the former. They go on to give a taxonomy of incentive patterns. The one used in
+this thesis most closely resembles, in their
+terminology, the community pattern.
 
 The NICE system\cite{sherwood2006cooperative} is a distributed trust inference
 system for peer-to-peer applications in general. It views them as a set of
@@ -64,5 +105,117 @@ cooperative peers, whereas this thesis requires the system to also make sure
 there are many cooperative peers to choose from. Otherwise, in an extreme case,
 one peer could serve all queries and collect everyone's data.
 
-- treat-before-trick
-- gifting technologies paper (already mentioned above)
+\cite{gupta2003reputation}
+A Reputation System for Peer-to-Peer Networks
+- TODO (in lit\_todo)
+- i think this is the one assuming a central authority i mentioned in the
+  initial
+
+\cite{zhou2007gossip}
+Gossip-based reputation management for unstructured peer-to-peer networks
+- each node holds a reputation vector containing a score for each other node.
+  the scores of other nodes are integrated into it according to the node's
+  policy.
+- nodes get a hold of others' reputation vectors through gossiping
+  (probabilistic guarantees)
+- bloom filter for compression
+- possibly useful, but doesn't offer exactly matching reputation scores. so the
+  system must allow for some leeway
+- i'm not sure about the degree of collusion resistance
+
+\cite{moreton2003trading}
+Trading in trust, tokens, and stamps
+- compares trust, token and stamp based incentive techniques
+- trust: peers deny service if some trust value is too low
+- token: peers require payment in the form of tokens to provide service
+- stamp: peers mint their own tokens (stamps) and trade them for service
+- paper just argues that stamp is a generalization of both trust and token
+
+\cite{papaioannou2005optimizing}
+Optimizing an Incentives’ Mechanism for Truthful Feedback in Virtual Communities
+- approach to deal with lying:
+- after a transaction, both peers must submit feedback about it (e.g. ok, or
+  delayed)
+- if they don't match, both peers are punished
+- punishment is a little more involved
+- apparantyl leads to a stable system
+
+\cite{moreton2003enforcing}
+Trust Management 2003 - Enforcing Collaboration in Peer-to-Peer Routing Services
+- starts at page 255
+- tries to incentivize participation in routing in kademlia
+- makes a distinction between trust that a node participates and trust that it
+  makes good recommendations (rates other nodes well)
+- has a good list of possible attacks
+- recommendation trust should be useful, it's similar to my ideas on how to deal
+  with nodes being to generous
+- trust grows between adjacent nodes because their connection persists for a
+  long time (kademlia keeps the longest existing connections around, since
+  statistically, they have the highest chance of staying around even longer).
+  this is similar to query groups, where trust grows.
+
+\cite{feldman2004robust}
+Robust Incentive Techniques for Peer-to-Peer Networks
+- TODO
+- has a sort of complaint system (section 4.2.2)
+- this is the paper that says its sane to be kind to newcomers if newcomers
+  recently have been cooperative (section 4.3), strategy is called
+  stranger-adaptive
+
+\cite{hassen2012secure}
+Secure Reputation Framework for BitTorrent
+- TODO (in lit\_todo) i think assumes a central server?
+
+\cite{yonezawa2006novel}
+A Novel Protocol for Communicating Reputation in P2P networks
+- TODO (in lit\_todo, Trust Management 2006, p.423)
+- also uses a central server, but uses statistics somehow, potentially relevant
+
+Shin et al. propose an incentive scheme for file sharing they call
+\emph{treat-before-trick (TBeT)}\cite{shin2009treat}, in which files for
+download are encrypted with $(t, n)$ threshold secret sharing. There are $n$
+subkeys, and any $t$ of them are sufficient to decrypt the file. Peers barter
+subkeys, receiving one as payment for a successfully uploaded file chunk from
+the peer they uploaded to. This system is fairly unique and interesting, but not
+suitable to a latency-sensitive application, because it pushes the mechanism
+that prevents freeriding until after the decision is made which file the peer is
+interested in. Peers then need to find others to barter for subkeys with, which
+is likely to take quite a bit of time, if it is possible at all. Splitting the
+small records of the \ac{DHT} into chunks also seems counterproductive.
+with only after the decision
+
+\paragraph{Exploitation}
+\cite{douceur2002sybil}
+The Sybil Attack
+- without a validating external authority, it is infeasible to determine whether
+  2 distinct identities belong to 2 distinct entities
+- 2 identities can prove that they belong to 2 different entities by each
+  solving a challenge that only 1 entity couldn't solve by itself. this could be
+  testing computational capacity (solving a hard challenge in a time bound) or
+  storage capacity (storing a large amount of data)
+- but this becomes impossible as the network gets bigger, or at least
+  prohibitively impractical
+- very relevant, should cite, as it's the most dangerous freerider kind of
+  attack
+
+\cite{friedman2001social}
+The Social Cost of Cheap Pseudonyms
+- TODO
+- also considers paying for a new identity
+- conclusion says no strategy can do better than punishing all newcomers, but i
+  know there was a paper saying it's sane to assume newcomers cooperate at the
+  same level as recent newcomers, and treat them accordingly
+
+\cite{feldman2006freeriding}
+Free-Riding and Whitewasing in rep systems
+- TODO
+
+\cite{li2012collusion}
+Collusion Detection in Reputation Systems for Peer-to-Peer Networks
+- use either centralized reputation system, or decentralized, but with a number
+  of reputation managers
+- looks at suspicious behavior (e.g. colluding nodes will rate each other
+  frequently) to detect collusion
+
+
+- TODO the paper with trembles

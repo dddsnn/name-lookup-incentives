@@ -1,5 +1,134 @@
 \chapter{Performance}
 \label{chap:performance}
+- TODO call this "performance potential"? we're not measuring real performance,
+  just theoretically assessing the potential performance, basically just looking
+  at how many hops lookups take
+- TODO just call this "comparison with alternatives"?
+- TODO this is basically just the performance of the dht, has nothing to do with
+  the penalty system (until we get to timeouts)
+
+One of the requirements of the system is to provide name resolution with a
+latency low enough to be useful for real-time interaction, e.g. in the chat
+system given as an example in the introduction.
+
+The central performance characteristic to consider is the total latency of a
+query a peer sends. It is dependent on a number of factors:
+
+\begin{itemize}
+\item The distance of the peer's routing prefix to the target ID (in the extreme
+case, the peer is responsible for the target ID himself and can resolve the
+query locally).
+\item The network delay between the peers involved in the query chain.
+\item The length of the routing prefix. The longer it is, the higher the average
+number of recursive steps necessary for a resolution.
+\item The subprefix coverage of all involved peers. The more peers there are per
+subprefix, the higher the chance that a step in the query chance can be skipped
+(by being able to select a peer who is not just one bit closer to the target ID,
+but two, or even more). If the subprefix coverage is incomplete at some steps,
+the query may not be resolvable at all without violating the rule that a query
+recipient must be closer to the target ID.
+\item The reputation of the involved peers in their query groups. Firstly, this
+determines whether a penalty delay will be applied, but if a recipient is
+reputation saturated, he will let the query time out.
+\item Whether only one or multiple queries are sent. When sending more than one,
+the probability that both fail or time out is lower than if only one is sent.
+\end{itemize}
+
+- TODO measure performance of simulation?
+
+\section{Theoretical Latency}
+The system has not been fully implemented, so it is not possible to measure
+latencies from a real system. But theoretical considerations can be done. A good
+starting point is to be optimisitic about the factors influencing latency.
+
+\paragraph{Simple Case}
+Assume the following:
+
+\begin{itemize}
+\item The network round-trip time between any two peers is
+$t_{RTT}$\footnote{Of course it's very unrealistic to assume it's the same for
+any pair of peers. But it's useful as a first approximation to make statements
+about expected query times.}.
+\item The routing prefix is $l_{r}$ bits long.
+\item Every peer in the network has complete subprefix coverage and knows
+exactly $n_{qp}$ query peers for every subprefix.
+\item All peers are above the penalty threshold reputation in all query groups,
+but none are saturated.
+\item Peers only send one query at time.
+\item Local lookups are instantaneous.
+\item There are no packet drops of failures in the network.
+\item Connections between query peers are already set up, no need for
+handshakes.
+\item Peer IDs are equally distributed.
+\end{itemize}
+
+If a query is sent under these circumstances, all peers will be cooperative and
+no penalty delays will be imposed.
+
+Now suppose a query is sent for a target ID $ID_{target}$ that is $k$ steps away
+from the querying peer's routing prefix $r$, i.e. $l_{r} - o(ID_{target}, r) =
+k$. At every but the last step in the query chain, a peer has to be selected to
+forward the query to. Suppose the selected peer's routing prefix is exactly one
+bit closer to the target ID. Then the query will take $k \cdot t_{RTT}$.
+
+\paragraph{Skipping Steps}
+Now consider that, out of the $n_{qp}$ query peers each peer in the query chain
+has to choose from to forward the query to, some may be more than one step
+closer to the target ID. Thus it may be possible to, for example, forward the
+query to a peer two steps closer, skipping one step in the query chain. The
+probability to be able to skip at least $n_{skip}$ steps is $1 - (1 -
+2^{-n_{skip}})^{n_{qp}}$ (assuming, of course, that there even are that many
+steps left).
+
+To get the expected value $E(n_{qp})$ of steps that can be skipped given a
+number of query peers, set this probability to 0.5. Solving for $n_{skip}$
+yields
+
+\[E(n_{qp}) = n_{skip} = \log_2\left(\frac{1}{1 -
+0.5^{\frac{1}{n_{qp}}}}\right).\]
+
+So for example, with 4 query peers, the expected number of steps that can be
+skipped by selecting the right peer is about 2.65. To be precise of course, this
+has to be capped by the distance to the target ID.
+
+Taking this into account, the expected query time drops to $\lceil\frac{k}{1 +
+E(n_{qp})}\rceil \cdot t_{RTT}$.
+
+\paragraph{Timeouts}
+- TODO necessary?
+Responses can time out if the recipient of a query is reputation saturated, or
+is unable to resolve the query in the required time. Let $p_{timeout}$ be the
+probability that a query times out, and let $t_{timeout}$ be the time after
+which peers consider a query timed out. Further assume that timeouts can happen
+independently at any point in a query chain.
+
+Since $t_{timeout}$ is the same for all peers, one timeout means the query times
+out at every step and has to be retried from scratch.
+
+- then consider probability peers are saturated and don't answer, (adjust
+  attenuation)
+- quantify latency increase due to response failures
+    - consider multiple concurrent queries
+
+\paragraph{Concrete Values}
+Plugging in some roughly realistic values for the variables to get a feel for
+the kind of latency the \ac{DHT} has.
+
+Set $t_{RTT} = \SI{50}{\milli\second}$, and $n_{qp} = 3$. Set the length of the
+routing prefix $l_r = 16$. Supposing a network of $2^{22}$, or about 4 million,
+peers, this implies average sync group sizes of 64 peers.
+
+In the simple case where no steps are skipped, a query that has to go the full
+$l_r$ steps (i.e. where the querying peer has no overlap with the target ID)
+takes $16 \cdot \SI{50}{\milli\second} = \SI{800}{\milli\second}$.
+
+If we do consider skipping steps, the average query time drops to
+$\lceil\frac{16}{1 + E(3)}\rceil \cdot \SI{50}{\milli\second} =
+\SI{250}{\milli\second}$.
+
+\section{Message Sizes (TODO maybe call this overhead? include the query group
+management overhead etc)}
+- TODO necessary?
 - define messages, estimate sizes, id lengths etc.
     - remember signatures for size
     - remember public key for size of a record (or use a separate record to map
@@ -10,19 +139,75 @@
     - reputation update regarding responses have to state which ID the query was
       for if peer selection overlap-rep-sorted is used, so that the lowest-rep
       peer can detect that he should have been sent a query
-- reputation updates could potentially be batched to save overhead
-- compare with tit-for-tat
-\section{Performance Indices}
-TODO
+
+- size of messages also a concern
+- sync group maintenance overhead
+- query group, rep management
+- quantify the overhead from responding to queries necessary to maintain rep
+    - assume all peers query at the same rate, so basically need to answer one
+      query for every query sent
+
+- TODO performance depends on
+    - routing prefix length, indirectly on sync group size
+    - reputation saturation
+    - multiple queries? could add to the load
+
 \section{Comparison with Plain DNS}
-\section{Comparison with a Simple Proxy}
-- tor with a single relay?
+The obvious first candidate to compare against is plain DNS. Firstly, the system
+described in this thesis is designed to address the privacy issues typical
+usage of DNS entails. DNS also uses a hierarchical namespace, as opposed to the
+flat one employed by the system's \ac{DHT}.
+
+Measuring DNS performance in real systems is
+difficult~\cite{liston2002diversity}, and there would be no real-life data to
+compare it against. Instead, as above, look at the number of round-trip times
+needed to resolve a query.
+
+- TODO
+
+- sync group size <-> num records per domain
+- caching
+    - gives performance, but only works with a power-law dist, i've assumed i
+      don't have that
+- in my system, everyone has a record in the dht
+
+\subsection{Comparison with a Simple Proxy}
+A simple extension of just using DNS is using a simple proxy for DNS lookups.
+This can provide some privacy protection by making profile building more
+difficult. There are two ways for it: either there are a lot of other users
+using the proxy for DNS lookups at the same DNS server. Their traffic can then
+act as cover traffic. Alternatively, proxies can be switched often to "reset"
+the data that has been accumulated.
+
+Performance-wise, this should behave like plain DNS, with the added round-trip
+time to the proxy server (provided the proxy is fast enough).
+
 \section{Comparison with Tor}
-- tor fully anonymizes tcp, stronger than what we do here
-    - specify hostname when establishing a connection, exit nodes does dns
-      lookup
-    - Remote hostname lookup is basically dns over the circuit, (but only A and
-      AAAA records)
+- TODO tor in background? not central
+
+When talking about privacy-enhacing technology, a comparison with Tor is
+basically mandatory. Of course, Tor aims to fully anonymize all TCP traffic, not
+just make it less practical to collect data for one particular service. It can
+be used just to anonymize DNS, though.
+
+If the user wants to use Tor for anonymization anyway, a separate DNS lookup is
+not even necessary. He just specifies the domain name of the target and the exit
+node does the lookup.
+
+Plain DNS lookups are actually not possible via Tor, since they are done via
+UDP, but Tor only works with TCP. But DNS over TLS or DNS over HTTPS can be
+used.
+
+Alternatively, Tor has a remote hostname lookup which instructs the exit node to
+resolve a domain name and send back the A or AAAA record. However, this uses a
+simple format rather than forwarding the DNS server response. It doesn't include
+any DNSSEC records, so the user has to trust the exit node to send the correct
+response.
+
+If we stick to a very simplified view for a look at the performance, DNS queries
+via Tor essentially add the 3 round-trip times between the 3 Tor nodes to the
+time the DNS query takes.
+
 - latency is what's important to us, ignore tor's establishing a circuit and our
   finding query groups, that can be done in the background
 - but circuit creation is costly, also with respect to computation (crypto)
@@ -35,10 +220,10 @@ TODO
   end of the planet
 - ignore possible tcp delay from dropped packets, hol blocking, assume network
   not congested?
+    - also delay from nagle's, delayed acks
 - fixed-size cells of 512 bytes, can probably fit the entire response (but not
   necessarily. don't know what happens in that case, don't think it's possible
   to receive 2 cells as response)
-- assuming link protocol version 4
 - remote hostname lookup: 512 bytes fixed-length cell, query and response each
 - or let the exit node do the lookup and include the first payload. with a small
   http request, lookup is basically free, same as a dns query
@@ -51,12 +236,8 @@ TODO
       server, is likely to be close and have low rtt, so the values from
       metrics.tor... are probably a little higher than what can be expected for
       relay\_resolve
-- TODO what is typical dns query time?
 - %https://2019.www.torproject.org/docs/faq.html.en#SendPadding tor sends
   padding on idle circuits, up to 103b/s
   (https://github.com/torproject/torspec/blob/master/padding-spec.txt)
-- relay\_resolve doesn't include any dnssec or anything, so we have to trust the
-  exitnode. a simple udp proxy is more useful than tor in this case. figure
-  that.
-    - alternative: do DoT via Tor
-TODO
+
+- TODO compare with tit-for-tat?

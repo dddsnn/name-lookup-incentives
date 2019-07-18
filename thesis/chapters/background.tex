@@ -1,17 +1,50 @@
 \chapter{Background}
 \label{chap:background}
-- only present those parts relevant to the thesis. don't ramble on, don't get
-distracted. seriously, don't.
 \section{Distributed Hash Tables}
-TODO
-- replication
-- gossipping
-\section{Reputation Management}
-- credit-debit, credit-only
-- free riding, whitewashing
+Distributed hash tables (DHTs) are a method of distributing data storage to
+nodes in a network. From an abstract point of view, they are just hash tables
+that map keys to values. They are appealing because they offer robust data
+storage without the need for a central authority.
+
+The keys usually have fixed length, the values, or records, can be arbitrary
+data. Some care should be taken to ensure there are no collisions in keys. Using
+a cryptographic hash of the record itself is a possibility achieving that.
+
+Each node in the DHT stores a number of the records. In the language of this
+thesis, it is \emph{responsible for} them. The key of a record determines who is
+responsible for it, and there is a distance metric measuring how far a node is
+to being responsible for a record. In the DHT used in this thesis every node has
+an ID that has the same format as the keys in the DHT. Nodes are responsible for
+those records the keys of which have the same prefix as their ID>
+
+A node in the network needs not know all other nodes, but for any key it must
+know another node closer to that node. Then it is possible to route to any
+record stored in the DHT. The node can ask the closer node for the record, which
+in turn asks another node closer, eventually reaching a responsible node.
+
+Records can be created, updated and deleted by contacting the node responsible
+for the corresponding key.
+
+A useful robustness feature is replication, in which more than one node is
+responsible for each record. This way, if a node fails, the record is not lost.
+All the nodes responsible for the same records must stay in contact to
+synchronize their records, making each other aware of new and updated records as
+well as deletions.
+
+Load balancing is another advanced feature that's useful if some records are
+much more popular, or much bigger than others. To achieve it, the mapping from
+node to the records the node is responsible for must be mutable. More nodes are
+then made responsible for the records that generate a lot of traffic.
+
+- TODO explain routing in p-grid/kademlia style dht (picture with the tree)
+
 \section{Discrete Event Simulation}
 TODO
+
 \section{Game Theory}
 TODO
 - trembles, cite that paper
 - collusion/sybil
+- free riding, whitewashing
+\subsection{Reputation Management}
+- credit-debit, credit-only

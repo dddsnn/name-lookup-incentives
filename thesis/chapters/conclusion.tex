@@ -3,3 +3,9 @@
 \section{TODO}
 - wanted to confirm p-grid's resolving IPs while possibly having to look up the
   IP of the peer to send the query to
+\section{Future Work}
+- going offline
+- consider allowing to send a response immediately if it's a "no such peer"
+  response, regardless of penalty delay. maybe even for fail responses. would
+  speed up queries. those peers should be penalized, but it's not their fault
+  the other peer didn't know the answer
