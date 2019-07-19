@@ -8,7 +8,9 @@ storage without the need for a central authority.
 
 The keys usually have fixed length, the values, or records, can be arbitrary
 data. Some care should be taken to ensure there are no collisions in keys. Using
-a cryptographic hash of the record itself is a possibility achieving that.
+a cryptographic hash of the record itself is a useful way of achieving that for
+DHTs storing files. For a DHT storing reachability information of peers like in
+this thesis, using the unique ID of the peers makes sense.
 
 Each node in the DHT stores a number of the records. In the language of this
 thesis, it is \emph{responsible for} them. The key of a record determines who is

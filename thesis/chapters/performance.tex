@@ -126,27 +126,9 @@ If we do consider skipping steps, the average query time drops to
 $\lceil\frac{16}{1 + E(3)}\rceil \cdot \SI{50}{\milli\second} =
 \SI{250}{\milli\second}$.
 
-\section{Message Sizes (TODO maybe call this overhead? include the query group
-management overhead etc)}
-- TODO necessary?
-- define messages, estimate sizes, id lengths etc.
-    - remember signatures for size
-    - remember public key for size of a record (or use a separate record to map
-      key fingerprint to full key?)
-    - remember last changed time (to determine if a received record is very old
-      and to give a penalty in that case)
-    - remember (possibly?) ttl
-    - reputation update regarding responses have to state which ID the query was
-      for if peer selection overlap-rep-sorted is used, so that the lowest-rep
-      peer can detect that he should have been sent a query
-
-- size of messages also a concern
-- sync group maintenance overhead
-- query group, rep management
-- quantify the overhead from responding to queries necessary to maintain rep
-    - assume all peers query at the same rate, so basically need to answer one
-      query for every query sent
-
+- TODO simulate and measure latency, compare to tor latency but state that
+  they're not 1-to-1 equivalent
+- TODO overhead: message size, signing, reputation updates
 - TODO performance depends on
     - routing prefix length, indirectly on sync group size
     - reputation saturation
@@ -165,6 +147,10 @@ needed to resolve a query.
 
 - TODO
 
+- find some examples of typical query times
+- caching makes it all more complicated
+- length of the domain name determines length of the query chain (not taking
+  caching into account)
 - sync group size <-> num records per domain
 - caching
     - gives performance, but only works with a power-law dist, i've assumed i
@@ -183,8 +169,6 @@ Performance-wise, this should behave like plain DNS, with the added round-trip
 time to the proxy server (provided the proxy is fast enough).
 
 \section{Comparison with Tor}
-- TODO tor in background? not central
-
 When talking about privacy-enhacing technology, a comparison with Tor is
 basically mandatory. Of course, Tor aims to fully anonymize all TCP traffic, not
 just make it less practical to collect data for one particular service. It can
@@ -193,10 +177,6 @@ be used just to anonymize DNS, though.
 If the user wants to use Tor for anonymization anyway, a separate DNS lookup is
 not even necessary. He just specifies the domain name of the target and the exit
 node does the lookup.
-
-Plain DNS lookups are actually not possible via Tor, since they are done via
-UDP, but Tor only works with TCP. But DNS over TLS or DNS over HTTPS can be
-used.
 
 Alternatively, Tor has a remote hostname lookup which instructs the exit node to
 resolve a domain name and send back the A or AAAA record. However, this uses a
@@ -208,6 +188,9 @@ If we stick to a very simplified view for a look at the performance, DNS queries
 via Tor essentially add the 3 round-trip times between the 3 Tor nodes to the
 time the DNS query takes.
 
+- tor latency high because tor nodes are near maximum capacity: no incentives to
+  offer them (cite the incentive finding paper and blog article). that's not the
+  problem i'm mainly addressing, but it's also addressed
 - latency is what's important to us, ignore tor's establishing a circuit and our
   finding query groups, that can be done in the background
 - but circuit creation is costly, also with respect to computation (crypto)
