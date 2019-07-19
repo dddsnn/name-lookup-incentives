@@ -83,9 +83,49 @@ is able to spread out messages to a lot of other users. Thus, there would likely
 not be clusters that could be assigned to one thread.
 
 \section{Game Theory}
-TODO
-- trembles, cite that paper
+Game theory studies the interaction between rational actors within regulated
+frameworks called games, and the dynamics emerging from it.
+
+A game has a number of participants called players. Each player has a set of
+possible behaviors, called strategies, that he must choose from to play the
+game. The players choose their respective strategies simultaneously, i.e. no
+player knows another player's strategy before picking his own strategy. The
+vector of strategies picked by the players is called the outcome. Further, each
+player has a utility function that maps every possible outcome to a value
+denoting how desirable the outcome is for the player.
+
+A game can be repeated, i.e. played in multiple rounds. After the game is played
+for the first round, each player knows what strategies the other players picked.
+The players can take this information into account when they pick their strategy
+for the next round. They can also consider how their choice of strategy affects
+other players' strategies in following rounds. E.g., a player may choose to
+behave well towards other players so that they don't punish him in successive
+rounds.
+
+The terms \emph{cooperate} and \emph{defect} are commonly used. Cooperating with
+others refers to player behavior that is generally well-behaved towards other
+players, defecting on others in contrast means to let others down in some way.
+In the context of this thesis, peers are behaving cooperatively if they play by
+the rules, respond to queries etc., while peers are considered to be defecting
+if they e.g. ignore incoming queries out of laziness.
+
+The notion of equilibria is important in game theory. An equilibrium is a fixed
+point in the behavior of the players, where all of them stick to their strategy.
+More formally, an outcome is a pure Nash equilibrium if no player could increase
+his utility in a future round given that all other players maintain their
+strategy. The thinking is that each player tries to maximise his utility in the
+next round and assumes that all other players will stick to their strategy.
+
+In the reputation system proposed in this thesis, the behavior of peers can be
+viewed as the behavior of players in a repeated game. The game would be played
+within the query groups introduced in Section~\ref{sec:desc_query_groups}.
+However, since there are many peers in those groups and they have many options
+on how to behave, modeling their behavior formally is complicated. For this
+reason, simulation is done instead.
+
+\subsection{Reputation Management}
+- TODO as a subsection here?
+- credit-debit, credit-only
 - collusion/sybil
 - free riding, whitewashing
-\subsection{Reputation Management}
-- credit-debit, credit-only
+- trembles, cite that paper
