@@ -490,11 +490,13 @@ class Logger:
                     num_resp = sum(1 for e in self.events
                                    if isinstance(e, ResponseScheduled)
                                    and e.sender_id == peer_id
-                                   and e.time >= i and e.time < final_time)
+                                   and e.time >= i
+                                   and e.time < i + rqp_bar_width)
                     num_rqp = sum(1 for e in self.events
                                   if isinstance(e, RecursiveQueryProblem)
                                   and e.recipient_id == peer_id
-                                  and e.time >= i and e.time < final_time)
+                                  and e.time >= i
+                                  and e.time < i + rqp_bar_width)
                     try:
                         heights.append(num_rqp / num_resp)
                     except ZeroDivisionError:
