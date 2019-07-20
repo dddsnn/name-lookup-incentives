@@ -1236,12 +1236,12 @@ ones on mobile connections.
 \subsection{Circular Queries}
 There is nothing in the system in principle that prevents peers from querying a
 peer who is not closer to the target ID than they are themselves. If they do,
-circular queries can occur, in which peer A queries peer B, who queries peer C,
-who queries peer A again. Without any way of detecting such loops, peer A may
-even think that he can use the response to his initial query to answer the query
-he received from C, and not query anyone else. Then all queries will time out
-and everyone (including peer A) receive a penalty, even if all involved were
-trying to cooperate.
+circular queries, or routing loops, can occur, in which peer A queries peer B,
+who queries peer C, who queries peer A again. Without any way of detecting such
+loops, peer A may even think that he can use the response to his initial query
+to answer the query he received from C, and not query anyone else. Then all
+queries will time out and everyone (including peer A) receive a penalty, even if
+all involved were trying to cooperate.
 
 There are no incentives specifically in place to get peers to only query peers
 closer to the target ID. Usually of course, it is better for a peer to query the
