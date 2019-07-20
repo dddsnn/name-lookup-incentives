@@ -920,14 +920,17 @@ class Peer:
         assert (queried_id not in self.out_queries_map
                 or recipient_id not in self.out_queries_map[queried_id])
         peers_already_queried.add(recipient_id)
+        timeout = (self.settings['query_timeout']
+                   + self.behavior.expect_delay(recipient_id))
         out_query = OutgoingQuery(self.env.now, peers_already_queried,
                                   query_further, query_sync, excluded_peer_ids)
         self.out_queries_map.setdefault(
             queried_id, cl.OrderedDict())[recipient_id] = out_query
         in_event_id = self.logger.log(an.QuerySent(
-            self.env.now, self.peer_id, recipient_id, queried_id, in_event_id))
+            self.env.now, self.peer_id, recipient_id, queried_id,
+            self.env.now + timeout, in_event_id))
         timeout_proc = self.env.process(self.query_timeout(
-            recipient_id, queried_id, in_event_id))
+            recipient_id, queried_id, timeout, in_event_id))
         out_query.timeout_proc = timeout_proc
         peer_to_query_address = self.lookup_address_local(recipient_id)
         if peer_to_query_address is None:
@@ -1209,12 +1212,10 @@ class Peer:
                             - self.settings['update_retention_time']), 0)
             del query_peer_info.reputation_updates[:del_idx]
 
-    def query_timeout(self, peer_id, queried_id, in_event_id):
+    def query_timeout(self, peer_id, queried_id, timeout, in_event_id):
         """
         :param peer_id: ID of the peer who failed to respond in time.
         """
-        timeout = (self.settings['query_timeout']
-                   + self.behavior.expect_delay(peer_id))
         try:
             yield self.env.timeout(timeout)
         except simpy.Interrupt:

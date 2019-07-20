@@ -972,11 +972,13 @@ class Request(Event):
 
 class QuerySent(Event):
     """Event representing a query being sent."""
-    def __init__(self, time, sender_id, recipient_id, queried_id, in_event_id):
+    def __init__(self, time, sender_id, recipient_id, queried_id, timeout_time,
+                 in_event_id):
         super().__init__(time, in_event_id)
         self.sender_id = sender_id
         self.recipient_id = recipient_id
         self.queried_id = queried_id
+        self.timeout_time = timeout_time
 
 
 class QueryReceived(Event):
