@@ -259,8 +259,9 @@ class PeerBehavior:
                 # should only do so if the response is not likely going to be
                 # late.
                 delay = in_query.response_time - self.peer.env.now
-                if -delay > (self.peer.settings['query_timeout']
-                             - self.peer.settings['transmission_delay']):
+                if (-delay > (self.peer.settings['query_timeout']
+                              - self.peer.settings['transmission_delay'])
+                        and querying_peer_id != self.peer.peer_id):
                     self.peer.log_recursive_query_problem(querying_peer_id,
                                                           in_event_id)
                 delay = max(0, delay)
