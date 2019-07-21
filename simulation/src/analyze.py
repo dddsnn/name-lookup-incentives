@@ -130,6 +130,21 @@ class Logger:
         print()
         self.print_strongly_connected_components_at(time)
 
+    def print_response_time_info(self, bins=10):
+        print('Stats about response times of successful queries')
+        successes = [e for e in self.events if isinstance(e, QueryFinalized)
+                     and e.status == 'success']
+        times = [e.time - e.start_time for e in successes]
+        print('min: {}'.format(min(times)))
+        print('max: {}'.format(max(times)))
+        print('mean: {}'.format(np.mean(times)))
+        print('percentiles 5, 25, 50, 75, 95: {}'
+              .format(list(np.percentile(times, (5, 25, 50, 75, 95)))))
+        hist = np.histogram(times, bins)
+        print('histogram:')
+        print(list(hist[0]))
+        print('[' + ', '.join('{:.2f}'.format(x) for x in hist[1]) + ']')
+
     def fraction_recursive_query_problem(self, peer_id=None):
         def consider_peer(event):
             return peer_id is None or event.recipient_id == peer_id
