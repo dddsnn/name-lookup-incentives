@@ -1,6 +1,5 @@
 \chapter{Reputation Availability}
 \label{chap:rep_avail}
-- TODO chapter title?
 - TODO check all settings file names and figures
 
 The incentive system's goal is to provide a good level of service to those peers
@@ -559,14 +558,12 @@ figure~\ref{fig:attenuation_percs}. \emph{Constant} attenuation is quite similar
 to \emph{exponential}, but has a few more timeouts. This is due to the fact that
 it takes less raw reputation to get from 12 to 14 than for the other attenuation
 strategies (25 compared to 45.26 and 42, respectively). That means after letting
-an incoming query time out, peers can work their way back up to 14 faster (TODO
-confirm theoretical prediction holds, give numbers, table?).
+an incoming query time out, peers can work their way back up to 14 faster.
 
 Without attenuation, there are many more timeouts, and as a consequence also
-many more messages in total (TODO give numbers, confirm theoretical prediction
-holds). Here, peers are very easily able to earn 14 reputation and become
-saturated, at which point they let the next query time out. This is the reason
-attenuation is necessary.
+many more messages in total. Here, peers are very easily able to earn 14
+reputation and become saturated, at which point they let the next query time
+out. This is the reason attenuation is necessary.
 
 \section{Penalty Expectations}
 \label{sec:penalty_expectations}
@@ -623,9 +620,6 @@ reputations and percentiles look similar, but have been shifted to a higher
 level. Peers' reputations still fluctuate, but because of the higher buffer
 doesn't dip below the penalty threshold of 10 anymore.
 
-- TODO the following paragraph is not strictly necessary, showing what a higher
-  buffer does isn't either
-
 However, this is not a good solution because then the amount of buffer a peer
 needs depends on the amount of queries he is likely to receive within a short
 time (the time between the first defecting action and the corresponding penalty
@@ -640,12 +634,6 @@ when they do something they know is going to be penalized, and make their
 decisions based on their reputation with expected penalties already applied. In
 the implementation, peers make these expectations when they purposefully let a
 query time out, and when they send a fail response.
-
-- TODO paragraph not strictly necessary
-The expectations must themselves have a timeout, so that they can be removed in
-case the peer who was expected to apply a penalty doesn't do so. This could
-happen if either peer leaves the query group after the expectation has been
-stored.
 
 The implementation actually isn't ideal, as peers cannot expect timeout
 penalties due to the recursive query problem: When peer A queries peer B, B may
