@@ -1,9 +1,13 @@
 \chapter{Introduction}
 - TODO update submission date?
-- TODO a very short summary here, explain the main goal for someone who hasn't
-  read the abstract
 - TODO freeriding or free-riding?
 - TODO spellcheck
+
+This thesis proposes a system built on top of a distributed hash table (DHT)
+forcing its users to become nodes contributing to it. It does so by punishing
+those who don't with a bad quality of service. The motivation is to use the DHT
+for a name-lookup service and give its users many nodes to query for privacy
+reasons.
 
 \section{Privacy in Name-Lookup}
 The domain name system (DNS) is a service essential for the Internet, its
@@ -81,17 +85,17 @@ Another underlying assumption is that the users are selfish. They want to expend
 as little storage space, CPU time and network bandwidth as possible. Without any
 addition to the \ac{DHT}, they can do that whether or not they contribute
 themselves; one more node is not going to make a big difference in the grand
-scheme, and certainly not provide them a benefit. But they want to use the
-service and enjoy the benefit of having many peers to choose from to do their
-lookups. This is the leverage the system exploits: peers who aren't contributing
-are given a worse quality of service.
+scheme, and certainly not provide them a benefit. Using the DHT but not
+contributing is called free-riding. The fact that peers want to use the service
+and enjoy the benefit of having many peers to choose from to do their lookups is
+the leverage the system exploits: peers who aren't contributing are given a
+worse quality of service.
 
-- TODO incorporate the following into goal section, along with other possible
-  attacks?
-The system should prevent free riding and be resistant to whitewashing.
-Additionally, it should offer some protection against colluding peers trying to
-appear as cooperating peers when they are not, and against Sybil attacks (TODO
-ref background section for explanation).
+Whitewashing is a similar exploit in which peers use the system until the level
+of service they are given is not satisfactory anymore, then leave and join again
+with a new identity. The system addresses this by being suspicious of newcomers,
+giving them a low quality of service that only improves once they have proven
+themselves trustworthy.
 
 \section{Necessity of Incentives}
 The assumption that all peers are entirely selfish and need to be made to see a
@@ -141,6 +145,13 @@ possibility of serving DNS via peer-to-peer also state "We need to find models
 in which people have incentives to run servers rather than just take free rides
 on others’ servers.". In the end, it may be best just to be prepared for the
 worst.
+
+Whitewashing is a peer leaving and then rejoining the system with a different ID
+in order to shed previous bad reputation. This attack is viable only in systems
+where new users are given some trust upon joining, which they can subsequently
+lose. In the system proposed here, peers joining a query group start at the very
+bottom, namely 0 reputation (and reputation is non-negative). Rejoining thus
+doesn't afford them any benefit.
 
 \section{Outline}
 - TODO check this for accuracy

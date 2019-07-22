@@ -924,6 +924,17 @@ reduces, on average, the number of queries a peer lets time out before he
 realizes he has dropped below the reputation at which he is saturated (TODO
 confirm).
 
+\section{Recursive Query Problem}
+\label{sec:rep_avail_rec_query_prob}
+- TODO
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=1\columnwidth]{figures/selection_overlap_rep_sorted_peer_reps_with_rqp_29_of_64}
+\caption{Peer reputations showing the recursive query problem}
+\label{fig:rec_query_prob}
+\end{figure}
+
 \section{Query Group Reevaluation}
 \label{sec:rep_avail_group_reeval}
 - incomplete implementation causes problems: peers first find their necessary
@@ -937,6 +948,7 @@ confirm).
 - number of introductions needed to get subprefix coverage
 
 \section{Effect of Small Sync Groups}
+\label{sec:rep_avail_small_sync_groups}
 - with small sync groups, particularly one peer per sync group, the system is
   very brittle, even if all sync groups exist (see 11/about)
 - routing loops are a problem that can occur when overlap isn't the first

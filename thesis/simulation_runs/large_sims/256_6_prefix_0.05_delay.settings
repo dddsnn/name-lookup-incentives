@@ -1,0 +1,172 @@
+{
+    ############################# Initialization #############################
+    # The seed used for the RNG.
+    'rng_seed': 5803379951609632196,
+    # A list of tuples (t, n, s) indicating that at time t, n new peers should
+    # be added to the simulation whose settings are made up of the default
+    # settings (this file) where keys in s override default keys. Not all
+    # settings keys can be overridden (e.g. system parameters like ID length).
+    'peer_batches': [(0, 256, {})],
+    # The number of randomly selected peers each peer is introduced to in the
+    # beginning.
+    'num_random_introductions': 8,
+    # Whether the initialization should take care to create equally-sized
+    # sync groups, i.e. there is the same number of peers with every possible
+    # prefix.
+    'even_sync_groups': False,
+    # The initial reputation value peers get when joining a query group.
+    'initial_reputation': 0,
+    # Whether or not the setup should place all peers in one big query group.
+    'force_one_group': False,
+    # Whether to make sure that there is at least one peer for each possible
+    # prefix.
+    'ensure_non_empty_sync_groups': True,
+
+    ########################### System Parameters ############################
+    # Length of peer IDs in bits.
+    'id_length': 16,
+    # Length of peer prefixes in bits.
+    'prefix_length': 6,
+    # The number of time units reputation updates are archived to be able to
+    # roll back and reapply them in case of updates arriving out of order.
+    'update_retention_time': 100,
+    # The size of the ring buffer used to store past reputation in query
+    # groups.
+    'query_group_history_length': 100,
+    # The time interval in between recording query group reputations.
+    'query_group_history_interval': 1,
+    # The time interval in between reevaluating query group memberships.
+    'query_group_reevaluation_interval': 1,
+    # The amount of time after an expected penalty is expected to be applied
+    # at which the expected penalty times out.
+    'expected_penalty_timeout_buffer': 4,
+    # Whether to ignore subprefixes for which there doesn't exist any peer in
+    # the simulation when querying for missing subprefixes. Makes use of
+    # global information not normally available to a peer.
+    'ignore_non_existent_subprefixes': False,
+    # The number of time units a message passed between peers takes to arrive.
+    'transmission_delay': 0.05,
+
+    ################################# Rules ##################################
+    # The reputation increase awarded for successfully answering a query.
+    'successful_query_reward': 1,
+    # The reputation decrease imposed for answering a query, but failing to
+    # present the proper record.
+    'failed_query_penalty': -1,
+    # The reputation decrease imposed for failing to respond to a query within
+    # the timeout chosen by the querying peer.
+    'timeout_query_penalty': -2,
+    # The amount of reputation at or above which no penalty is imposed.
+    'no_penalty_reputation': 10,
+    # The time the reputation decay process sleeps.
+    'decay_timestep': float('inf'),
+    # The reputation decay that is applied per time unit. This isn't affected
+    # by decay_timestep: if decay_timestep is 10 and decay_per_time_unit is
+    # 0.2, every 10 time units 2 reputation decay are imposed.
+    'decay_per_time_unit': 0,
+    # An object describing how rewards are attenuated based on current
+    # reputation. Must have one of the following forms:
+    # {
+    #     # No attenuation, rewards are always applied in full.
+    #     'type': 'none'
+    # },
+    # {
+    #     # All reputation gained above the lower bound is multiplied by the
+    #     # coefficient. Reputation can't surpass the upper bound.
+    #     # lower_bound must be in ]0, upper_bound], upper_bound must be
+    #     # non-zero and 0 < coefficient <= 1.
+    #     'type': 'constant',
+    #     'coefficient': 0.5,
+    #     'lower_bound': 10,
+    #     'upper_bound': 15
+    # },
+    # {
+    #     # All reputation gained above the lower bound is raised to the
+    #     # exponent and the result multiplied by the coefficient. Reputation
+    #     # can't surpass the upper bound.
+    #     # lower_bound must be in ]0, upper_bound], upper_bound must be
+    #     # non-zero and factor > 0.
+    #     'type': 'exponential',
+    #     'exponent': 0.5,
+    #     'coefficient': 1,
+    #     'lower_bound': 10,
+    #     'upper_bound': 15
+    # },
+    # {
+    #     # All reputation gained above the lower bound is attenuated with
+    #     # harmonically increasing factors. Reputation in the interval
+    #     # [lower_bound + i, lower_bound + i + 1] is attenuated by the factor
+    #     # 1 / (a + i * k).  Reputation can't surpass the upper bound.
+    #     # lower_bound must be in ]0, upper_bound], upper_bound must be
+    #     # non-zero and a and k must be greater 0.
+    #     'type': 'harmonic',
+    #     'a': 1,
+    #     'k': 2,
+    #     'lower_bound': 10,
+    #     'upper_bound': 15
+    # }
+    'reward_attenuation': {
+        'type': 'exponential',
+        'exponent': 0.35,
+        'coefficient': 1,
+        'lower_bound': 10,
+        'upper_bound': 15
+    },
+
+    ############################# Peer Behavior ##############################
+    # The amount of reputation added to the no_penalty_reputation at or above
+    # which a peer will stop responding to queries.
+    'reputation_buffer': 4,
+    # The strategy to use when selecting the next peer to send a query to.
+    # Possible values are:
+    # * 'overlap': Choose the peer whose prefix has the highest overlap with
+    #     the queried ID. No tie breaker.
+    # * 'overlap_high_rep_last': As 'overlap', but peers with enough
+    #     reputation (i.e. whose minimum reputation in all shared query groups
+    #     is greater than or equal 'no_penalty_reputation' times
+    #     'reputation_buffer_factor') are given lower priority than all
+    #     others.
+    # * 'random': Choose a peer at random.
+    # * 'overlap_rep_sorted': As 'overlap' but within the group of the highest
+    #     overlap, choose the peer with the lowest reputation.
+    # * 'rep_sorted': Choose the peer with the lowest reputation.
+    'query_peer_selection': 'overlap_rep_sorted',
+    # The minimum number of history entries to decide whether a query group
+    # performs well for a peer.
+    'query_group_min_history': 5,
+    # The fraction of the 'no_penalty_reputation' of reputation a peer needs
+    # to have in order to consider a query group performing well for him based
+    # solely on the current reputation.
+    'performance_no_penalty_fraction': 0,
+    # The number of reputation history entries to consider when calculating
+    # the recent development.
+    'performance_num_history_entries': 25,
+    # The minimum slope of the linear regression fitted through the recent
+    # reputation history for a peer to consider a query group to have good
+    # performance if it doesn't have enough raw reputation (yet).
+    'performance_min_slope': 0.2,
+    # The way the usefulness of a peer in a query group is calculated.
+    # Possible values are:
+    #   * 'none': All peers are considered equally useful.
+    #   * 'subprefix_constant': The usefulness increases with each other peer
+    #       in the group who needs a subprefix covered this peer covers.
+    'usefulness': 'subprefix_constant',
+    # Whether to also send queries to sync peers when finding peers covering
+    # missing subprefixes.
+    'query_sync_for_subprefixes': False,
+    # The interval in which peers try to find new peers to cover their
+    # uncovered subprefixes. They will not check if there is a query pending
+    # that matches the subprefix.
+    'uncovered_subprefix_interval': 10,
+    # The amount of query peers every peer strives to at least have for each
+    # subprefix.
+    'min_desired_query_peers': 2,
+    # The size of a query group at which a peer considers it full.
+    'max_desired_group_size': 16,
+    # The number of time units of round trip time a peer considers to be due
+    # to network delay. In the calculation of penalty delay, this will be
+    # added on top.
+    'query_timeout': 2,
+    # Whether peers should expect penalties when they misbehave.
+    'expect_penalties': True
+}
