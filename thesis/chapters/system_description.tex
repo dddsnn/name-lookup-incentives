@@ -1,10 +1,5 @@
 \chapter{System Description}
 \label{chap:system_description}
-- TODO for all the stuff that's out of scope, should i mention it in this
-  chapter, or only in the implementation?
-
-- TODO choose a style for when to use footnotes, and when parentheses
-
 \section{Assumptions and Prerequisites}
 The system described in this chapter assumes that, for any pair of peers, there
 is a reliable way for them to communicate at all times. In practice, this means
@@ -26,9 +21,6 @@ likelihood of being queried for. Secondly, all peers send the same volume of
 queries. Sections~\ref{sec:desc_load_balancing}
 and~\ref{sec:desc_credit_only_vs_credit_debit} discuss the consequences of these
 assumptions not holding.
-
-- TODO not all parts described in organization have been implemented, this has
-  to be pointed out consistently
 
 \subsection{Types of Peers}
 \subsubsection{Selfish}
@@ -77,7 +69,8 @@ attack) are single peers acting under multiple identities trying to achieve the
 same thing.
 
 These are out of scope of the implementation, but some ideas are presented in
-Section (TODO ref) on how they may be dealt with.
+Section~\ref{sec:desc_collusion_sybil_attacks} on how they may be dealt with.
+
 
 \subsubsection{Malicious}
 Malicious peers are motivated by causing harm to others or by disrupting the
@@ -86,13 +79,8 @@ the need for further incentives. One possible motivation is vengeance, peers
 seeking to cause harm to particular peers who have wronged them. These are also
 beyond the scope of this thesis.
 
-- TODO move lots of this into future work
-
 \section{Organization}
 \subsection{Overview}
-- TODO style: in the description of the protocol i'm not consistent in "the peer
-  does x" vs. "the peer must do x"
-
 The underlying \ac{DHT} for the system is one in the style of Kademlia or
 P-Grid, briefly described in Section~\ref{sec:background_dhts}. Every peer has a
 unique \emph{ID} that he chooses himself, and every \emph{record} in the
@@ -220,15 +208,11 @@ routing prefix in bits.
 No fixed replication factor can be guaranteed in this way, since the routing
 prefixes are determined by the peer IDs, which peers choose themselves. It may
 happen that one routing prefix is chosen by many fewer peers than another,
-giving their records much lower replication. Advanced techniques exist to
-address this problem (TODO ref background/p-grid multiple routing prefixes, load
-balancing, or the rationale section here that should also discuss this), but are
-considered out of scope for this thesis.
+giving their records much lower replication. To address this, load balancing is
+possible, see Section~\ref{sec:desc_load_balancing}.
 
 \subsection{Querying}
 \label{sec:desc_querying}
-- TODO make clear that this is about peer selection, link peer selection section
-
 If a peer wants to get hold of a record (the key of which is called the
 \emph{target ID}), he must send a query to another peer, the recipient. He
 queries a peer known to him who is \emph{closer to} the target ID. This is the
@@ -644,9 +628,9 @@ e.g. send a retry sooner.
 The reward for broadcasting a penalty should probably be less than any penalty,
 otherwise it becomes easy for colluding peers to "penalize" each other, thus
 gaining arbitrary reputation. Technically, the complaint system is supposed to
-catch this, and there are considerations on how to limit collusion (TODO ref
-section), but it seems ill-advised to make this kind of behavior possible in the
-first place.
+catch this, and there are considerations on how to limit collusion in
+Section~\ref{sec:desc_collusion_sybil_attacks}, but it seems ill-advised to make
+this kind of behavior possible in the first place.
 
 The penalty for an incorrect response should be set sufficiently high to
 disincentivize them even if the likelihood of actually receiving the penalty is
