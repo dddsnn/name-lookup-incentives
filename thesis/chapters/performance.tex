@@ -1,12 +1,5 @@
 \chapter{Performance}
 \label{chap:performance}
-- TODO call this "performance potential"? we're not measuring real performance,
-  just theoretically assessing the potential performance, basically just looking
-  at how many hops lookups take
-- TODO just call this "comparison with alternatives"?
-- TODO this is basically just the performance of the dht, has nothing to do with
-  the penalty system (until we get to timeouts)
-
 One of the requirements of the system is to provide name resolution with a
 latency low enough to be useful for real-time interaction, e.g. in the chat
 system given as an example in the introduction.
@@ -33,8 +26,6 @@ reputation saturated, he will let the query time out.
 \item Whether only one or multiple queries are sent. When sending more than one,
 the probability that both fail or time out is lower than if only one is sent.
 \end{itemize}
-
-- TODO measure performance of simulation?
 
 \section{Theoretical Latency}
 The system has not been fully implemented, so it is not possible to measure
@@ -95,7 +86,6 @@ Taking this into account, the expected query time drops to $\lceil\frac{k}{1 +
 E(n_{qp})}\rceil \cdot t_{RTT}$.
 
 \paragraph{Timeouts}
-- TODO necessary?
 Responses can time out if the recipient of a query is reputation saturated, or
 is unable to resolve the query in the required time. Let $p_{timeout}$ be the
 probability that a query times out, and let $t_{timeout}$ be the time after
@@ -122,9 +112,6 @@ the expected query time is
 \[\frac{\sum_{i = 0}^{n_{retry}}p_{qs} \cdot (1 - p_{qs})^i \cdot (n_{hops}
 \cdot t_{RTT} + i \cdot t_{timeout})}{1 - p_{fail}}.\]
 
-- TODO consider multiple concurrent queries (?)
-    - assume disjoint query paths
-
 \paragraph{Concrete Values}
 Plugging in some roughly realistic values for the variables to get a feel for
 the kind of latency the \ac{DHT} has.
@@ -144,18 +131,29 @@ $\lceil\frac{16}{1 + E(3)}\rceil \cdot \SI{50}{\milli\second} =
 Considering now that queries can time out with probability $p_{timeout} = 1\%$,
 the timeout triggers after $t_{timeout} = \SI{2000}{\milli\second}$ and peers
 retry $n_{retry} = 2$ times, the expected query time is
-$\SI{352.4}{\milli\second}$.
-
-- TODO overhead: message size, signing, reputation updates
-- TODO performance depends on
-    - routing prefix length, indirectly on sync group size
-    - reputation saturation
-    - multiple queries? could add to the load
+$\SI{352}{\milli\second}$.
 
 \section{Simulated Performance}
-- TODO simulate and measure latency, compare to tor latency but state that
-  they're not 1-to-1 equivalent
-- TODO
+A simulation was executed for 200 seconds with mostly default settings, except
+that there are 256 peers, the routing prefix length is 6 bits, and the network
+delay is $\SI{50}{\milli\second}$\footnote{A longer routing prefix is sadly not
+possible without adding many more peers, which would take long and a lot of
+memory to simulate.}. The total time taken of successful queries is examined
+(this includes queries that timed out or failed, but were successfully retried).
+
+Disregarding the first 100 seconds to let the peers gain reputation, the
+performance is quite good. The median response time is
+$\SI{100}{\milli\second}$ (one RTT), the 75th percentile
+$\SI{200}{\milli\second}$, the 95th $\SI{300}{\milli\second}$. Out of 25693
+successful queries, 13593 took one RTT, 10525 took two, 730 took three RTTs.
+Only 794 took over one second. There were apparently some long running queries
+from peers with no reputation: The maximum time was 22.2 seconds. These likely
+had a significant impact on the fairly high mean time of
+$\SI{239}{\milli\second}$.
+
+These times are not representative of the query times in a large networks, since
+the routing prefix is so short; very often, only one hop is necessary. More hops
+make failures more likely and increase the average query times.
 
 \section{Comparison with Plain DNS}
 The obvious first candidate to compare against is plain DNS, the privacy issues
@@ -173,11 +171,11 @@ very close or even be the same machine.
 
 Measuring DNS performance in real systems is
 difficult~\cite{liston2002diversity}. Ager et al.\cite{ager2010comparing}
-examined DNS response times from real-world vantage points and found response
-times ranging from 10 milliseconds all the way up to 5 seconds, although with
-the lower end of that spectrum being much more likely. It seems fair to say a
+examined DNS response times from real-world vantage points and found times
+ranging from 10 milliseconds all the way up to 5 seconds, although with the
+lower end of that spectrum being much more likely. It seems fair to say a
 typical DNS query takes on the order of a few tens of milliseconds. In direct
-comparison, DNS queries are faster than DHT lookups.
+comparison, DNS queries are much faster than DHT lookups.
 
 But they are not exactly comparable in purpose. The intended use case for DNS is
 for a large number of users to be able to contact a relatively smaller number of
@@ -215,40 +213,22 @@ any DNSSEC records, so the user has to trust the exit node to send the correct
 response.
 
 If we stick to a very simplified view for a look at the performance, DNS queries
-via Tor essentially add the 3 round-trip times between the 3 Tor nodes to the
+via Tor essentially add the round-trip times between the three Tor nodes to the
 time the DNS query takes.
 
-- tor latency high because tor nodes are near maximum capacity: no incentives to
-  offer them (cite the incentive finding paper and blog article). that's not the
-  problem i'm mainly addressing, but it's also addressed
-- latency is what's important to us, ignore tor's establishing a circuit and our
-  finding query groups, that can be done in the background
-- but circuit creation is costly, also with respect to computation (crypto)
-- overhead of circuit creation dependent on user's paranoia, how many queries
-  he's willing to use a circuit for. in the extreme case, only one query per
-  circuit. see
-  https://github.com/torproject/torspec/blob/master/proposals/216-ntor-handshake.txt
-  for cost
-- queries not optimizable for geography, worst case every hop towards the other
-  end of the planet
-- ignore possible tcp delay from dropped packets, hol blocking, assume network
-  not congested?
-    - also delay from nagle's, delayed acks
-- fixed-size cells of 512 bytes, can probably fit the entire response (but not
-  necessarily. don't know what happens in that case, don't think it's possible
-  to receive 2 cells as response)
-- remote hostname lookup: 512 bytes fixed-length cell, query and response each
-- or let the exit node do the lookup and include the first payload. with a small
-  http request, lookup is basically free, same as a dns query
-- but tor has no incentives (cite tor perf improvements paper)
-- use end-to-end latency from performance.torproject.org, gives the rtt of a
-  http request/response to a destination server, use this as an approximation
-  for the rtt to a dns server, then add the actual dns query time
-    - but exitnode to specific destination server should be expected to be at
-      least as long as exitnode to any dns server. exitnode uses his own dns
-      server, is likely to be close and have low rtt, so the values from
-      metrics.tor... are probably a little higher than what can be expected for
-      relay\_resolve
-- %https://2019.www.torproject.org/docs/faq.html.en#SendPadding tor sends
-  padding on idle circuits, up to 103b/s
-  (https://github.com/torproject/torspec/blob/master/padding-spec.txt)
+As for real-world data, the Tor Project measures various performance indicators
+on its website\cite{torperf}, among them the circuit RTTs of an HTTP request.
+This can reasonably be used as the time that would be added to the time of the
+DNS lookup.
+
+There are multiple graphs, presumably from different vantage points (the
+documentation isn't clear on this). They differ quite a bit, but the median RTT
+is always in the hundreds of milliseconds. The DNS query time that has to be
+added on top of that is relatively insignificant.
+
+Unsurprisingly, this is probably more than a single proxy server would add. If
+the goal is really just to prevent profile building at the DNS server, using Tor
+has no advantage over a proxy server. But the proxy would have to be switched
+regularly to prevent profile building there. Tor has
+the advantage that new circuits are created automatically, and that exit nodes
+can't build profiles even if they are reused.
