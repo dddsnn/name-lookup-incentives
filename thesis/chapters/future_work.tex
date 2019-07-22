@@ -1,29 +1,18 @@
 \chapter{Future Work}
 \label{chap:future_work}
-- going offline
-- consider allowing to send a response immediately if it's a "no such peer"
-  response, regardless of penalty delay. maybe even for fail responses. would
-  speed up queries. those peers should be penalized, but it's not their fault
-  the other peer didn't know the answer
+There are quite a few parts necessary for the system to function that could not
+be implemented and examined in this thesis. This chapter collects ideas about
+these parts.
 
 \section{Query Group Creation and Maintenance}
-- TODO mention here that this has not been implemented, is only a proposal with
-  potentially unforeseeable dynamics, and considered out of scope?
-
 Query groups need to be created and disbanded, and peers need to be able to join
-and leave them. There is no mechanism actually implemented for this in the
-simulation included in this thesis. This is an outline of a protocol, but there
-are likely to be complex dynamics involved causing unforeseeable problems.
+and leave them. This is an outline of a protocol, but there are likely to be
+complex dynamics involved causing unforeseeable problems.
 
 \subsection{Leaving and Disbanding}
 Leaving a query group can be achieved by simply broadcasting a message
-indicating this to all members (TODO similar concurrency problem as the one
-described in rep management: if a new member joins and gets the old state of the
-group where the one leaving was still included, requires special handling, or a
-confirmation that the current state is correct).
-
-A query group is considered disbanded if it only contains one peer, i.e. once
-the second-to-last member leaves.
+indicating this to all members. A query group is considered disbanded if it only
+contains one peer, i.e. once the second-to-last member leaves.
 
 \subsection{Creation}
 A simple way to create a query group is for one peer to ask another to start
@@ -38,7 +27,7 @@ Peers are interested in others so that they can extend their subprefix coverage,
 or get some redundancy into their coverage. For any pair of peers A and B, they
 are either responsible for the same routing prefix, or A is responsible for
 exactly one of B's subprefixes, namely the one of length $i$, where $i$ is the
-one-based index of the first 1 in the bitwise XOR of the peer's respective
+one-based index of the first 1-bit in the bitwise XOR of the peer's respective
 routing prefixes. So every peer can serve some subprefix for any other peer, and
 the subprefix relationship between two peers is even symmetric, i.e. the
 subprefix A can serve for B has the same length as the one B can serve for A
@@ -67,8 +56,8 @@ In this context it is convenient to introduce the notion of \emph{usefulness}:
 it is the value peer A places on knowing peer B, with regards to his subprefix
 coverage. It is a policy decision, not something the rules of the system can
 dictate, and may depend on such things as the number of peers peer A already
-knows for the subprefix, or whether he trusts peer B (maybe he feels like he is
-being followed).
+knows for the subprefix, or whether he trusts peer B (maybe he feels like B is
+following him and he doesn't want to deal with him at all).
 
 These factors are not visible to peer B, the length of the subprefix he can
 serve is, though. All else being equal, peers serving longer prefixes are more
@@ -85,9 +74,7 @@ crucially, how useful he would be in a query group, by calculating the sum of
 the lengths of the subprefixes he can serve for each peer (or e.g. the sum of
 squares, to give longer subprefixes a higher weight). This can serve as an
 estimator for how many queries he is likely to receive in that group, and thus
-how easily he can gain reputation (see chapter~\ref{chap:rep_avail},
-particularly Section~\ref{sec:rep_avail_group_reeval}) (TODO is that section
-still in?).
+how easily he can gain reputation.
 
 \subsection{Inviting and Joining}
 Joining a query group must be done via an \emph{entry peer}, a current member of
@@ -98,28 +85,28 @@ make the decision by himself.
 
 The simplest way is a majority vote: The entry peer presents the candidate to
 the current members, and if more than half of them agree that he may join, he is
-accepted. A modification of this is to require a unanimous vote. The members may
-use their own judgement in this decision, e.g. considering how useful the
-candidate would be to them, what impact he might have on the total traffic in
-the group (especially with regards to reputation updates), or whether they
-distrust him from previous experience.
+accepted. A modification is to require a unanimous vote. The members may use
+their own judgement in this decision, e.g. considering how useful the candidate
+would be to them, what impact he might have on the total traffic in the group
+(especially with regards to reputation updates), or whether they distrust him
+from previous experience.
 
-If a candidate is accepted that not all current members agree with, these
-members may leave the group, thus the candidate threatens the integrity of the
-group. Therefore, it may be helpful to hold the vote in a way that asks the
-current members whether they would leave the group if the candidate was added.
-Again, this vote is up to peer policy. They may consider the peer untrustworthy,
-not useful to them, or simply deem the group to big after his addition.
-This would have to be done in multiple rounds: Peers announcing they'd leave in
-the first round may prompt additional peers to want to leave, who were there
-for connection to those peers. This is repeated until no additional peers
-announce their intention to leave.
+If a candidate not all current members agree with is accepted, these members may
+leave the group. Thus a candidate threatens the integrity of the group.
+Therefore, it may be helpful to hold the vote in a way that asks the current
+members whether they would leave the group if the candidate was added. Again,
+this vote is up to peer policy. They may consider the peer untrustworthy, not
+useful to them, or simply deem the group to big after his addition. This would
+have to be done in multiple rounds: Peers announcing they'd leave in the first
+round may prompt additional peers to want to leave, who were there for
+connection to those peers. This is repeated until no additional peers announce
+their intention to leave.
 
 After all peer intentions have been collected, the decision to accept or reject
 the candidate has to be made. It could either be made by the entry peer alone,
 assuming that everyone who isn't going to leave is alright with the new peer
 joining, or again by a vote (majority or unanimous) of the members who would
-remain after the cadidate joins.
+remain after the candidate joins.
 
 This approach assumes peers always have the option to leave a query group. But
 some may depend on the group because their subprefix coverage would become
@@ -135,8 +122,6 @@ dynamics. Both the simple voting and the other approach with peers announcing
 they'd leave is highly dependent on peer decisions, and neither is clear to
 yield a system that allows a good distribution of peers in query groups of
 useful size (i.e. not just 2 peers per group).
-
-- TODO find and cite consensus algos?
 
 \subsection{Finding Groups}
 In order to request to join a query group, a peer first needs to find one he
@@ -159,40 +144,35 @@ necessary to ensure the new peer even gets any queries and can gain reputation
 in order to make use of his new group.
 
 A peer completely new to the system needs some way of entering his first query
-group. He needs to know at least one peer already in the system to get started
-(see Section~\ref{sec:desc_bootstrapping}), who must act as entry peer to at
-least one query group.
+group. He needs to know at least one peer already in the system to get started,
+who must act as entry peer to at least one query group.
 
-Again, it is not at all clear that this proposal would work in practice. If this
+It is not at all clear that this proposal would work in practice. If this
 process is used alone, it may well happen that the network becomes fragmented,
 with some parts of it being entirely unaware of others, and thus unable to
 access records stored there. There is also no solution for the problem that a
 peer new to the system is rejected in all query groups he is offered in the
 beginning.
 
-- TODO concurrency issues all over the place
-
 \section{Gossipping}
 Instead of broadcasting the reputation updates, it may be possible to use
-gossipping to spread the traffic load. However, all the peers sending messages
-then have to have incentive to do so. If they are given rewards, depending on
-the gossipping protocol, peers low on reputation may opt to send many messages
-to gain lots of reputation, leading to redundant traffic. On the other hand, if
-lots of peers already have enough reputation, they may opt not to send anything
-and gossipping fails. Therefore, this is considered out of scope.
+gossipping: The originator only tells a few query peers, who then tell a few
+others, and so on. This spreads the traffic load out to more than one peer.
+However, all the peers sending messages then have to have incentive to do so. If
+they are given rewards, depending on the gossipping protocol, peers low on
+reputation may opt to send many messages to gain lots of reputation, leading to
+redundant traffic. On the other hand, if lots of peers already have enough
+reputation, they may opt not to send anything and gossipping fails.
 
-- TODO gossipping in sync groups
-In case gossipping should be used for the updates to records within sync groups,
-finding incentives becomes more difficult. Gossipping spreads the load of (TODO)    
-disseminating the update to multiple peers, and removes the need for all sync
-peers to know one another. One might imagine a separate reputation system for
-sync groups, but that's out of scope for this thesis.
-
+Gossipping could also potentially be used for the updates of records within sync
+groups. In sync groups, it has the added benefit that sync peers don't all need
+to know each other, there just needs to be a directed path between any pair of
+them. This could make larger sync group sizes practical. But again there is no
+incentive for the peers to participate in gossipping. Perhaps a separate
+reputation system for sync groups could do the trick.
 
 \section{Complaint System}
 \label{sec:desc_complaints}
-- TODO cite the paper that disincentivizes lying
-
 In certain situations, particularly regarding rewards or penalties being applied
 or not, a peer may treat one of his query peers unfairly, but deny it. Usually,
 no one but the two peers involved know what actually happened, and there is no
@@ -206,61 +186,67 @@ way for the wronged peer to prove it. The two most important examples are:
 \end{itemize}
 
 There may be multiple reasons for a peer to misbehave in such a way. In the
-first example, it may be laziness (sending the confirmationyields no benefit to
+first example, it may be laziness (sending the confirmation yields no benefit to
 the peer). The second example may be due to greed, since the peer receives a
 small reward for broadcasting a reputation update. But it needn't necessarily be
-selfishness, it could also be due to a tremble: Some part of one peer's network
-stack at the lower layers may have failed, or a message may have been lost or
-delayed in the network. Then the protocol implementation at both peers may
-rightfully assume that, given the information available to it, it is in the
-right.
+selfishness, it could also be due to a tremble: A message may simply have been
+lost or delayed in the network. Then the protocol implementation at both peers
+may assume that it is in the right.
 
 In both examples, only the two involved peers know what happened, and neither
 can prove it to anyone else: In the first case, B has no way of proving that A
-didn't send the cooperation confirmation, not even that A sent a query in the
-first place, much less that he answered it successfully (and in time). In the
-second case, peer B can't prove he didn't do anything wrong. Peer A may for
-example have queried him with no reaction from B, and again B can't prove that
-he didn't receive a query.
+didn't send the cooperation confirmation, not even that A recently sent a query,
+much less that he answered it successfully (and in time). In the second case,
+peer B can't prove he didn't do anything wrong. Peer A may for example have
+queried him with no reaction from B, and again B can't prove that he didn't
+receive a query.
 
 To resolve situations like these, there must be a complaint system within each
-query group, via which one peer can \emph{complain about} one of his query
-peers. Such a complaint may be accepted, resulting in a penalty for the subject
-of the complaint and a reward for the complaining peer (as compensation), or it
-may be rejected. Of course, this system can't determine the truth either, but it
-should not be continually exploitable, i.e. a peer should not be able to
-continually misbehave without receiving a penalty through the complaint system,
-and a peer should not be able to continually lodge false complaints against
-another peer that are accepted.
+query group, via which one peer can complain about one of his query peers. Such
+a complaint may be accepted, resulting in a penalty for the subject of the
+complaint and a reward for the complaining peer (as compensation), or it may be
+rejected. Of course, this system can't determine the truth either, but it should
+not be continually exploitable, i.e. a peer should not be able to continually
+misbehave without receiving a penalty through the complaint system, and a peer
+should not be able to continually lodge false complaints against another peer
+that are accepted.
 
-- needs to ensure that it's a dominant strategy not to lodge false complaints,
-  and to cooperate
+\paragraph{Possible Solutions}
+One possible solution is to hold a vote, and if the majority of query peers
+believes the complainer, the offender is removed from the query group. This
+should incentivize peers to not mistreat others provided they are interested in
+staying in the group. When voting, the peers are free to use any criteria they
+like. Experience from previous interactions with the accused is probably a good
+choice, like whether he has mistreated the peer casting the vote before.
 
-As with query group creation, no complaint system has been implemented in the
-simulation covered in later chapters. These are proposals (TODO plural?) for a
-protocol that may work, but needs closer examination and possibly modification
-due to the complex dynamics that will likely arise.
+Of course, this makes it possible for a peer to continually mistreat a few of
+his query peers. As long as he treats the others well, they will not believe the
+complaints. Then again, the victims may broadcast false penalties for the
+offender in retaliation, forcing him to complain about them. But if they have a
+good standing with the rest of the group, those complaints will not be believed
+either.
 
-- TODO possibly leave this out, just state that tit-for-tat is a dominant strat?
-  but that doesn't take into account trembles, one of those and a peer
-  relationship breaks down
-- w/o the system, peers could just retaliate: A applies penalty to B, B to A
-  etc., the query group would break down (even though the peers playing
-  tit-for-tat should be dominant)
-- complaint system must offer a better alternative to retaliation
-- maybe a complaint means the involved peers don't have to do anything for each
-  other, can't get rewards or penalties from each other?
+Whether this system is a successful deterrent, or whether there are situations
+in which a peer deems it profitable to lie about someone anyway is not at all
+clear.
 
-- majority vote, could be abused up to a point
-- automatically believe an indictment if enough (n/2+1) indictments heap up.
-  believe all following indictments as well?
-- no chance if colluding peers
-- at some point, it's best for a peer whose complaints keep getting rejected, to
-  leave the group
-- complex dynamics
+Another possible way of handling a complaint is to make it impossible for the
+two peers involved to penalize each other, removing their incentive to interact.
+They would remain in the same group and interact with all the other members as
+normally, just not with each other.
 
-- TODO paper Optimizing an Incentives’ Mechanism for Truthful Feedback in
-  Virtual Communities may be the solution
+However, this could quite possibly lead to peers strategically severing their
+connection to others they don't need for querying. It may get more difficult for
+peers to complete their subprefix coverage, maybe to the point of the DHT
+failing.
+
+Finally, the paper by Papaioannou and Stamoulis\cite{papaioannou2005optimizing}
+mentioned in Chapter~\ref{chap:related_work} claims that there is a way to
+successfully detect liars involving both parties getting punished if their
+assessment of a mutual transaction differs. But it is not clear how this
+translates to a situation where there isn't even agreement that a transaction
+took place, like in the case of a penalty for a timeout that may not have
+happened.
 
 \section{Load Balancing}
 \label{sec:desc_load_balancing}
@@ -269,48 +255,53 @@ which is just a prefix of his own ID. Assuming IDs are evenly distributed (which
 is the case if they are fingerprints of public keys and peers don't make
 attempts to generate a particular key), this implies the expected value of the
 number of peers responsible for a record is equal for all records. This is fine
-under the assumption that all records are queried for with the same likelihood
-(which is in fact what's happening in the simulation, where no load balancing is
-necessary).
+under the assumption that all records are queried for with the same likelihood.
 
 A more realistic record access pattern follows a power law distribution, with
-very few records forming a large share of the total number of queries (TODO cite
-something). Taking this into consideration, distributing the load of responding
-to all the queries to the popular record becomes necessary, or else those peers
-who happen to have a routing prefix matching one of those popular records
-receive an unfairly disproportionate amount of queries. They may be inclined to
-generate a new ID that doesn't suffer from this.
+very few records forming a large share of the total number of queries. Taking
+this into consideration, distributing the load of responding to all the queries
+to the popular records becomes necessary, or else those peers who happen to have
+a routing prefix matching them receive an unfairly disproportionate amount of
+queries. They may be inclined to generate a new ID that doesn't suffer from
+this.
 
 One of the central tenets of P-Grid involves separating a peer's routing prefix
-from the records he is responsible for. Instead of a peer's ID determining which
-records he has to store, each peer explicitly advertises one or more prefixes
-which he is responsible for (this can become part of their record stored in the
-\ac{DHT}). These new prefixes don't even all have to be the same length,
-allowing for finer grained control. Being responsible for more prefixes means
-peers have to join more sync groups and completing their subprefix coverave may
-require more connections.
+from the records he is responsible for. Instead of the peer's ID determining
+which records he has to store, each peer explicitly advertises one or more
+prefixes which he is responsible for (this can become part of their record
+stored in the \ac{DHT}). These new prefixes don't even all have to be the same
+length, allowing for finer grained control. Being responsible for more prefixes
+means peers have to join more sync groups and completing their subprefix
+coverage may require more connections.
 
 With this system in place, it becomes possible for more peers to take over
 responsibility for prefixes containing popular records, thus balancing the load.
 In P-Grid, this is done because peers are well-intentioned and willing to
-cooperate (TODO cite). Under the assumptions made by the system in this thesis,
-peers need an incentive to do so. They may have such an incentive because they
-are unable to gain reputation quickly enough because they aren't getting enough
-queries. Taking on responsibility for a popular prefix can address this.
+cooperate. Under the assumptions made by the system in this thesis, peers need
+an incentive to do so. They may have such an incentive because they are unable
+to gain reputation quickly enough because they aren't getting enough queries.
+Taking on responsibility for a popular prefix can address this.
 
 A new kind of query could help peers decide which new prefixes to cover, in
 which they query for a prefix which receives a lot of traffic and the peers
 responsible for it would like the load lightened. Ideally, this system would be
-self-organizing, like P-Grid is, but via economical incentives. But this has not
-been implemented for this thesis, and doing so is likely to bring to light
-complex dynamics not foreseen here.
+self-organizing, like P-Grid is, but via economical incentives. Whether this is
+actually the case is an open question.
 
-\section{Iterative Queries with Vouchers}
-\label{sec:desc_iterative_vouchers}
+\section{Recursive vs. Iterative Queries}
+\label{sec:desc_recursive_vs_iterative}
+Section~\ref{sec:desc_querying} described recursive querying, in which the
+recipient of a query is expected to respond with either a successful or a fail
+response. If he isn't responsible for the target ID and thus doesn't have a copy
+of the record, he has to query a suitable peer himself and wait for the response
+in order to pass it on to the peer who queried him. This is the simplest way to
+handle the situation, and the most convenient for the querying peer, since all
+the work is done by the recipient. But they can also lead to the recursive query
+problem.
+
 Instead of recursive queries, iterative queries could be used. With this method,
-instead of the recipient of a query handling all the work and returning the
-final response, he is only expected to find a suitable next peer to query, i.e.
-one who is closer to the target ID, and respond with this peer's reachability
+the recipient is only expected to find a suitable next peer to query, i.e.  one
+who is closer to the target ID, and respond with this peer's reachability
 information. The querying peer must then query that peer himself. This solves
 the recursive query problem, because the recipient of a query only needs to do a
 local lookup and is not dependent on another peer.
@@ -325,21 +316,14 @@ service. Say peer A has queried peer B, who responds with reachability
 information for peer C. The response now also contains a \emph{query voucher},
 which is a statement signed by B that allows A to send a query to C with the
 quality of service that B would have gotten. A can then query C, and C must
-treat his as though he were B. This entitles B to a reward for a successful
+treat him as though he were B. This entitles B to a reward for a successful
 response, even if the level of service ultimately received by A is bad (because
 B has low reputation in the query group he shares with C). After all, B
 demonstrated his best effort to answer the query.
 
-Query vouchers must be single use to prevent peers from collecting vouchers for
-all their subprefixes and then leeching off of another peer's good reputation.
-First off all, this means they have to contain some unique ID. Secondly, it is
-either required that the peer's with whom the voucher is redeemed keep a history
-of all vouchers that have been redeemed, or the peer who issues the voucher must
-authorize the particular voucher for one use.
-
-They also need to have a (relatively short) expiry time to prevent peers from
-stockpiling vouchers and then leeching off of the issuers good standing. This
-again requires an expiry time on the voucher, as well as clocks within the
+Query vouchers need to have a (relatively short) expiry time to prevent peers
+from stockpiling vouchers and then leeching off of the issuer's good standing.
+This requires an expiry time on the voucher, as well as clocks within the
 network to be reasonably in sync.
 
 Query vouchers also require the complaint system to be extended. Using peers A,
@@ -352,14 +336,14 @@ B, and B complains about A.
 \section{Credit-only vs. Credit-Debit Reputation}
 \label{sec:desc_credit_only_vs_credit_debit}
 The system uses credit-only reputation, i.e. no reputation is deducted for using
-the system (e.g. per query) (TODO ref background). Once peers have gathered at
-least the penalty threshold reputation, they are entitled to delay-free service.
-They only lose this privilege if they incur a penalty, most notably for failing
-to respond properly to a query. As long as this doesn't happen, they can send as
-many queries as they like. With this method, having reputation is seen as proof
-that a peer is generally willing to contribute, to play a part of the whole. It
-is unnecessary to deduct this reputation, as querying someone else doesn't
-change that assessment.
+the system (e.g. per query). Once peers have gathered at least the penalty
+threshold reputation, they are entitled to delay-free service. They only lose
+this privilege if they incur a penalty, most notably for failing to respond
+properly to a query. As long as this doesn't happen, they can send as many
+queries as they like. With this method, having reputation is seen as proof that
+a peer is generally willing to contribute, to play a part of the whole. It is
+unnecessary to deduct this reputation, as querying someone else doesn't change
+that assessment.
 
 In the alternative, credit-debit, each query a peer gets successfully answered
 costs him a little reputation as a sort of payment. This could be incorporated
@@ -369,13 +353,12 @@ reputation more like currency, to trade work done for other peers against work
 demanded of other peers.
 
 Credit-only is the simpler of the two possibilities and works fine if we assume
-peers have comparable query behavior, as the simulation does (TODO ref
-implementation). But if there are some power users sending many more queries
-than other peers, the relationship of work put in vs. work consumed becomes
-unfairly skewed towards those peers not querying very much. After all, there are
-more queries in total that need to be answered (not responding is not an option
-since it will yield penalties), but they are not getting anything more out of
-it.
+peers have comparable query behavior. But if there are some power users sending
+many more queries than other peers, the relationship of work put in vs. work
+consumed becomes unfairly skewed towards those peers not querying very much.
+After all, there are more queries in total that need to be answered (not
+responding is not an option since it will yield penalties), but they are not
+getting anything more out of it.
 
 Credit-debit could address this: Peers using the service more heavily have to
 contribute more, in effect taking load off of moderate consumers. But heavy
@@ -386,73 +369,37 @@ users have to take responsibility for more records in order to receive more
 queries, thus gaining the additional reputation they need in order to use the
 service to the extent that they wish.
 
-\subsection{Network-Optimized Queries}
-There are no provisions in the system to choose recipients in a way that is
-optimized with regards to network topology or geography. As it stands, every hop
-in a chain necessary to resolve one initial query may be transmitted to another
-continent, making queries potentially run very long.
-
-Even if considering their own interest, peers may not have an incentive to query
-a peer close to them in the network if they have a bad reputation in the query
-group they share with him.
-
-If such an extension is desired, peers need a way to find new query peers
-(serving a specific subprefix) that are close to them in the network.
-
-Then again, being able to spread out ones queries to a large pool of peers is a
-design goal of the system, it actually happening a consequence.
-
-\subsection{Going Offline}
-- TODO future work
-
+\section{Going Offline}
 The system so far doesn't consider that peers may want to go offline. If they
 do, they are still expected to respond to queries. Consequently, their
 reputation will crash once they do, and they have to work their way back up from
-0 when they come back online.
+zero when they come back online.
 
 What's missing to make going offline convenient is a way to mark oneself as
 inactive, saving reputation until later. Such a mechanism must be proofed
-against abuse, or peers would mark themselves inactive almost all the time. It
-is also not ideal for peers whose connection may be disrupted unexpectedly, like
-ones on mobile connections.
+against abuse, or peers would mark themselves inactive almost all the time, only
+becoming active when they want to send a query. It is also not ideal for peers
+whose connection may be disrupted unexpectedly, like ones on mobile connections.
 
 \section{Possible Attacks}
-- TODO these are the reasons for the system's existence
-- TODO split between introduction and future work
-
-This section describes a few vectors attacks on the system that have been
-considered, but doesn't claim to be exhaustive. Some of them can be dealt with,
-other less so with the system as it has been proposed. Two kinds of attack can
-very broadly and clearly be distinguished:
+This section describes a few vectors of attack on the system that have been
+considered, but doesn't claim to be exhaustive. Some possible solutions are
+discussed, but none have been implemented or examined rigorously. Two kinds of
+attack can very broadly and clearly be distinguished:
 \begin{itemize}
 \item Trying to cheat the system into granting a better quality of service than
-the peer is intended to receive based on his cooperation. This includes tricks
-to avoid penalties after defecting behavior, and ones to receive rewards where
-they're technically correctly applied, but not in the spirit of the system (TODO
-do i even have examples of this?). The perpetrators are selfish peers, their
-capabilities can be considered to be limited.
+the peer is intended to receive based on his cooperation. The perpetrators are
+selfish peers, their capabilities can be considered to be limited.
 \item Attempting to nullify the privacy gains by tracking or building profiles
 on either particular, multiple, or even all peers. The attackers are the
-adversaries from the initial motivation for the system (TODO ref?): data
-collectors ranging from private user behavior analysts to government agencies.
-They should be considered high-tech threats.
+adversaries from the initial motivation for the system: data collectors ranging
+from private companies trading in user data to government agencies. They should
+be considered high-tech threats.
 \end{itemize}
-
-In this thesis, the former are the primary focus. However, the latter should be
-kept in mind, since they are ultimately the reason the system even exists.
-
-- TODO make it clear that the first of the two points is a prerequisite of the
-  second. thesis focuses on it because that's the basis for it working.
-
-- TODO previous work has shown that it makes sense to trust new users to some
-  degree, though
-(TODO ref previous work, which should cite some stuff on this?)
 
 \subsection{Collusion/Sybil Attacks}
 \label{sec:desc_collusion_sybil_attacks}
-- TODO future work
-
-The system, as it is, enables a very simple attack by a pair of colluding peers
+The system as is enables a very simple attack by a pair of colluding peers
 (irrespective of whether they're actually separate peers or the same peer using
 different IDs). The two peers join a query group together and give each other
 rewards for successfully answered queries (they just need to pass each other
@@ -477,10 +424,9 @@ harder for peers to collude. They can't simply ignore other peers' queries since
 they don't have an unlimited supply of free reputation.
 
 The colluders may then find more peers to collude with, to at least increase
-that supply. But at some point, the colluders make up a large shared of the
-peers in the query group. The other peers, whom the colluders have come to
-exploit, are likely to leave if they continue to not have their queries
-answered.
+that supply. But at some point, the colluders make up a large share of the peers
+in the query group. The other peers, whom the colluders have come to exploit,
+are likely to leave if they continue to not have their queries answered.
 
 Implementing this solution would have side effects. The overhead of storing the
 timeouts for every pair of peers has been mentioned already. Additionally, peers
@@ -519,25 +465,8 @@ as entry peer, which is the easiest way for colluding peers to share a group.
 
 None of these proposed solutions offer a way to detect or deter colluders with
 certainty, but they may make it harder for them, possibly hard enough that it
-isn't worth the effort. Whether this is the case is beyond the scope of this
+isn't worth the effort. But whether this is the case is beyond the scope of this
 thesis.
-
-\subsection{Limiting Responsibility}
-If sync group sizes are very disparate, a peer may choose one that is very small
-(by generating new IDs until the routing prefix matches). Thus, he is
-responsible for only a small amount of records. While this makes it harder to
-gain reputation initially, once he has done so, maintaining it requires less
-effort.
-
-If all peers are willing to generate IDs in order to join the smallest sync
-group, this problem really fixes itself, performing load balancing. Otherwise, a
-credit-debit system (see Section~\ref{sec:desc_credit_only_vs_credit_debit}) or
-reputation decay (see Section~\ref{sec:desc_incentives_rep_mgmt}), together with
-explicitly advertised prefixes (see Section~\ref{sec:desc_load_balancing}) may
-help.
-
-\subsection{Abusing the Complaint System}
-- TODO selfishness: abusing the complaint system (TODO)
 
 \subsection{Generous Peers}
 \label{sec:desc_attacks_generous}
@@ -553,7 +482,7 @@ peers' incentive to even respond to queries. While regarding the first point one
 could argue that it's up to the peers to not query the same peer repeatedly,
 this consequence makes just that harder. With all of those peers who don't care
 very much about privacy using the generous peer's service but not contributing
-themselves, those peers who do have fewer options of peers to query.
+themselves, those peers who do care have fewer options of peers to query.
 
 Placing a large number of generous peers may act as part of a strategy by a
 high-tech attacker aimed at attracting enough traffic to track users again.
@@ -597,10 +526,9 @@ To make this more likely, he must be useful to him, meaning he needs more
 observation peers with different IDs (serving the target's subprefixes) in the
 query group. The attacker's first peer can act as entry peer for them. If the
 query peer selection strategy \emph{overlap $\rightarrow$ reputation sorted}
-(see Section~\ref{sec:rep_avail_selection_overlap_rep_sorted}) (TODO briefly
-explain if this references a future section) is mandated, the attacker should
-aim for the observation peers to always be the lowest reputation peer for the
-given subprefix to make it likely to receive queries from the
+(see Section~\ref{sec:rep_avail_selection_overlap_rep_sorted}) is mandated, the
+attacker should aim for the observation peers to always be the lowest reputation
+peer for the given subprefix to make it likely to receive queries from the
 target\footnote{It's still not guaranteed since there may be another peer with a
 longer overlap. The attacker may choose to use even more observation peers, in
 the extreme one mirroring the routing prefix for each existing peer in the
@@ -610,7 +538,7 @@ the target is querying for.
 
 Getting all of the observation peers into the query group can be difficult
 already if the collusion countermeasures described in
-Section~\ref{sec:desc_collusion_sybil_attacks} are implemented which make it
+Section~\ref{sec:desc_collusion_sybil_attacks} are implemented. They make it
 harder to get multiple peers into a group at once. In that case, a paranoid
 target could make the attacker's life harder by switching query groups quickly
 so the attacker never gets a good foothold in any of them.
@@ -619,7 +547,7 @@ The target may also elect to never query a peer who joined the group after him.
 This would disable that attack vector unless the attacker joins query groups
 preemptively.
 
-In another possibile attack not vulnerable to that countermeasure, the attacker
+In another possible attack not vulnerable to that countermeasure, the attacker
 could attract queries from the target's query peers instead of from the target
 himself. Any query received from one of them that is followed by either a reward
 from the target, or a complaint about the target because of a missing
@@ -632,31 +560,13 @@ he doesn't share with the target.
 The most extreme attack is to strive to have a presence in every query group.
 The attacker can then observe query chains through different query groups down
 to sync group precision (i.e. know the routing prefix of the target ID of any
-given query) by correlating query rewards or complaints about missing
+given query) just by correlating query rewards or complaints about missing
 cooperation confirmations.
 
 \subsubsection{Cost}
 The cost for these attacks mostly comes down to generating the required IDs and
-possibly acquiring the needed network addresses. In the following, $p$ denotes
-the (fixed) length of the routing prefix, $m$ the number of members in each
-query group, $g$ the average number of query groups each peer is in, and $n$ the
-total number of query groups in the system.
-
-To join all of the target's query groups, the attacker must generate
-$\mathcal{O}(g)$ specific IDs.
-
-To attract queries from the target directly, with one observation peer per
-subprefix, the attacker must generate $\mathcal{O}(g \cdot p)$ specific IDs.
-
-To do this indirectly, attracting queries from the target's query peers, with
-one observation peer per subprefix, the attacker must generate $\mathcal{O}(g
-\cdot p \cdot m)$ specific IDs.
-
-For total surveillance, the attacker must generate $\mathcal{O}(n \cdot m)$
-specific IDs.
-
-- TODO calculate how many random IDs in total until the attacker can expect to
-  have all the needed IDs
+possibly acquiring the needed network addresses. Since the IDs must have
+specific routing prefixes, some brute forcing is necessary.
 
 For each of the generated IDs, the attacker needs a separate network address,
 assuming the target is paranoid enough to check for this.
@@ -665,7 +575,7 @@ To make generating all these IDs more time consuming, the length of the routing
 prefix could be extended, thus increasing the number of IDs required. However,
 this causes problems in the system, as explained in
 Section~\ref{sec:desc_empty_sync_groups}. It also means everyone needs more
-query peers for a complete subprefix coverage.
+query peers for complete subprefix coverage.
 
 It could also be made harder to generate an ID itself. The ID is assumed to be
 the hash of the peer's public key. This hash function could be chosen as one
@@ -676,5 +586,5 @@ avoid passive observation.
 The attacks described here are likely too difficult to be practical for low-tech
 attackers, given paranoid and vigilant targets, especially if they are not aimed
 at just a few specific peers. But they are probably in reach of high-tech
-attackers, especially if the attack is targeted on a specific peer, even though
+attackers, especially if the attack is targeted at a specific peer, even though
 they are likely not trivial.
