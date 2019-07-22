@@ -130,10 +130,10 @@ class Logger:
         print()
         self.print_strongly_connected_components_at(time)
 
-    def print_response_time_info(self, bins=10):
+    def print_response_time_info(self, start_time=0, bins=10):
         print('Stats about response times of successful queries')
         successes = [e for e in self.events if isinstance(e, QueryFinalized)
-                     and e.status == 'success']
+                     and e.status == 'success' and e.time >= start_time]
         times = [e.time - e.start_time for e in successes]
         print('min: {}'.format(min(times)))
         print('max: {}'.format(max(times)))
