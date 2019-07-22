@@ -1,6 +1,36 @@
 \chapter{Conclusion}
 \label{chap:conclusion}
-- performance is bad, much worse than dns
-\section{TODO}
-- wanted to confirm p-grid's resolving IPs while possibly having to look up the
-  IP of the peer to send the query to
+This thesis proposed a reputation system for a DHT storing reachability
+information that is meant to increase participation so that queries can be
+spread out among many recipients.
+
+Broadly speaking, there are three elements of the system that are absolutely
+integral and need to be investigated. They are firstly the availibility of
+reputation to cooperative peers, which is necessary to make the system useful to
+them. Secondly, a way of creating, joining and leaving query groups that allows
+peers to effectively find others that they need to forward their queries. And
+lastly, the complaint system, which is necessary to prevent abuse of the
+reputation system.
+
+The first of these has been examined in this thesis via simulation. With the
+implementation as it is, the results are encouraging so far. They show, with
+some caveats, that selfish peers are able to gain enough reputation to be
+entitled to delay-free service, under the assumption that they can be motivated
+to contribute by the promise of a good quality of service.
+
+The other two have not been implemented, but some ideas presented. If those are
+implemented, they are likely to influence each other, as well as the reputation
+availability in ways that are difficult to predict. It may well turn out that
+the ideas presented in this thesis can not be completed into an effective
+system.
+
+With regards to latency, the system compares very unfavorably to DNS, likely
+being several times slower. This is not surprising, given that their purposes
+are not precisely the same. The purpose of DNS is to provide resolutions from
+authoritative servers quickly, whereas the DHT is focused on robustness and
+reliability. Queries in the DHT are also not optimized for proximity between
+peers.
+
+Some possible attacks on the system, ones exploiting the reputation system, as
+well as ones seeking to circumvent the privacy gains, have been described and
+possible countermeasures discussed.
