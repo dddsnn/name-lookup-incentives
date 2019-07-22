@@ -499,13 +499,18 @@ $\frac{p}{p + r}$.
 
 So the probability could be controlled via the penalties and rewards, and it
 should work reasonably well if all peers are already well-established in the
-system above the penalty threshold. But with larger the differences between
+system above the penalty threshold. But with larger differences between
 reward and penalty, it becomes very difficult for a newcomer to become
-established (TODO ref becoming established section). Doing this also only works
-assuming that trembles happen relatively rarely, since otherwise peers may be
-unlucky and tremble repeatedly without being able to make up for it in between,
-crashing their reputation. The recursive query problem may make it impossible
-for newcomers to become established. For example, assuming a target response
+established (TODO ref becoming established section).
+
+Doing this also only works assuming that peers don't make unintentional
+mistakes. Such mistakes, called \emph{trembles} can e.g. be due to unusual
+delays or failures in the network. If peers are unlucky and tremble repeatedly,
+without being able to make up for it in between, this may crash their
+reputation.
+
+The recursive query problem may then make it impossible for them (or for
+newcomers) to become established. For example, assuming a target response
 probability of 95\%, the ratio of reward to penalty would have to be 1:19, so
 newcomers would have to earn more than 19 rewards for every penalty they incur
 in order to make progress towards the penalty threshold.
