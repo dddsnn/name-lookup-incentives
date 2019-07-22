@@ -440,16 +440,6 @@ another peer whether he is up to date by giving his current state of sequence
 numbers, potentially receiving a correction. To incentivize another peer's
 cooperation in this, a reward is applied, but only once per new peer.
 
-\subsection{Bootstrapping}
-\label{sec:desc_bootstrapping}
-- TODO necessary here, or just link rep avail chapter?
-- routing prefix length must be variable, must start at 0 (see limitations on
-  empty sync groups)
-- need to know at least one other peer
-- does that other peer have to be generous, giving plenty of his knowledge
-  without delay?
-- how to find first query group (see query group management section)
-
 \section{Rationale}
 \label{sec:desc_rationale}
 The goal of the system that was described is to exploit the peers' desire to use
@@ -662,19 +652,9 @@ The penalty for an incorrect response should be set sufficiently high to
 disincentivize them even if the likelihood of actually receiving the penalty is
 low (see Section~\ref{sec:desc_incentives_sync}).
 
-\subsection{Recursive vs. Iterative Queries}
-\label{sec:desc_recursive_vs_iterative}
-Section~\ref{sec:desc_querying} described recursive querying, in which the
-recipient of a query is expected to respond with either a successful or a fail
-response. If he isn't responsible for the target ID and thus doesn't have a copy
-of the record, he has to query a suitable peer himself and wait for the response
-in order to pass it on to the peer who queried him. This is the simplest way to
-handle the situation, and the most convenient for the querying peer, since all
-the work is done by the recipient.
-
-\subsubsection{The Recursive Query Problem}
+\subsection{The Recursive Query Problem}
 \label{sec:desc_rec_query_prob}
-But recursive queries can lead to the \emph{recursive query problem}, which is a
+Recursive queries can lead to the \emph{recursive query problem}, which is a
 peer's bad reputation in one query group having adverse effects on his
 reputation in another. Say peer A receives a query from peer B, and they share
 query group X. A needs to send the query on to one of his query peers in order
@@ -683,8 +663,8 @@ knows from query group Y. A is expected to respond to B within a time window
 determined by B's reputation in group X. Similarly, C is expected to respond to
 A within a time window determined by A's reputation in group Y. If minimum delay
 of the latter time window is greater than the maximum delay of the former, A has
-no chance of responding in time (that is assuming C observes the expected
-delay) and will be penalized for it.
+no chance of responding in time (that is assuming C observes the expected delay)
+and will be penalized for it.
 
 - TODO make a graphic for the recursive query problem
 

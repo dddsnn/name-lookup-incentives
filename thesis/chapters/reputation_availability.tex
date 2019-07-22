@@ -30,7 +30,7 @@ relevant parameters are listed in the appendix
 detailed information on the meaning of the parameters, see
 Chapter~\ref{chap:implementation}.
 
-Simulations usually (TODO usually or always?) last 200 seconds.
+Simulations last 200 seconds.
 
 \section{Peer Selection Strategy}
 \label{sec:selection}
@@ -41,11 +41,6 @@ different strategies have been implemented, three of which are presented in the
 following.
 
 In the simulations, the strategy under examination is used by all peers.
-
-- TODO find routing loops automatically
-- TODO performance metrics for this chapter? e.g. average query time
-- TODO new graph plotting how many query group memberships are above 10 rep, as
-  a measure for rep gain ability (exclude very small groups?)
 
 \subsection{Strategy: \emph{Overlap}}
 \label{sec:rep_avail_selection_overlap}
@@ -66,20 +61,14 @@ their position in the dictionary. Others in contrast have a difficult time
 getting any reputation because they don't receive queries (they may still
 receive some though, e.g. after the first choice failed).
 
-- TODO number of queries received histogram
-
 Figure~\ref{fig:selection_overlap_peer_reps} shows examples of a peer (on the
 left) who is "lucky" in one query group (not so much in others, but he can still
-get by), (TODO show a peer gaining rep in all groups) and another (on the right)
-who is unable to gain sufficient reputation.  Other peers not shown are able to
-quickly gain reputation in all their groups.
+get by), and another (on the right) who is unable to gain sufficient reputation.
+Other peers not shown are able to quickly gain reputation in all their groups.
 
 An example of the effect on the reputation percentiles in a query group is shown
 in figure~\ref{fig:selection_overlap_rep_percs}: the 50th percentile and above
 can easily gain reputation, while peers below struggle.
-
-(TODO recursive-query problem? peers who aren't getting queries can't answer the
-ones they're getting in time. confirm.)
 
 The underlying problem is that peers have no consideration for which peers could
 use queries in order to gain reputation. There end up being "rich" peers and
@@ -119,11 +108,7 @@ that settle at a low level.
 \label{fig:selection_overlap_resp_statuses}
 \end{figure}
 
-- TODO interaction with attenuation, would be worse without
-
 \subsection{Strategy: \emph{Overlap $\rightarrow$ Reputation Saturated Last}}
-- TODO try to make this section shorter
-
 This strategy is a modification of the \emph{overlap} strategy, but with a
 secondary criterion as a tie breaker. Peers still start out choosing a recipient
 based on the overlap, but they give potential recipients who they assume to be
@@ -147,16 +132,11 @@ he can guess the potential recipient's saturation reputation. In the simulation,
 peers assume a potential recipient is saturated if they would be in his
 position.
 
-- TODO number of queries received histogram
-
 This strategy is based on the \emph{overlap} strategy and offers almost the same
 protection against routing loops. One situation in which they can occur anyway
 is if all peers with
 a higher overlap are saturated. In that case, a peer with equal or lower overlap
 is chosen.
-
-- TODO check notes for interpretation. still same conclusions, or has some
-  change in the simulation altered the results?
 
 Figure~\ref{fig:selection_overlap_high_rep_last_rep_percs} shows the reputation
 percentiles of 2 query groups. The ability for peers of the lowest percentiles
@@ -179,13 +159,8 @@ groups}{selection\_strategy/selection\_overlap\_high\_rep\_last.settings}
 
 Figure~\ref{fig:selection_overlap_high_rep_last_peer_reps} shows the reputation
 development of 2 peers. On the left, an example of a peer gaining quickly in one
-group, but with a delay in another\footnote{This is also an example illustrating
-the recursive query problem well: The peer manages to quickly gain reputation in
-one group, but can't maintain it since he is lacking reputation in the other
-group he needs to be able to respond in time to queries he receives in the
-first. Once he has passed the penalty threshold in the second group, maintaining
-reputation in the first is not a problem.}. On the right, an extreme example for
-whom reputation gains in all groups is delayed for a long time, but happens
+group, but with a delay in another. On the right, an extreme example for whom
+reputation gains in all groups is delayed for a long time, but happens
 eventually. There are also examples of peers able to gain reputation quickly in
 all groups not shown here.
 
@@ -199,16 +174,10 @@ peers}{selection\_strategy/selection\_overlap\_high\_rep\_last.settings}
 \label{fig:selection_overlap_high_rep_last_peer_reps}
 \end{figure}
 
-- TODO compare response statuses in a more systematic manner (and include number
-  of responses)
-
 Figure~\ref{fig:selection_overlap_high_rep_last_resp_statuses} shows the
 response statuses over time. Compared with the \emph{overlap} strategy, there
-are a few more timeouts and unmatched queries. The difference isn't big, but can
-be explained by the possibility of selecting unsuitable peers. The possibility
-of routing loops was discussed, but they may also happen if queries are sent to
-recipients suffering from the recursive query problem. (TODO confirm from the
-log)
+are a few more timeouts and unmatched queries. The difference isn't big, and can
+be explained by the possibility of selecting unsuitable peers.
 
 \begin{figure}[t]
 \centering
@@ -238,14 +207,12 @@ distributed among all peers.
 It is of course still required for a peer to be useful to others in the query
 group, i.e. be in the group with maximal overlap in the first place.
 
-- TODO number of queries received histogram
-
 Figure~\ref{fig:selection_overlap_rep_sorted_rep_percs} shows reputation
 percentiles in 2 query groups. One in which reputation is gained easily by all
 peers, one in which the 5th percentile can't quite maintain the penalty
-threshold reputation for a while (TODO likely from recursive query problem, with
-one peer in a small query group where getting to 10 takes a long time.  check
-that) (TODO clarify that this is good).
+threshold reputation for a while. This is due to one peer suffering from the
+recursive query problem. At around time 150, this peer gains above the penalty
+threshold reputation in his last query group and the problems go away.
 
 \begin{figure}[t]
 \centering
@@ -282,9 +249,7 @@ peers}{selection\_strategy/selection\_overlap\_rep\_sorted.settings}
 The frequencies of response statuses presented in
 figure~\ref{fig:selection_overlap_rep_sorted_resp_statuses} shows this
 strategy to be better than the other \emph{overlap} strategies in terms of query
-success rate. The fact that peers can quickly gain reputation and receive
-penalty-free service makes the recursive query problem less likely (TODO confirm
-by measuring how often it happens), leading to fewer timeouts.
+success rate.
 
 \begin{figure}[t]
 \centering
@@ -305,172 +270,6 @@ It also prevents routing loops as well as any, since the querying peer always
 picks a recipient from the group of peers with maximal overlap. In this regard,
 it is clearly better than \emph{overlap $\rightarrow$ reputation saturated
 last}, where this was not necessarily the case.
-
-\subsubsection{Contented Peers}
-\label{sec:rep_avail_selection_rep_sorted_contented}
-- TODO future work?
-
-In the simulation, all peers are willing to contribute for the best possible
-service, i.e. they do their best to answer queries until they are reputation
-saturated. Contented peers, who are satisfied with the lowest level of service
-would not contribute and remain at 0 reputation. They would thus be strongly
-favored for selection, but never actually answer any of the queries.
-
-This could have disastrous results on overall performance for queries where the
-group of peers with maximal overlap contains a contented peer. Firstly, in the
-case where querying peers only send one query, the first query is always going
-to fail, adding a timeout to the total lookup time.
-
-Secondly, in case the querying peer sends two (or more) queries, the one
-addressed to the contented peer is wasted; it was meant to allow the
-lowest-reputation peer to gain reputation, but this opportunity is given to the
-contented peer, who will not seize it. In this case, the purpose of this
-selection strategy, to enable low-reputation peers to get started and in effect
-to increase social value, is not served.
-
-- TODO do a simulation with contented peers
-
-Possible solutions to this problem could be based on treating the contented peer
-differently from the other peers. First, this requires detecting that the peer
-is indeed contented. If he is nice, he could announce this upon joining the
-group (he may still be tolerated in the group if he gives rewards for successful
-queries). If he isn't, detection would have to be based on experience: a peer
-who never responds to queries is potentially contented.
-
-- TODO is there really incentive to try to detect contented peers? what's the
-  immediate benefit for the peer for going through that trouble?
-
-Once there is a suspicion that a peer is contented, he, and any other contented
-peers, can be skipped when selecting peers. That is, when making the list of
-viable potential recipients, contented peers are excluded. If the peer really is
-contented, he shouldn't mind not receiving the query, and certainly not
-complain, out of laziness. If he does complain, he would be better classified as
-malicious, since he takes action that is not to his own benefit, but to the
-detriment of the group.
-
-Contented peers who are so lazy they don't even bother giving rewards for
-succesful responses they received could be dealt with via the complaint system
-or the query group management. Peers who should have gotten a reward but didn't
-can complain or just make an effort to have the peer removed from the group.
-
-\subsubsection{Enforcement}
-\label{sec:selection_overlap_rep_sorted_enforcement}
-- TODO future work? otherwise make clear from the beginning this hasn't been
-  implemented
-
-The downside of this strategy is that there is no inherent incentive for peers
-to use it. It may provide good social value, but for any individual choice a
-querying peer could decide that the lowest-reputation peer is less likely to
-answer, or likely to take more time, than some other one. This could be from
-previous experience, or from the assumption that a peer with low reputation in
-one query group also has low reputation in other query groups, leading to the
-recursive query problem and longer response times.
-
-So in order for this strategy to be implemented in a real system, the rules of
-the system must make querying the lowest-reputation peer mandatory. The querying
-peer may send multiple queries, but for any query group he shares with the
-recipient of a query, the lowest-reputation peer in that query group with
-maximal overlap must also be sent one. A behavior conformant with this rule
-would be for the querying peer to use whatever criteria he wishes to select the
-recipient, and then to additionally query the lowest-reputation peer.
-
-This rule has to be enforced to be useful. The enforcement process encompasses
-two things: detecting that the querying peer failed to also send a query to the
-lowest-reputation peer, and agreeing whether a penalty should be applied to the
-querying peer and a compensation to the lowest-reputation peer.
-
-The first of these problems may be tackled in one of two ways: the
-lowest-reputation could monitor reputation updates in the query group. He then
-knows a querying peer failed to send him a query if there is a reward or penalty
-applied by the querying peer to some other peer for a query the
-lowest-reputation peer should also have received but didn't. This requires
-reputation updates regarding responses to include which target ID they're about.
-However, this has privacy implications (see
-Section~\ref{sec:selection_overlap_rep_sorted_privacy}), and there is neither
-any incentive for the querying peer sending the reputation update to include
-truthful information and thus risk a penalty, nor is there any incentive for the
-subject of the reputation update (the one being given a reward or penalty) to
-correct false information. Since no one else knows the truth about the target
-ID, this approach is not promising.
-
-The other approach to detecting missing queries to the lowest-reputation peer is
-to let all recipients of queries check if there is another peer in the query
-group with equally large overlap, but less reputation than them. The actual
-recipient of a query has all the necessary information and so could raise this
-issue. Then, if this leads to the lowest-reputation peer receiving compensation,
-the actual recipient would receive a reward as well, as a sort of finder's fee
-to incentivize the checking.
-
-This approach can cause trouble in the presence of contented peers. The proposed
-solution to dealing with those was to ignore them and not send them queries. But
-if another peer then notices this and starts the enforcement process, the
-querying peer may end up being penalized. This brings back all the problems of
-contented peers blocking actually contributing peers from gaining reputation. A
-possible modification of the enforcement could require the lowest-reputation
-peer (the contented peer in this case) to make the complaint himself. Under the
-assumption that the contented peer truly is contented, he would be too lazy to
-even do that. In addition, if the actual recipient of the query who noticed the
-lacking query to the lowest-reputation peer is aware that he is contented, he
-need not bother informing him, since there is no hope of a finder's fee anyway.
-
-The second stage of enforcement is coming to an agreement whether a penalty
-should be applied to the querying peer and compensation awarded to the
-lowest-reputation peer. This must be done via the complaint system (TODO ref),
-since no other than the two peers involved know the truth about whether a query
-was sent.
-
-To clarify, this system has not been implemented in the simulation.
-
-\subsubsection{Privacy Implications}
-\label{sec:selection_overlap_rep_sorted_privacy}
-Employing this strategy has privacy implications. The entire point of the
-reputation system is to give each peer many choices where to forward queries to,
-spreading queries out and thus make profile building harder.
-
-This strategy demands that a querying peer tell one other specific peer (the
-lowest-reputation peer) which target ID he is interested in. But the querying
-peer may not want to do that, for whatever reason. Maybe he doesn't trust the
-peer (from previous experience, maybe he believes he is being followed), maybe
-he has already sent him plenty of queries in the past and doesn't want him to
-have too much information (see Section~\ref{sec:desc_stalking}).
-
-Peers who are very sensitive to this could of course be in many more query
-groups than is required for subprefix coverage, giving them a wider choice of
-peers to query and making it less likely they feel forced into a bad situation.
-
-A modification alleviating this issue is to only require a peer to query the
-lowest-reputation peer if he has less than the penalty threshold reputation
-(getting everyone above that threshold quickly is the purpose of the strategy,
-after all). Assuming that peers generally do well, this would further reduce the
-number of instances of having to send unwanted queries.
-
-There is another issue that was mentioned in
-\ref{sec:selection_overlap_rep_sorted_enforcement}: if reputation updates
-regarding responses must include the target ID, this is equivalent to
-broadcasting to the entire query group the target ID of each query, a much more
-severe infringement than the one described.
-
-\subsubsection{Possible Impact on Usefulness}
-- TODO
-- does this maybe remove incentive to find a query group in which one is useful
-  (since the system guarantees some queries)? peers may only be good for one
-  subprefix, but are getting all the queries for it
-- ref query group reevaluation section, explain what usefulness is (already done
-  in system description)
-- hasn't been implemented, not clear
-
-\subsection{Uneven Query Distribution}
-- TODO remove? what was this even supposed to be?
-
-\section{Reputation Decay}
-- TODO
-- decay, necessary (see system description), but difficult
-- decay doesn't really work if it's supposed to be the main incentive in
-  continuing to participate: too difficult to balance even with the constant
-  stream of requests; need timeout penalties as main measure
-- possible solutions: vary decay rate with total reputation in group, or with
-  average number of queries in a group or something
-- describe how it would be implemented
 
 \section{Reputation Attenuation}
 \label{sec:attenuation}
@@ -501,7 +300,7 @@ So the probability could be controlled via the penalties and rewards, and it
 should work reasonably well if all peers are already well-established in the
 system above the penalty threshold. But with larger differences between
 reward and penalty, it becomes very difficult for a newcomer to become
-established (TODO ref becoming established section).
+established.
 
 Doing this also only works assuming that peers don't make unintentional
 mistakes. Such mistakes, called \emph{trembles} can e.g. be due to unusual
@@ -609,9 +408,9 @@ threshold, $l$ the upper reputation limit.
 Figures~\ref{fig:attenuation_percs} and \ref{fig:attenuation_resp} show
 reputation percentiles and response statuses of simulation runs demonstrating
 the different attenuation strategies. The percentiles are all of the same query
-group, with the same members (TODO confirm). The example was chosen to
-illustrate a few points. It is not representative of the overall performance
-(TODO confirm, quantify), many other groups perform better.
+group, with the same members. The example was chosen to illustrate a few points.
+It is not representative of the overall performance, many other groups perform
+better.
 
 The parameters in the attenuated simulations have been chosen so that it takes
 roughly the same amount of raw reputation to get from 10 (the attenuation
@@ -923,75 +722,115 @@ trigger points when peers without expectations let more queries time out than
 they should. With fewer of them, peers don't lose reputation as often, making
 their reputation much more stable.
 
-Furthermore, reputation attenuation significantly reduces the number of timeouts
-and thereby the number of queries (since timed out queries are retried). This
-reduces, on average, the number of queries a peer lets time out before he
-realizes he has dropped below the reputation at which he is saturated (TODO
-confirm).
-
 \section{Recursive Query Problem}
 \label{sec:rep_avail_rec_query_prob}
-- TODO
+The recursive query problem is described in
+Section~\ref{sec:desc_rec_query_prob}.  In it, a peers low reputation in one
+query group causes trouble in another.  Figure~\ref{fig:rec_query_prob}
+illustrates this: It shows the reputation of a peer who is a member in three
+query groups. In two of them, he gains reputation quite quickly and gets above
+the penalty threshold. But in the other, his reputation gains are a little
+delayed. The two gray bars show that around time 25 where his reputation in the
+third group is still below the penalty threshold, he suffers from the recursive
+query problem for a fraction of his responses.  During that time, he can't gain
+reputation in his first two groups because he needs the third group to respond
+quickly enough. But once his reputation in that group passes the penalty
+threshold, the problems stop.
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=1\columnwidth]{figures/selection_overlap_rep_sorted_peer_reps_with_rqp_29_of_64}
-\caption{Peer reputations showing the recursive query problem}
+\captionsettings{Peer reputations showing the recursive query
+problem}{selection\_strategy/selection\_overlap\_rep\_sorted.settings}
 \label{fig:rec_query_prob}
 \end{figure}
 
-\section{Query Group Reevaluation}
-\label{sec:rep_avail_group_reeval}
-- incomplete implementation causes problems: peers first find their necessary
-  query peers, but then they leave. potentially mitigated by running query peer
-  discovery repeatedly now?
+\section{Joining a Running Network}
+In the simulations presented so far, all peers are added at the beginning with
+no reputation. But one important characteristic the system needs is that it must
+be possible for a newcomer to join a running system in which the peers have
+already established themselves.
 
-\section{Bootstrapping}
-\label{sec:rep_avail_bootstrapping}
-\subsection{Bootstrapping an Empty Network}
-\subsection{Becoming Establised in a Running System}
-- number of introductions needed to get subprefix coverage
+This hasn't been examined in great detail, but one simulation has been run for
+200 simulated seconds with mostly the default settings, except that in addition
+to the 64 peers added at the beginning, 16 peers each are added at time 50, 100,
+and 150.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.5\columnwidth]{figures/3_times_16_rep_percs_12_of_31}%
+\includegraphics[width=0.5\columnwidth]{figures/3_times_16_resp_statuses}
+\captionsettings{Reputation percentiles of one query group and response statuses
+for a simulation with late joiners}{established/3\_times\_16.settings}
+\label{fig:3_times_16}
+\end{figure}
+
+Figure~\ref{fig:3_times_16} shows the reputation percentiles of a query group
+in which some peers join later than others, as well as response statuses.
+They both show that, under these conditions, joining late is fine. The
+percentiles drop each time new peers without reputation join, but they are all
+able to gain reputation, all ending up well above the penalty threshold. The
+number of timeouts and unmatched queries settles at low level.
+
+The fact this works so well may be in part due to two peculiarities of the
+implementation. Firstly, the mechanism for finding query groups makes it more
+likely that newcomers share a group, where the recursive query problem is not
+much of an issue, because no one expects good service yet.
+
+Secondly, the routing prefix is quite short at 4 bits. This means a high chance
+peers are able to answer a query from local knowledge because they happen to be
+in the correct sync group. If this becomes less likely, the recursive query
+problem may become more pronounced.
 
 \section{Effect of Small Sync Groups}
 \label{sec:rep_avail_small_sync_groups}
-- with small sync groups, particularly one peer per sync group, the system is
-  very brittle, even if all sync groups exist (see 11/about)
-- routing loops are a problem that can occur when overlap isn't the first
-  selection criterion (particularly subprefix queries). this can lead to
-  timeouts and lots of penalties (related to brittleness with small sync groups)
-- the problem with each peer in his own sync group is apparently that, once the
-  first peers reach 14, they let queries time out, and this causes problems to
-  other peers who were relying on them, crashing reputations. with longer
-  routing prefixes and deeper lookups (more hops), the likelihood of something
-  timing out on the way rises.
+One major cause of concern that was revealed by the simulation is related to
+sync groups with very few or even no members. If there are any of them, the
+system becomes very brittle.
 
-\section{Stuff that hasn't been looked into (TODO section name)}
-- making the relationship between reputation and penalty delay non-proportional
+The problem with empty sync groups is that there are no authoritative peers for
+the corresponding routing prefix. There will be queries for that prefix sent by
+peers looking to complete their subprefix coverage, but no one to tell them that
+no peer exists with that prefix. The recipients always have to send a fail
+response and incur the penalty for it. Since these queries are sent repeatedly,
+this continues and crashes their reputation.
 
-\section{Large Simulation (TODO section name)}
-- TODO just do the whole thing with the "best" settings with at least 1024 peers
+But even if care is taken that each sync group contains at least one peer, the
+system is brittle.
 
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.5\columnwidth]{{{figures/256_steady_8_prefix_0.05_delay_rep_percs_25_of_89}}}%
+\includegraphics[width=0.5\columnwidth]{{{figures/256_steady_8_prefix_0.05_delay_peer_reps_with_rqp_236_of_256}}}
+\captionsettings{Reputation percentiles and peer reputations showing brittleness
+with small sync
+groups}{large\_sims/256\_steady\_8\_prefix\_0.05\_delay.settings}
+\label{fig:brittleness}
+\end{figure}
 
------------------------
-- recursive-query-problem, observable in peer reputations (some configurations?
-  see 8/about)
-- impact of query group size
-- uneven distribution of rep (effect of even sync groups)
-- difference in expected delays because of difference in time between
-  calculating; may have changed in the meantime
-- peers can get more than their maximum desired reputation
-- in the case of multiple shared groups, where do peers get rep?
-- query peer selection: must send to peer with lowest rep
-- uneven query distribution
-- query group reevaluation mechanism, caveat that new groups can't be created,
-  only when a new peer is introduced
-- missing sync groups are a problem: no one can say for sure that there doesn't
-  exist a peer in that sync group, so peers querying for missing subprefix
-  coverage give out penalties to those they query because of the resulting fail
-  responses. no real solution other than ensuring non-empty sync groups (linked
-  to replication). this is confirmed by giving peers global knowledge of which
-  sync groups exist and not having them query for those subprefixes, then
-  everything works. even one missing sync group can screw everything up (see 64
-  peers/6 bit routing prefix case).
-- number of introductions relative to the amount of peers has an effect on how
-  easy it is for the system to get started (see 11/about)
+Figure~\ref{fig:brittleness} shows examples of reputation percentiles and peer
+reputations in a simulation with 256 peers and a routing prefix length of 8 bits
+(i.e. every peer is his own sync group).
+
+Everything starts out looking quite good, but at one point the reputation of
+some peers in the depicted query group and all the reputations of the depicted
+peer crash. That point is when the first peers reach their saturation
+reputation.
+
+What probably happens is that these peers ignore the next incoming query, and
+then the peers who were supposed to receive the response are unable to answer
+their own query for which they needed that response. This only needs to happen
+twice and their reputation dips below the penalty threshold. Then the recursive
+query problem takes over: There are still peers with high reputation who expect
+fast responses, but the peers with low reputation are unable to provide them.
+
+It isn't clear why this only happens with small sync groups. It could have to do
+with the fact that with more sync peers, there is a choice of who to query.
+
+Then again, it may not have to do with the small sync groups directly, but with
+the longer routing prefix. This requires more hops to resolve a query, which
+means more chances for a timeout to occur.
+
+The reason is unknown, but the issue could in all instances be prevented by
+reducing the routing prefix length, thereby increasing the average number of
+peers per sync group.
