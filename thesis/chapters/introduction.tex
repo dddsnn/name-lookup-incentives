@@ -47,33 +47,33 @@ choose themselves how far they want to spread out their requests.
 
 \section{Goal}
 There needs to be a great number of servers for this to work. This thesis
-introduces a system in which these servers are the nodes of a \ac{DHT}, and the
+introduces a system in which these servers are the nodes of a DHT, and the
 mapping from name to network address the \emph{records} stored in it. The main
 purpose of this system is to ensure that there is a great number of nodes. To
 achieve this, its main focus lies on incentivizing every user of the lookup
-service to not just use it, but to become a \emph{peer}, i.e. a node of the
-\ac{DHT} that also contributes resources to providing it.
+service to not just use it, but to become a \emph{peer}, i.e. a node of the DHT
+that also contributes resources to providing it.
 
 A good motivating use case, and one that's useful to keep in mind, is a
 peer-to-peer chat system. Every peer has a fixed \emph{ID} by which he is known
-to the others, but the network addresses can change frequently. The \ac{DHT} is
-used to store the mapping from ID to network address. In fact, the rest of the
-thesis assumes that each peer stores exactly one record containing his
-\emph{reachability information} in the \ac{DHT}, where the key is equal to his
-own peer ID (the key of a record is also referred to as the ID of the record).
+to the others, but the network addresses can change frequently. The DHT is used
+to store the mapping from ID to network address. In fact, the rest of the thesis
+assumes that each peer stores exactly one record containing his
+\emph{reachability information} in the DHT, where the key is equal to his own
+peer ID (the key of a record is also referred to as the ID of the record).
 
 Since network addresses change, peers frequently need to look up the current
 addresses of others they want to chat with. Sending all these lookups to one
 central server would give that server a pretty good picture of what a peer is
-doing. Spreading them throughout the \ac{DHT} means a lot of people know a
-little, but no single party knows enough to be useful.
+doing. Spreading them throughout the DHT means a lot of people know a little,
+but no single party knows enough to be useful.
 
 Accessing a record is somewhat latency sensitive. While it is not a real-time
 application, it becomes annoying if the lookup before sending a message takes
 too long. Furthermore, it must be possible to update records, and for these
-updates to be disseminated throughout the \ac{DHT} quickly. But we can assume
-that the records are fairly small, containing just an ID, an address, and maybe
-some additional information.
+updates to be disseminated throughout the DHT quickly. But we can assume that
+the records are fairly small, containing just an ID, an address, and maybe some
+additional information.
 
 The system is likely capable of supporting other applications than such a chat
 system, notably ones with fewer of the limiting assumptions. But for the sake of
@@ -82,13 +82,13 @@ here.
 
 Another underlying assumption is that the users are selfish. They want to expend
 as little storage space, CPU time and network bandwidth as possible. Without any
-addition to the \ac{DHT}, they can do that whether or not they contribute
-themselves; one more node is not going to make a big difference in the grand
-scheme, and certainly not provide them a benefit. Using the DHT but not
-contributing is called free-riding. The fact that peers want to use the service
-and enjoy the benefit of having many peers to choose from to do their lookups is
-the leverage the system exploits: peers who aren't contributing are given a
-worse quality of service.
+addition to the DHT, they can do that whether or not they contribute themselves;
+one more node is not going to make a big difference in the grand scheme, and
+certainly not provide them a benefit. Using the DHT but not contributing is
+called free-riding. The fact that peers want to use the service and enjoy the
+benefit of having many peers to choose from to do their lookups is the leverage
+the system exploits: peers who aren't contributing are given a worse quality of
+service.
 
 Whitewashing is a similar exploit in which peers use the system until the level
 of service they are given is not satisfactory anymore, then leave and join again
@@ -130,7 +130,7 @@ users can spread out their queries. Few peers doing most of the work is actually
 counterproductive to the privacy goal.
 
 One could also argue that it should be sufficient to write an implementation of
-the \ac{DHT} in which peers contribute by default, perhaps with no option of
+the DHT in which peers contribute by default, perhaps with no option of
 disabling it. The overhead of this is small, so users wouldn't change the
 software for a small benefit. Ripeanu et al.\cite{ripeanu2006gifting} even
 recognize the difficulty of configuring a BitTorrent client to free-ride as a

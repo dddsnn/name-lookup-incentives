@@ -129,13 +129,13 @@ would like to join. After all, there is no public record of all available query
 groups.
 
 To do this, the query mechanism could be extended to allow queries not just for
-peers (i.e. their record in the \ac{DHT}), but for query groups. The peer
-looking for a group would send a query to some of his current query peers
-stating he is looking for a group. In that query, he lists one or more of his
-subprefixes for which there should be responsible peers in the group. If the
-recipient of the query is in a group matching these criteria, he may offer to
-act as the entry peer and receive a reward in the current query group for a
-successfully answered query.
+peers (i.e. their record in the DHT), but for query groups. The peer looking for
+a group would send a query to some of his current query peers stating he is
+looking for a group. In that query, he lists one or more of his subprefixes for
+which there should be responsible peers in the group. If the recipient of the
+query is in a group matching these criteria, he may offer to act as the entry
+peer and receive a reward in the current query group for a successfully answered
+query.
 
 In addition to listing subprefixes that should be covered, the peer looking for
 a group could request that his usefulness in the prospective group be calculated
@@ -269,7 +269,7 @@ One of the central tenets of P-Grid involves separating a peer's routing prefix
 from the records he is responsible for. Instead of the peer's ID determining
 which records he has to store, each peer explicitly advertises one or more
 prefixes which he is responsible for (this can become part of their record
-stored in the \ac{DHT}). These new prefixes don't even all have to be the same
+stored in the DHT). These new prefixes don't even all have to be the same
 length, allowing for finer grained control. Being responsible for more prefixes
 means peers have to join more sync groups and completing their subprefix
 coverage may require more connections.

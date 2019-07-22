@@ -1,10 +1,10 @@
 \chapter{Appendix}
 \section{Definitions}
 \begin{description}
-\item[Record:] The data stored in a \ac{DHT} under one key (or \emph{record
-ID}). Also contains a timestamp giving the time of last change.
+\item[Record:] The data stored in a DHT under one key (or \emph{record ID}).
+Also contains a timestamp giving the time of last change.
 \item[Peer:] One participant of the system, has one unique \emph{ID}; commonly
-called \emph{node} in the context of \acp{DHT}.
+called \emph{node} in the context of DHT.
 \item[ID, Peer ID:] A bit string the length of which is fixed and prescribed by
 the \emph{rules of the system}. Uniquely identifies a peer.
 \item[Record ID:] A bit string of the same length as a \emph{peer ID}. Uniquely
@@ -12,7 +12,7 @@ identifies the record belonging to the peer with the same ID. Technically the
 key of the record, but the word ID is used to stress that it's of the same kind
 as a peer ID.
 \item[Reachability information:] The abstract notion of information stored in
-records in the \ac{DHT} that is sufficient to communicate with a peer. More
+records in the DHT that is sufficient to communicate with a peer. More
 concretely, an IP address.
 \item[Target ID:] A bit string that is the subject of a \emph{query}. Its length
 is less than or equal to that of a \emph{peer ID}. If less, the query is asking
@@ -94,7 +94,7 @@ suitable peer to query, the sender must perform the query himself. Requires
 Section~\ref{sec:desc_recursive_vs_iterative}).
 \item[Query voucher:] A one-time-use statement entitling one peer to the level
 of service of another. Used for iterative queries.
-\item[Routing loop:] Failure in looking up a record in the \ac{DHT} caused by at
+\item[Routing loop:] Failure in looking up a record in the DHT caused by at
 least one peer in the chain of queries forwarding the query to a peer who is not
 \emph{closer to} the \emph{target ID}. The query is sent back to peers who
 originally sent it. See also Section~\ref{sec:selection}.

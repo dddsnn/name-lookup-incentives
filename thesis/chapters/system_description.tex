@@ -15,10 +15,10 @@ delays can be predicted from past ones with reasonable accuracy.
 Peers are assumed to have clocks, all of which are synchronized. Minor
 variations are tolerable, though (typical accuracy of NTP is definitely enough).
 
-Access to the \ac{DHT} is assumed to be equally distributed. This includes
-firstly that the records are equally popular, i.e. each of them has the same
-likelihood of being queried for. Secondly, all peers send the same volume of
-queries. Sections~\ref{sec:desc_load_balancing}
+Access to the DHT is assumed to be equally distributed. This includes firstly
+that the records are equally popular, i.e. each of them has the same likelihood
+of being queried for. Secondly, all peers send the same volume of queries.
+Sections~\ref{sec:desc_load_balancing}
 and~\ref{sec:desc_credit_only_vs_credit_debit} discuss the consequences of these
 assumptions not holding.
 
@@ -81,25 +81,25 @@ beyond the scope of this thesis.
 
 \section{Organization}
 \subsection{Overview}
-The underlying \ac{DHT} for the system is one in the style of Kademlia or
-P-Grid, briefly described in Section~\ref{sec:background_dhts}. Every peer has a
-unique \emph{ID} that he chooses himself, and every \emph{record} in the
-\ac{DHT} has a unique ID of the same length. In fact, each peer may store
-exactly one record under its own ID, containing reachability information. As
-mentioned previously, this constraint was added for simplicity. Under these
-circumstances, querying for a record stored in the \ac{DHT} is done in order to
-learn how to contact a peer. For this reason, the phrase "querying for a peer
-(with some ID)" is frequently used in this thesis to mean querying for a record
-in the \ac{DHT} with that peer's ID.
+The underlying DHT for the system is one in the style of Kademlia or P-Grid,
+briefly described in Section~\ref{sec:background_dhts}. Every peer has a unique
+\emph{ID} that he chooses himself, and every \emph{record} in the DHT has a
+unique ID of the same length. In fact, each peer may store exactly one record
+under its own ID, containing reachability information. As mentioned previously,
+this constraint was added for simplicity. Under these circumstances, querying
+for a record stored in the DHT is done in order to learn how to contact a peer.
+For this reason, the phrase "querying for a peer (with some ID)" is frequently
+used in this thesis to mean querying for a record in the DHT with that peer's
+ID.
 
 These IDs are bit strings of fixed length and routing takes place along a binary
-tree formed by them. It may be possible to adapt the system to work with
-\acp{DHT} using a different routing scheme, such as Chord. See
+tree formed by them. It may be possible to adapt the system to work with DHT
+using a different routing scheme, such as Chord. See
 Section~\ref{sec:desc_querying} for details on how querying is handled in the
-\ac{DHT} used by the system.
+DHT used by the system.
 
-Every peer stores a number of records of the \ac{DHT}, he is \emph{responsible}
-for these records. A number of other peers is also responsible for these same
+Every peer stores a number of records of the DHT, he is \emph{responsible} for
+these records. A number of other peers is also responsible for these same
 records, and the peer stays in contact with them in a \emph{sync group}. In
 these groups, peers synchronize their information about stored records, like the
 creation of a new one, or the update of an existing one. See
@@ -168,8 +168,8 @@ Section~\ref{sec:desc_complaints}.
 
 At many points, the system relies on messages being authenticated. It is assumed
 that all messages exchanged between peers are signed to prevent one peer
-impersonating another. Since peers only store one record in the \ac{DHT} with
-their own ID as key, these records are also signed. Peer IDs are chosen to be
+impersonating another. Since peers only store one record in the DHT with their
+own ID as key, these records are also signed. Peer IDs are chosen to be
 fingerprints of the peer's public key, so that there doesn't have to be a
 mapping from peer ID to public key. The full public key can be distributed once
 a peer learns about another peer for the first time, e.g. as supplementary
@@ -185,25 +185,24 @@ contact with other peers who have the same routing prefix; these peers make up
 his sync group and are called his \emph{sync peers}.
 
 Sync peers keep each other apprised of changes to their record\footnote{As a
-reminder, in this simplified version, peers store exactly one record in the
-\ac{DHT}, where the key is their own ID.}. When it needs to be updated, they
-broadcast the new record to all their sync peers, who then update their local
-copy.
+reminder, in this simplified version, peers store exactly one record in the DHT,
+where the key is their own ID.}. When it needs to be updated, they broadcast the
+new record to all their sync peers, who then update their local copy.
 
-Since every peer stores exactly one record in the \ac{DHT} under his own ID,
-creating a new record to be maintained in the sync group is equivalent to
-joining the group. To do this, the peer needs to know at least one other peer
-who is already a member of the sync group and gives him the contact information
-of all other sync peers. Then he broadcasts his new record to all the members.
+Since every peer stores exactly one record in the DHT under his own ID, creating
+a new record to be maintained in the sync group is equivalent to joining the
+group. To do this, the peer needs to know at least one other peer who is already
+a member of the sync group and gives him the contact information of all other
+sync peers. Then he broadcasts his new record to all the members.
 
 Conversely, deleting a record is equivalent to leaving the group. In this case,
 the peer simply broadcasts a notification to his sync peers.
 
-Sync groups are relevant to replication within the \ac{DHT}. Every peer's record
-is replicated as many times as there are peers in the sync group. The mean
-replication factor in the \ac{DHT} is $\frac{n}{2^l}$, where $n$ is the total
-number of peers participating in the \ac{DHT}, and $l$ is the length of the
-routing prefix in bits.
+Sync groups are relevant to replication within the DHT. Every peer's record is
+replicated as many times as there are peers in the sync group. The mean
+replication factor in the DHT is $\frac{n}{2^l}$, where $n$ is the total number
+of peers participating in the DHT, and $l$ is the length of the routing prefix
+in bits.
 
 No fixed replication factor can be guaranteed in this way, since the routing
 prefixes are determined by the peer IDs, which peers choose themselves. It may
@@ -264,8 +263,8 @@ arbitrary length (it can even be empty). A correct response to such a query is
 any record whose ID starts with the target ID. This is useful for learning about
 peers to complete one's subprefix coverage (see
 Section~\ref{sec:desc_query_groups}). A response stating that no record with the
-target ID exists in this context means that no record exists in the entire
-\ac{DHT} whose ID starts with the target ID.
+target ID exists in this context means that no record exists in the entire DHT
+whose ID starts with the target ID.
 
 Additionally, when querying for a prefix, a querying peer may specify a number
 of IDs or prefixes of IDs to exclude. The response must not match any of the
@@ -499,12 +498,11 @@ Tracking reputation globally doesn't scale to large networks. Peers can't
 practically store every other peer's reputation locally and receive updates for
 all of them. Moreover, spreading these updates throughout the network to so many
 recipients would be challenging and require incentives. Storing reputation in a
-decentralized structure like the \ac{DHT} the system is supporting, or a wholly
+decentralized structure like the DHT the system is supporting, or a wholly
 separate one, would add additional delays. Before responding, each peer would
-have to do a \ac{DHT} lookup to even determine when to send the response. This
-would have to happen at every hop in the query. Not to mention that this
-potentially includes another \ac{DHT}, the maintenance of which requires
-incentives itself.
+have to do a DHT lookup to even determine when to send the response. This would
+have to happen at every hop in the query. Not to mention that this potentially
+includes another DHT, the maintenance of which requires incentives itself.
 
 The solution offered in this thesis are query groups, which are small enough
 that each peer can store locally the reputations of the query peers, and updates

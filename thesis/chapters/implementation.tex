@@ -2,8 +2,8 @@
 \label{chap:implementation}
 A simulation has been implemented using the Simpy discrete event simulation
 framework (TODO put on github and link). It simulates a network of selfish peers
-providing and accessing a \ac{DHT} implementing the system described in the
-previous chapter.
+providing and accessing a DHT implementing the system described in the previous
+chapter.
 
 Parameters of the simulation are set via a \texttt{.settings} file, which is
 supposed to make results of simulation runs reproducible\footnote{The simulation
@@ -136,7 +136,7 @@ just two peers. In these groups, reputation gains are very slow because of the
 low amount of traffic.
 
 \item Peers never go offline, change their addresses or update the record they
-store in the \ac{DHT}.
+store in the DHT.
 
 \item Peers respond to all queries, even from peers they don't share a query
 group with. For those, they apply the maximum penalty delay.
