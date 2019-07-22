@@ -14,8 +14,6 @@ circumstances this is the case using the simulation described in
 Chapter~\ref{chap:implementation}.
 
 \section{Setup}
-- TODO redo percentile graphs with all black lines, colors are meaningless
-
 This chapter contains evaluations of many simulation runs. The simulation uses
 \texttt{.settings} files for configuration that make the results reproducible.
 For each simulation run in this chapter a name of the corresponding
@@ -216,8 +214,8 @@ threshold reputation in his last query group and the problems go away.
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.5\columnwidth]{figures/selection_overlap_rep_sorted_rep_percs_2_of_14}%
-\includegraphics[width=0.5\columnwidth]{figures/selection_overlap_rep_sorted_rep_percs_3_of_14}
+\includegraphics[width=0.5\columnwidth]{figures/selection_overlap_rep_sorted_rep_percs_2_of_15}%
+\includegraphics[width=0.5\columnwidth]{figures/selection_overlap_rep_sorted_rep_percs_3_of_15}
 \captionsettings{Reputation percentiles over time for strategy \emph{overlap
 $\rightarrow$ reputation sorted} in 2 query
 groups}{selection\_strategy/selection\_overlap\_rep\_sorted.settings}
@@ -239,7 +237,7 @@ thus falling dow to 12 and subsequently starting to gain reputation again.
 \begin{figure}[t]
 \centering
 \includegraphics[width=0.5\columnwidth]{figures/selection_overlap_rep_sorted_peer_reps_11_of_64}%
-\includegraphics[width=0.5\columnwidth]{figures/selection_overlap_rep_sorted_peer_reps_5_of_64}
+\includegraphics[width=0.5\columnwidth]{figures/selection_overlap_rep_sorted_peer_reps_56_of_64}
 \captionsettings{Reputation over time for strategy \emph{overlap $\rightarrow$
 reputation sorted} for 2
 peers}{selection\_strategy/selection\_overlap\_rep\_sorted.settings}
@@ -423,21 +421,21 @@ attenuated cases do so at around the same time.
   \centering
   \begin{subfigure}[t]{0.45\columnwidth}
     \centering
-    \includegraphics[width=\columnwidth]{figures/attenuation_no_attenuation_rep_percs_6_of_14}
+    \includegraphics[width=\columnwidth]{figures/attenuation_no_attenuation_rep_percs_1_of_15}
     \subcaptionsettings{No
     attenuation}{attenuation/attenuation\_no\_attenuation.settings}
     \label{fig:attenuation_no_att_percs}
   \end{subfigure}\hfill%
   \begin{subfigure}[t]{0.45\columnwidth}
     \centering
-    \includegraphics[width=\columnwidth]{figures/{{attenuation_0.08_constant_rep_percs_6_of_14}}}
+    \includegraphics[width=\columnwidth]{figures/{{attenuation_0.08_constant_rep_percs_1_of_15}}}
     \subcaptionsettings{\emph{Constant} attenuation, $c =
     0.08$}{attenuation/attenuation\_0.08\_constant.settings}
     \label{fig:attenuation_constant_percs}
   \end{subfigure}\hfill\\%
   \begin{subfigure}[t]{0.45\columnwidth}
     \centering
-    \includegraphics[width=\columnwidth]{figures/{{attenuation_0.35_1_exponential_rep_percs_6_of_14}}}
+    \includegraphics[width=\columnwidth]{figures/{{attenuation_0.35_1_exponential_rep_percs_1_of_15}}}
     \subcaptionsettings{\emph{Exponential} attenuation, $p = 0.35$, $c =
     1$}{attenuation/attenuation\_0.35\_1\_exponential.settings}
     \label{fig:attenuation_exp_percs}
@@ -475,24 +473,6 @@ attenuated cases do so at around the same time.
   \label{fig:attenuation_resp}
 \end{figure}
 
-In the case of no attenuation (figure~\ref{fig:attenuation_no_att_percs}) the
-5th percentile doesn't make it above the penalty threshold. This is due to one
-peer\footnote{Since this query group contains 16 peers, the 5th percentile is
-just the one peer.} (TODO peer id 8961) who is suffering from the recursive
-query problem. Over the course of the simulation, he receives 140 penalties, all
-of them for timeouts. There are also 132 responses sent by him that were
-unmatched at the receiver (TODO late instead of unmatched, if that gets
-implemented), meaning they were sent after the timeout was triggered at the
-receiver. So the peer tried, but was frequently too late (TODO confirm by
-archiving timed out queries and implementing a metric measuring how many
-too-late recursive queries there are).
-
-This peer is not struggling in the cases with attenuation turned on. The likely
-reason is that, during recursive queries he is experiencing more timeouts
-without attenuation than with attenuation (TODO confirm this is the only
-reason). Without it, it is much easier for the other peers to become reputation
-saturated.
-
 Without attenuation, oscillation can be seen in the reputation percentiles,
 which reflects oscillation in individual peer reputations. Peers are also
 getting significantly above the reputation at which they are saturated (14). The
@@ -520,7 +500,7 @@ case.
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=1\columnwidth]{{{figures/attenuation_0.0417_constant_12_threshold_rep_percs_6_of_14}}}
+\includegraphics[width=1\columnwidth]{{{figures/attenuation_0.0417_constant_12_threshold_rep_percs_6_of_15}}}
 \captionsettings{Reputation percentiles over time for \emph{constant}
 attenuation with higher threshold ($c = 0.0417$, $t =
 12$)}{attenuation/attenuation\_0.0417\_constant\_12\_threshold.settings}
@@ -599,7 +579,7 @@ query groups.
 \begin{figure}[t]
 \centering
 \includegraphics[width=0.5\columnwidth]{figures/expectations_off_no_att_peer_reps_3_of_64}%
-\includegraphics[width=0.5\columnwidth]{figures/expectations_off_no_att_rep_percs_1_of_14}
+\includegraphics[width=0.5\columnwidth]{figures/expectations_off_no_att_rep_percs_1_of_15}
 \captionsettings{Reputation oscillation of a peer and in the percentiles of a
 query group with penalty expectations and reputation attenuation
 off}{penalty\_expectations/expectations\_off\_no\_att.settings}
@@ -627,7 +607,7 @@ surpassed the saturation reputation of 14.
 \begin{figure}[t]
 \centering
 \includegraphics[width=0.5\columnwidth]{figures/expectations_off_no_att_high_buf_peer_reps_3_of_64}%
-\includegraphics[width=0.5\columnwidth]{figures/expectations_off_no_att_high_buf_rep_percs_1_of_14}
+\includegraphics[width=0.5\columnwidth]{figures/expectations_off_no_att_high_buf_rep_percs_1_of_15}
 \captionsettings{Reputation oscillation at a higher base level with increased
 reputation buffer of
 20}{penalty\_expectations/expectations\_off\_no\_att\_high\_buf.settings}
@@ -678,7 +658,7 @@ likely already been applied.
 \begin{figure}[t]
 \centering
 \includegraphics[width=0.5\columnwidth]{figures/expectations_on_no_att_peer_reps_3_of_64}%
-\includegraphics[width=0.5\columnwidth]{figures/expectations_on_no_att_rep_percs_1_of_14}
+\includegraphics[width=0.5\columnwidth]{figures/expectations_on_no_att_rep_percs_1_of_15}
 \captionsettings{Reduced reputation oscillation with expectations enabled, but
 attenuation still
 disabled}{penalty\_expectations/expectations\_on\_no\_att.settings}
@@ -700,7 +680,7 @@ significantly improves the behavior of the system.
 \begin{figure}[t]
 \centering
 \includegraphics[width=0.5\columnwidth]{figures/expectations_off_peer_reps_16_of_64}%
-\includegraphics[width=0.5\columnwidth]{figures/expectations_off_rep_percs_1_of_14}
+\includegraphics[width=0.5\columnwidth]{figures/expectations_off_rep_percs_1_of_15}
 \captionsettings{Reputation of one peer and percentiles of a query group with
 just attenuation enabled, expectations
 off}{penalty\_expectations/expectations\_off.settings}
