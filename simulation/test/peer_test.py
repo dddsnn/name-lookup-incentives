@@ -117,7 +117,8 @@ class TestSendQuery(unittest.TestCase):
             peer_a.send_query(peer_b.peer_id, queried_id, set(), False, True,
                               SBT(), None)
             process.assert_called_once()
-            timeout.assert_called_once_with(peer_b.peer_id, queried_id, ANY)
+            timeout.assert_called_once_with(peer_b.peer_id, queried_id, ANY,
+                                            ANY)
 
 
 class TestSendResponse(unittest.TestCase):
@@ -538,7 +539,7 @@ class TestQueryTimeout(unittest.TestCase):
             timeout_peer_id, p.OutgoingQuery(0, set(), False, False, SBT()))
         with unittest.mock.patch.object(peer_a, 'behavior') as mocked_behavior:
             mocked_behavior.expect_delay.return_value = 0
-            to = peer_a.query_timeout(timeout_peer_id, queried_id, None)
+            to = peer_a.query_timeout(timeout_peer_id, queried_id, 2, None)
             next(to)
             try:
                 next(to)
@@ -557,27 +558,13 @@ class TestQueryTimeout(unittest.TestCase):
                 unittest.mock.patch.object(peer_a.env, 'timeout')\
                 as mocked_timeout:
             mocked_timeout.side_effect = simpy.Interrupt
-            to = peer_a.query_timeout(timeout_peer_id, queried_id, None)
+            to = peer_a.query_timeout(timeout_peer_id, queried_id, 2, None)
             try:
                 next(to)
                 self.fail('Timeout was not interrupted.')
             except StopIteration:
                 pass
             mocked_behavior.on_timeout.assert_not_called()
-
-    def test_chooses_timeout_delay(self):
-        peer_a = self.helper.peer_with_prefix('')
-        timeout_peer_id = self.helper.id_with_prefix('')
-        queried_id = self.helper.id_with_prefix('')
-        with unittest.mock.patch.object(peer_a, 'behavior')\
-                as mocked_behavior,\
-                unittest.mock.patch.object(peer_a.env, 'timeout')\
-                as mocked_timeout:
-            mocked_behavior.expect_delay.return_value = 3
-            timeout_delay = self.helper.settings['query_timeout'] + 3
-            to = peer_a.query_timeout(timeout_peer_id, queried_id, None)
-            next(to)
-            mocked_timeout.assert_called_once_with(timeout_delay)
 
     def test_deletes_out_query(self):
         peer_a = self.helper.peer_with_prefix('')
@@ -588,7 +575,7 @@ class TestQueryTimeout(unittest.TestCase):
         peer_a.out_queries_map[queried_id]['asd'] = 1
         with unittest.mock.patch.object(peer_a, 'behavior') as mocked_behavior:
             mocked_behavior.expect_delay.return_value = 0
-            to = peer_a.query_timeout(timeout_peer_id, queried_id, None)
+            to = peer_a.query_timeout(timeout_peer_id, queried_id, 2, None)
             next(to)
             try:
                 next(to)
@@ -604,7 +591,7 @@ class TestQueryTimeout(unittest.TestCase):
             timeout_peer_id, p.OutgoingQuery(0, set(), False, False, SBT()))
         with unittest.mock.patch.object(peer_a, 'behavior') as mocked_behavior:
             mocked_behavior.expect_delay.return_value = 0
-            to = peer_a.query_timeout(timeout_peer_id, queried_id, None)
+            to = peer_a.query_timeout(timeout_peer_id, queried_id, 2, None)
             next(to)
             try:
                 next(to)
@@ -623,7 +610,7 @@ class TestQueryTimeout(unittest.TestCase):
                                              False, SBT()))
         with unittest.mock.patch.object(peer_a, 'behavior') as mocked_behavior:
             mocked_behavior.expect_delay.return_value = 0
-            to = peer_a.query_timeout(timeout_peer_id, queried_id, None)
+            to = peer_a.query_timeout(timeout_peer_id, queried_id, 2, None)
             next(to)
             try:
                 next(to)
@@ -642,7 +629,7 @@ class TestQueryTimeout(unittest.TestCase):
             timeout_peer_id, p.OutgoingQuery(0, set(), True, False, SBT()))
         with unittest.mock.patch.object(peer_a, 'behavior') as mocked_behavior:
             mocked_behavior.expect_delay.return_value = 0
-            to = peer_a.query_timeout(timeout_peer_id, queried_id, None)
+            to = peer_a.query_timeout(timeout_peer_id, queried_id, 2, None)
             next(to)
             try:
                 next(to)
@@ -660,7 +647,7 @@ class TestQueryTimeout(unittest.TestCase):
             timeout_peer_id, p.OutgoingQuery(0, set(), False, True, SBT()))
         with unittest.mock.patch.object(peer_a, 'behavior') as mocked_behavior:
             mocked_behavior.expect_delay.return_value = 0
-            to = peer_a.query_timeout(timeout_peer_id, queried_id, None)
+            to = peer_a.query_timeout(timeout_peer_id, queried_id, 2, None)
             next(to)
             try:
                 next(to)
@@ -680,7 +667,7 @@ class TestQueryTimeout(unittest.TestCase):
                                              SBT({excluded_id: None})))
         with unittest.mock.patch.object(peer_a, 'behavior') as mocked_behavior:
             mocked_behavior.expect_delay.return_value = 0
-            to = peer_a.query_timeout(timeout_peer_id, queried_id, None)
+            to = peer_a.query_timeout(timeout_peer_id, queried_id, 2, None)
             next(to)
             try:
                 next(to)
