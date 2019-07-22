@@ -1,11 +1,6 @@
 \chapter{Appendix}
 \section{Definitions}
-- TODO some of these seem unnecessary
-
 \begin{description}
-\item[Rules of the system:] The set of parameters of the protocol that are fixed
-and known to everyone. Includes e.g. the magnitudes of rewards and penalties,
-and the penalty threshold reputation.
 \item[Record:] The data stored in a \ac{DHT} under one key (or \emph{record
 ID}). Also contains a timestamp giving the time of last change.
 \item[Peer:] One participant of the system, has one unique \emph{ID}; commonly
@@ -16,6 +11,9 @@ the \emph{rules of the system}. Uniquely identifies a peer.
 identifies the record belonging to the peer with the same ID. Technically the
 key of the record, but the word ID is used to stress that it's of the same kind
 as a peer ID.
+\item[Reachability information:] The abstract notion of information stored in
+records in the \ac{DHT} that is sufficient to communicate with a peer. More
+concretely, an IP address.
 \item[Target ID:] A bit string that is the subject of a \emph{query}. Its length
 is less than or equal to that of a \emph{peer ID}. If less, the query is asking
 for any peer whose ID starts with the target ID.
@@ -24,14 +22,9 @@ for any peer whose ID starts with the target ID.
 ID is a prefix of the peer ID, i.e., the peer ID is a valid response for a query
 asking for the target ID.
 \item[Overlap $o(a, b)$:] The length of the longest common prefix of two bit
-strings. Defined in Section~\ref{sec:desc_query_groups} (TODO ref the
-definition itself as an equation? otherwise make sure it's actually defined in
-that section).
+strings. Defined in Section~\ref{sec:desc_querying}.
 \item[Being closer to an ID:] ID A is closer to ID X than ID B iff the overlap
 of A and X is greater than that of B and X.
-\item[Reachability information:] The abstract notion of information stored in
-records in the \ac{DHT} that is sufficient to communicate with a peer. More
-concretely, an IP address.
 \item[Routing prefix:] The prefix of a \emph{peer ID} of a length that is equal
 for all peers and prescribed by the \emph{rules of the system}. Determines which
 \emph{sync group} a peer is in.
@@ -50,7 +43,7 @@ responsible for keeping current with updates to its records.
 Maintain contact in order to track each other's reputation within the group.
 \item[Query peer:] Peers A and B are query peers iff they are in the same
 \emph{query group}.
-\item[Subprefix (TODO better term?):] A prefix of a \emph{routing prefix} where
+\item[Subprefix:] A prefix of a \emph{routing prefix} where
 the last bit is flipped. Each peer has a number of subprefixes equal to the
 length of the routing prefix.
 \item[Serving a subprefix:] Peer A serves subprefix P for peer B iff P is a
@@ -85,7 +78,7 @@ or decreasing it.
 \item[Cooperative action:] An action performed by a peer that warrants a reward.
 \item[Defecting action:] An action performed by a peer that warrants a penalty.
 \item[Tremble:] A defecting action that was not intended by the peer, but e.g.
-caused by a congested network. (TODO also cite the paper introducing the term)
+caused by a congested network.
 \item[Cooperation confirmation:] A signed statement given to another peer
 confirming that he performed a cooperative action.
 \item[Reputation attenuation:] A reduction of the magnitude of rewards that
@@ -101,7 +94,6 @@ suitable peer to query, the sender must perform the query himself. Requires
 Section~\ref{sec:desc_recursive_vs_iterative}).
 \item[Query voucher:] A one-time-use statement entitling one peer to the level
 of service of another. Used for iterative queries.
-\item[Hop:] One step in a query.
 \item[Routing loop:] Failure in looking up a record in the \ac{DHT} caused by at
 least one peer in the chain of queries forwarding the query to a peer who is not
 \emph{closer to} the \emph{target ID}. The query is sent back to peers who
@@ -112,7 +104,7 @@ joining of another peer into that group.
 query group negatively affects his reputation in another (see
 Section~\ref{sec:desc_rec_query_prob}).
 \item[Penalty delay:] The delay that is deliberately imposed before responding
-to a query to penalize the querying peer. (TODO sanction? sanction delay?)
+to a query to penalize the querying peer.
 \item[Penalty threshold reputation (short: penalty threshold):] The minimum
 reputation a peer must have in order for the penalty delay to be 0.
 \item[Saturation reputation, being saturated:] The amount of reputation at which
@@ -124,9 +116,6 @@ may also be executed as multiple unicasts. The term is used for simplicity of
 discussion.
 \end{description}
 
-- TODO game theory stuff: utility, cooperating, defecting, social value (probably
-  more)
-
 \section{Default Settings}
 \label{sec:app_default_settings}
 Table~\ref{tab:default_settings} lists the values for a selection of the most
@@ -136,7 +125,6 @@ parameters are available in the code repository in the commented default
 settings file \texttt{simulation/default.settings}, relative to the repository
 root (TODO check).
 
-- TODO include decay or not?
 \begin{longtable}{|l|l|}
 \hline
 \rowcolor{slightgray} \T Key & Value \B\\
@@ -170,10 +158,6 @@ root (TODO check).
 \cellcolor{slightgray}\T \texttt{timeout\_query\_penalty} & -2 \B\\
 \hline
 \cellcolor{slightgray}\T \texttt{no\_penalty\_reputation} & 10 \B\\
-\hline
-\cellcolor{slightgray}\T \texttt{decay\_timestep} & \texttt{inf} \B\\% (TODO necessary)
-\hline
-\cellcolor{slightgray}\T \texttt{decay\_per\_time\_unit} & 0 \B\\% (TODO necessary)
 \hline
 \cellcolor{slightgray}\T \texttt{reward\_attenuation $\rightarrow$ type} & \texttt{exponential} \B\\
 \hline
@@ -228,11 +212,6 @@ empty) when they are completing their subprefix coverage. This is useful in
 preventing ongoing querying for IDs that will never lead to a successful
 response.
 \item[\texttt{no\_penalty\_reputation}] The penalty threshold reputation.
-\item[\texttt{decay\_timestep}] The interval in which the reputation decay
-process is executed, which subtracts reputation from all peers. (TODO
-necessary?)
-\item[\texttt{decay\_per\_time\_unit}] The amount by which reputation decays
-every second. (TODO necessary?)
 \item[\texttt{reputation\_buffer}] The amount of reputation above the penalty
 threshold peers need to have in order to consider themselves reputation
 saturated.
