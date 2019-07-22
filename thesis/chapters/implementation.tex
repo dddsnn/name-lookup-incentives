@@ -5,7 +5,7 @@
 A simulation has been implemented using the Simpy discrete event simulation
 framework (TODO put on github and link). It simulates a network of selfish peers
 providing and accessing a \ac{DHT} implementing the system described in the
-previous chapter (TODO still the previous chapter?).
+previous chapter.
 
 Parameters of the simulation are set via a \texttt{.settings} file, which is
 supposed to make results of simulation runs reproducible\footnote{The simulation
@@ -166,14 +166,15 @@ system behavior.
 members of one query group over time. The reputation of the 5th, 25th, 50th,
 75th and 95th percentile of reputation is plotted with one graph each. Note that
 in many cases, query groups have 16 members, and so the 5th and the 95th
-percentile represent only one peer.
+percentile represent only one peer. The penalty threshold reputation as well as
+the saturation reputation are indicated by horizontal lines.
 \item[Peer reputations] Illustrates the reputation values of one peer in all of
 the query groups he is in over time. The reputation for each group is shown as a
 separate graph. Optionally, a bar graph in the background shows the fraction of
 the peer's responses that suffers from the recursive query problem (i.e. the
-peer tried to respond, but once he was able, it was too late already).
-- reputation graphs show no-penalty rep and rep-saturated rep
-- can include recursive query prob
+peer tried to respond, but once he was able, it was too late already). This plot
+also includes horizontal lines indicating the penalty threshold reputation and
+the saturation reputation.
 \item[Response statuses] Illustrates the status of responses within the
 simulation over time. The statuses \emph{success}, \emph{failure} and
 \emph{timeout} should be self-explanatory. A response can be \emph{unmatched} if
@@ -185,8 +186,3 @@ denotes the situation where a query was sent where certain IDs were excluded,
 i.e.  unwanted as a response, but returned in the response anyway. This doesn't
 happen in the simulation.
 \end{description}
-
-- TODO measuring rec query prob: log whenever a peer tries to respond and
-  notices that his response should have arrived in the past. uses the
-  query\_timeout and transmission delay that's valid for all peers, so should be
-  exact

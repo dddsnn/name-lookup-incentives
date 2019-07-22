@@ -20,19 +20,19 @@ to contribute by the promise of a good quality of service.
 
 The other two have not been implemented, but some ideas presented. If those are
 implemented, they are likely to influence each other, as well as the reputation
-availability in ways that are difficult to predict. It may well turn out that
-the ideas presented in this thesis can not be completed into an effective
-system.
+availability in ways that are difficult to predict. Further work is needed to
+determine how these parts interact and whether they can be assembled into a
+whole that is capable of fulfilling the design goal.
 
-With regards to latency, the system compares very unfavorably to DNS, likely
-being several times slower. This is not surprising, given that their purposes
-are not precisely the same. The purpose of DNS is to provide resolutions from
-authoritative servers quickly, whereas the DHT is focused on robustness and
-reliability. Queries in the DHT are also not optimized for proximity between
-peers.
+With regards to latency, the system compares very unfavorably to DNS. This is
+not surprising, given that their purposes are not precisely the same. DNS first
+and foremost provides resolutions from authoritative servers quickly, whereas
+the DHT is focused on robustness and reliability. Queries in the DHT are also
+not optimized for proximity between peers. When performance is compared agains
+DNS queries done via Tor, however, the system could conceivably be faster.
 
 Some possible attacks on the system, ones exploiting the reputation system, as
 well as ones seeking to circumvent the privacy gains, have been described and
 possible countermeasures discussed.
 
-- TODO brittleness with small sync groups
+- TODO brittleness with small sync groups?
