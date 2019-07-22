@@ -194,7 +194,8 @@ the data that has been accumulated.
 
 Performance-wise, this should behave similar to plain DNS with the added
 round-trip time to the proxy server (provided the proxy is fast enough and has
-access to a similarly fast DNS server).
+access to a similarly fast DNS server). This would very likely still be faster
+than the DHT.
 
 \section{Comparison with Tor}
 When talking about privacy-enhacing technology, a comparison with Tor is
@@ -223,12 +224,18 @@ DNS lookup.
 
 There are multiple graphs, presumably from different vantage points (the
 documentation isn't clear on this). They differ quite a bit, but the median RTT
-is always in the hundreds of milliseconds. The DNS query time that has to be
-added on top of that is relatively insignificant.
+is always in the hundreds of milliseconds (from about $\SI{250}{\milli\second}$
+to about $\SI{600}{\milli\second}$)\footnote{Figure~\ref{fig:tor_rtt} in the
+appendix shows these graphs.}. The DNS query time that has to be added on top of
+that is relatively insignificant.
 
 Unsurprisingly, this is probably more than a single proxy server would add. If
 the goal is really just to prevent profile building at the DNS server, using Tor
 has no advantage over a proxy server. But the proxy would have to be switched
-regularly to prevent profile building there. Tor has
-the advantage that new circuits are created automatically, and that exit nodes
-can't build profiles even if they are reused.
+regularly to prevent profile building there. Tor has the advantage that new
+circuits are created automatically, and that exit nodes can't build profiles
+even if they are reused.
+
+In comparison with the DHT, the DHT should actually come out ahead of Tor at
+least at the slower Tor vantage points. The comparison to the faster vantage
+points is more even.
