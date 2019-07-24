@@ -40,8 +40,8 @@ In the simulations, the strategy under examination is used by all peers.
 This is the default selection strategy that was described in the
 Section~\ref{sec:desc_querying}. Out of all possible recipients, the peer
 chooses one whose routing prefix overlaps maximally with the target ID (overlap
-of two bitstrings is also defined in Section~\ref{sec:desc_querying}). Under the
-assumption that peers have complete subprefix coverage, this ensures that
+of two bit strings is also defined in Section~\ref{sec:desc_querying}). Under
+the assumption that peers have complete subprefix coverage, this ensures that
 queries always terminate and no routing loops occur, since at each hop the
 distance to the target ID shrinks.
 
@@ -227,7 +227,7 @@ of traffic.
 
 The left graph very clearly shows a sort of sawtooth pattern that stems from the
 peer letting a query time out once he is reputation saturated at 14 reputation,
-thus falling dow to 12 and subsequently starting to gain reputation again.
+thus falling down to 12 and subsequently starting to gain reputation again.
 
 \begin{figure}[t]
 \centering
@@ -283,7 +283,7 @@ determined by the magnitude of the penalty he receives when he drops below his
 saturation reputation and that of the rewards he receives as he works his way
 back up. So the response probability of the system can be adjusted via the
 penalties and rewards. If we assume the only reward of magnitude $r$ is given
-for succesfully responding and the only penalty of magnitude $p$ is given for
+for successfully responding and the only penalty of magnitude $p$ is given for
 not responding at all, peers need to earn $\frac{p}{r}$ rewards for every
 penalty they receive. The response probability that can be expected is thus
 $\frac{p}{p + r}$.
@@ -528,7 +528,7 @@ response probability.
 On the other hand, \emph{exponential} attenuation is disadvantageous for peers
 who want to be able to tolerate more trembles for extra reliability, since
 effective reputation gets more and more expensive. For example, using
-\emph{exponential} attenation with $c = 1$, $p = 0.35$ (as in the examples), it
+\emph{exponential} attenuation with $c = 1$, $p = 0.35$ (as in the examples), it
 takes about 52.5 raw reputation to get from 10 to 14 effective reputation. In
 order to get from 10 to 16 (being able to tolerate 3 trembles), it takes 167.2.
 This puts a much higher stress on such peers wishing for more reliability.

@@ -295,7 +295,7 @@ response. Failing to do so is itself a defecting action and incurs a penalty.
 The appropriate penalty delay is $\max(0, t - r)$, where $t$ is the penalty
 threshold reputation and $r$ is the peer's reputation.
 
-The penalty thresholg is part of the rules of the system, and thus known to
+The penalty threshold is part of the rules of the system, and thus known to
 everyone, and $r$ is known to all query peers. This means the sender of the
 query knows what penalty delay is appropriate for his query. If a response has
 not arrived $d + l$ after the query has been sent, where $l$ is another
@@ -490,7 +490,7 @@ In the simplification in the implementation, peers always aim to be cooperative
 right until they reach their saturation reputation, which is determined by the
 penalty threshold and the reputation buffer described in (see
 Section~\ref{sec:impl_coop_defect_behavior}). This acts as a proxy for their
-weighing cost of action agains value of reputation.
+weighing cost of action against value of reputation.
 
 \subsection{The Reputation System}
 \label{sec:desc_rep_system}
@@ -566,12 +566,12 @@ profile. Before leaving an old group, it makes sense to join a replacement group
 and gain reputation above the penalty threshold to ensure a smooth transition.
 Doing so more frequently again adds cost at the benefit of higher privacy.
 
-\subsection{Incentives for Repuation Management}
+\subsection{Incentives for Reputation Management}
 \label{sec:desc_incentives_rep_mgmt}
 There must also be incentives for reputation updates. After receiving a
 successful response to a query, the querying peer sends a cooperation
 confirmation to the responder which entitles him to his reward. He then
-broadcasts a reputation update benefitting himself. The incentive for this is
+broadcasts a reputation update benefiting himself. The incentive for this is
 evident.
 
 Broadcasting a penalty for another peer also has to give a small reward to the
