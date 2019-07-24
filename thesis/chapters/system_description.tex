@@ -336,7 +336,8 @@ $m$ iff $n \leq m \land s_i = p_i, i \in \{1, \ldots, n - 1\} \land s_n \neq
 p_n$. In other words, $s$ is a subprefix of $p$ iff $s$ is no longer than $p$
 and the bitwise XOR of $s$ and an appropriately truncated $p$ takes the form
 $00\ldots001$. Each peer therefore has $m$ different subprefixes, one each of
-every length in $\{1, \ldots, m\}$.
+every length in $\{1, \ldots, m\}$. Figure~\ref{fig:subprefixes} illustrates
+subprefixes on an example.
 
 A peer has complete subprefix coverage iff for each of his subprefixes he knows
 at least one query peer for whose ID that subprefix is a prefix. No matter what
@@ -350,7 +351,42 @@ by at least 2 bits (in general, a $\frac{1}{n}$ chance it overlaps by at least
 $n$ bits), just by luck. This means steps in the routing can be "skipped", an
 authoritative peer for the target ID is reached sooner.
 
-- TODO make or steal a tree graphic visualizing this
+\begin{figure}[t]
+  \centering
+  \begin{tikzpicture}
+    \begin{scope}[every node/.style={circle, draw}]
+      \node (0) at (0, 0) {};
+      \node (10) at (-4, -1.5) {0};
+      \node (11) at (4, -1.5) {1};
+      \node[draw=none] (20) at (-6, -3) {};
+      \node[draw=none] (21) at (-2, -3) {};
+      \node (22) at (2, -3) {0};
+      \node (23) at (6, -3) {1};
+      \node[draw=none] (30) at (-7.4, -4.5) {};
+      \node[draw=none] (31) at (-4.6, -4.5) {};
+      \node[draw=none] (32) at (-3.4, -4.5) {};
+      \node[draw=none] (33) at (-0.6, -4.5) {};
+      \node (34) at (0.6, -4.5) {0};
+      \node (35) at (3.4, -4.5) {1};
+      \node[draw=none] (36) at (4.6, -4.5) {};
+      \node[draw=none] (37) at (7.4, -4.5) {};
+    \end{scope}
+
+    \draw (0) -- (11) -- (22) -- (34);
+    \draw[color=blue] (0) -- (10);
+    \draw[color=red] (0) edge[bend left] (11);
+    \draw[color=red] (11) edge (23);
+    \draw[color=green] (0) edge[bend left=15] (11);
+    \draw[color=green] (11) edge[bend left=15] (22);
+    \draw[color=green] (22) edge (35);
+
+  \end{tikzpicture}
+  \caption{Example of subprefixes illustrated on a tree. Edges to the left
+  represent a \texttt{0}, edges to the right a \texttt{1}. The routing prefix of
+  \texttt{100} is shown by black edges, the subprefixes \texttt{0}, \texttt{11},
+  and \texttt{101} by colored ones.}
+  \label{fig:subprefixes}
+\end{figure}
 
 \subsection{Reputation Management}
 \label{sec:desc_rep_management}
