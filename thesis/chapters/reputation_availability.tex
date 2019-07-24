@@ -801,3 +801,44 @@ means more chances for a timeout to occur.
 The reason is unknown, but the issue could in all instances be prevented by
 reducing the routing prefix length, thereby increasing the average number of
 peers per sync group.
+
+\section{Tit-for-Tat}
+A very simple and effective strategy in game theory is tit-for-tat: when
+employing it, the player essentially treats another player he interacts with the
+same way he is being treated. He starts out cooperating with the other player,
+but if he is betrayed, he defects.
+
+Something resembling this strategy can be used within query groups. The rewards
+and penalties can be set so that any peer has either zero reputation or the
+penalty threshold reputation. A peer is then given either maximal or no penalty
+delay, depending on his last action.
+
+It is very easy for peers to gain and maintain reputation, since they only need
+to perform one cooperative action. But they also can't ever defect, or they'll
+be penalized during their next query. Very quickly, all peers are only
+cooperating.
+
+In fact, this still works if there is 5\% chance of peers trembling and not
+responding to a query by accident. Figure~\ref{fig:tft_trembles_peer_reps} shows
+one peer's reputations during such a simulation. He regularly trembles and all
+of his reputation is removed.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=1\columnwidth]{{{figures/tft_trembles_peer_reps_with_rqp_5_of_64}}}
+\captionsettings{One peer's reputations when using tit-for-tat with
+trembles}{tit-for-tat/tft\_trembles.settings} \label{fig:tft_trembles_peer_reps}
+\end{figure}
+
+The recursive query problem then makes it difficult to answer queries which the
+peer needs to forward. However, it takes only one query for a record the peer is
+responsible for (which he can answer without having to ask anyone else) to get
+him back to the penalty threshold. This happens regularly, so that the peer
+spends most of his time with high reputation. Although with a longer routing
+prefix the chance of that happening drops.
+
+These rules seem good in this respect, but the all-or-nothing nature likely make
+them unsuitable when the system is fully implemented. It is not possible to give
+a higher penalty for timeouts than for fail responses, so there is no incentive
+to send them. It is also impossible to give only a small reward for the upkeep
+operations like broadcasting reputation updates.
