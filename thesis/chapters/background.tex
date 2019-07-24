@@ -17,13 +17,20 @@ Each node in the DHT stores a number of the records. In the language of this
 thesis, it is \emph{responsible for} them. The key of a record determines who is
 responsible for it, and there is a distance metric measuring how far a node is
 to being responsible for a record. In the DHT used in this thesis every node has
-an ID that has the same format as the keys in the DHT. Nodes are responsible for
-those records the keys of which have the same prefix as their ID.
+an ID that has the same format as the keys in the DHT. A node is responsible for
+a record if its key has the same prefix as its own ID.
 
-A node in the network needs not know all other nodes, but for any key it must
-know another node closer to that node. Then it is possible to route to any
+A node in the network doesn't need to know all other nodes, but for any key it
+must know another node closer to that node. Then it is possible to route to any
 record stored in the DHT. The node can ask the closer node for the record, which
 in turn asks another node closer, eventually reaching a responsible node.
+
+Node IDs and which records nodes are responsible for can be illustrated on a
+binary tree. Figure~\ref{fig:node_id_tree} does this. Following the path from
+the root node to a node (left being \texttt{0}, right \texttt{1}) yields a
+prefix of the node's ID. This is also the prefix of the keys the node is
+responsible for. Finding a node closer to a key is done by moving up the tree
+towards the root, then descending once the path matches the key.
 
 Records can be created, updated and deleted by contacting the node responsible
 for the corresponding key.
@@ -39,7 +46,45 @@ much more popular, or much bigger than others. To achieve it, the mapping from
 node to the records the node is responsible for must be mutable. More nodes are
 then made responsible for the records that generate a lot of traffic.
 
-- TODO explain routing in p-grid/kademlia style dht (picture with the tree)
+\begin{figure}[t]
+  \centering
+  \begin{tikzpicture}
+    \begin{scope}[every node/.style={circle, draw}]
+      \node (0) at (0, 0) {};
+      \node (10) at (-4, -1.5) {0};
+      \node (11) at (4, -1.5) {1};
+      \node (20) at (-6, -3) {0};
+      \node (21) at (-2, -3) {1};
+      \node (22) at (2, -3) {0};
+      \node (23) at (6, -3) {1};
+    \end{scope}
+    \begin{scope}[every node/.style={rectangle, draw, align=left}]
+      \node (A) at (-6, -4.5) {Node A\\records with \texttt{00}};
+      \node (B) at (-2, -4.5) {Node B\\records with \texttt{01}};
+      \node (C) at (2, -4.5) {Node C\\records with \texttt{10}};
+      \node (D) at (6, -4.5) {Node D\\records with \texttt{11}};
+    \end{scope}
+
+    \draw (0) -- (10);
+    \draw (0) -- (11);
+    \draw (10) -- (20);
+    \draw (10) -- (21);
+    \draw (11) -- (22);
+    \draw (11) -- (23);
+    \draw[rounded corners=10mm, ->, thick, color=blue] (21) -- (-3.5, -1.5)
+        -- (0, -0.5) -- (11);
+    \draw[rounded corners=10mm, ->, thick, color=blue] (21) -- (-4, -2) -- (20);
+  \end{tikzpicture}
+  \caption{The responsibilities of nodes can be illustrated on a tree. Node A
+  stores all records whose key begins with \texttt{00}, node B all those with
+  \texttt{01} etc. When a node needs a record he doesn't store himself, he needs
+  to ask someone else. He finds the right node to ask by going up in the tree
+  until the path in the tree matches the key, then descending down the other
+  side.  For example, if node B needs a record starting with \texttt{00}, he
+  asks node A, if he needs a record starting with \texttt{1}, he asks either
+  node C or node D (blue arrows).}
+  \label{fig:node_id_tree}
+\end{figure}
 
 \section{Discrete Event Simulation}
 A discrete event simulation framework simulates a system by processing events at
