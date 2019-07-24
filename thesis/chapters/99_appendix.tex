@@ -185,6 +185,8 @@ root (TODO check).
 \hline
 \cellcolor{slightgray}\T \texttt{expect\_penalties} & \texttt{True} \B\\
 \hline
+\cellcolor{slightgray}\T \texttt{tremble\_chance} & 0 \B\\
+\hline
 \caption{Default values of a selection of settings.}
 \label{tab:default_settings}
 \end{longtable}
@@ -223,6 +225,9 @@ they have complete subprefix coverage and send queries in order to complete it
 if they don't. This is the time interval between checking.
 \item[\texttt{expect\_penalties}] If \texttt{True}, peers expect to be penalized
 when they perform a defecting action.
+\item[\texttt{tremble\_chance}] The chance that a peer fails to respond to a
+query, no matter whether he actually wanted to. Used to simulate the impact of
+network failures etc.
 \end{description}
 
 

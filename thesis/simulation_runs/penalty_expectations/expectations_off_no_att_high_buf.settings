@@ -164,5 +164,7 @@
     # added on top.
     'query_timeout': 2,
     # Whether peers should expect penalties when they misbehave.
-    'expect_penalties': False
+    'expect_penalties': False,
+    # The chance a peer accidentally doesn't respond to a query.
+    'tremble_chance': 0
 }

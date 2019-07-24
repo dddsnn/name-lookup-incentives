@@ -22,7 +22,9 @@ class PeerBehavior:
         enough_rep = (self.peer.settings['reputation_buffer']
                       + self.peer.settings['no_penalty_reputation'])
         delay = self.decide_delay(querying_peer_id)
-        if querying_peer_id != self.peer.peer_id and rep >= enough_rep:
+        tremble_chance = self.peer.settings['tremble_chance']
+        if ((querying_peer_id != self.peer.peer_id and rep >= enough_rep)
+                or random.random() < tremble_chance):
             if self.peer.settings['expect_penalties']:
                 self.peer.expect_penalty(
                     querying_peer_id,
@@ -40,7 +42,9 @@ class PeerBehavior:
         enough_rep = (self.peer.settings['reputation_buffer']
                       + self.peer.settings['no_penalty_reputation'])
         delay = self.decide_delay(querying_peer_id)
-        if querying_peer_id != self.peer.peer_id and rep >= enough_rep:
+        tremble_chance = self.peer.settings['tremble_chance']
+        if ((querying_peer_id != self.peer.peer_id and rep >= enough_rep)
+                or random.random() < tremble_chance):
             if self.peer.settings['expect_penalties']:
                 self.peer.expect_penalty(
                     querying_peer_id,
@@ -99,7 +103,9 @@ class PeerBehavior:
         enough_rep = (self.peer.settings['reputation_buffer']
                       + self.peer.settings['no_penalty_reputation'])
         delay = self.decide_delay(querying_peer_id)
-        if querying_peer_id != self.peer.peer_id and rep >= enough_rep:
+        tremble_chance = self.peer.settings['tremble_chance']
+        if ((querying_peer_id != self.peer.peer_id and rep >= enough_rep)
+                or random.random() < tremble_chance):
             # We have enough reputation and are not interested in expending
             # resources into answering the query.
             if self.peer.settings['expect_penalties']:
@@ -145,7 +151,9 @@ class PeerBehavior:
         enough_rep = (self.peer.settings['reputation_buffer']
                       + self.peer.settings['no_penalty_reputation'])
         delay = self.decide_delay(querying_peer_id)
-        if querying_peer_id != self.peer.peer_id and rep >= enough_rep:
+        tremble_chance = self.peer.settings['tremble_chance']
+        if ((querying_peer_id != self.peer.peer_id and rep >= enough_rep)
+                or random.random() < tremble_chance):
             if self.peer.settings['expect_penalties']:
                 self.peer.expect_penalty(
                     querying_peer_id,
