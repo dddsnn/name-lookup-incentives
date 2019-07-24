@@ -638,20 +638,73 @@ low (see Section~\ref{sec:desc_incentives_sync}).
 \label{sec:desc_rec_query_prob}
 Recursive queries can lead to the \emph{recursive query problem}, which is a
 peer's bad reputation in one query group having adverse effects on his
-reputation in another. Say peer A receives a query from peer B, and they share
-query group X. A needs to send the query on to one of his query peers in order
-to answer it, and determines that peer C is the most suitable recipient, whom he
-knows from query group Y. A is expected to respond to B within a time window
-determined by B's reputation in group X. Similarly, C is expected to respond to
-A within a time window determined by A's reputation in group Y. If minimum delay
-of the latter time window is greater than the maximum delay of the former, A has
-no chance of responding in time (that is assuming C observes the expected delay)
-and will be penalized for it.
+reputation in another. It is illustrated in
+figure~\ref{fig:recursive_query_problem}. Say peer A receives a query from peer
+B, and they share query group 1. A needs to send the query on to one of his
+query peers in order to answer it, and determines that peer C is the most
+suitable recipient, whom he knows from query group 2. A is expected to respond
+to B within a time window determined by B's reputation in group 1. Similarly, C
+is expected to respond to A within a time window determined by A's reputation in
+group 2. If minimum delay of the latter time window is greater than the maximum
+delay of the former, A has no chance of responding in time (that is assuming C
+observes the expected delay) and will be penalized for it.
 
-- TODO make a graphic for the recursive query problem
+\begin{figure}[t]
+  \centering
+  \begin{tikzpicture}
+    \begin{scope}[every node/.style={circle, draw}]
+      \node (A) at (-3cm, 0) {A};
+      \node (B)[align=left] at (0, 0) {B};
+      \node (C) at (3cm, 0) {C};
+      \node[draw=none, align=justify] (reps) at (-7cm, 0) {
+        \textbf{Reputation}\\
+        \begin{tabular}{|l|c|c|}
+        \hline
+        \rowcolor{slightgray}
+        \T & group 1 & group 2\B\\
+        \hline
+        \cellcolor{slightgray}\T A & 10 & -\B\\
+        \hline
+        \cellcolor{slightgray}\T B & 10 & 6\B\\
+        \hline
+        \cellcolor{slightgray}\T C & - & 10\B\\
+        \hline
+        \end{tabular}
+      };
+    \end{scope}
 
-Under these circumstances, A's bad reputation in group Y leads to a penalty in
-group X. This is potentially a serious hindrance to a peer's ability to gain
+    \begin{scope}[every node/.style={midway}]
+      \path (A) edge[->, thick, above, bend left=30] node {query at 0} (B);
+      \path (B) edge[->, thick, above, bend left=30] node {query at 0.1} (C);
+      \path (C) edge[->, thick, below, bend left=30] node {response at 4.1} (B);
+      \path (B) edge[->, thick, below, bend left=30] node {response at 4.2} (A);
+    \end{scope}
+
+    \begin{pgfonlayer}{background}
+      \begin{scope}[every node/.style={
+        circle,
+        inner sep=0,
+        inner xsep=0.3cm,
+        inner ysep=0pt,
+        opacity=0.5
+      }]
+        \node[fit=(A)(B), fill=red!30, rotate=0,
+              label={[label distance=-1cm]90:query group 1}] {};
+        \node[fit=(B)(C), fill=violet!30, rotate=0,
+              label={[label distance=-1cm]90:query group 2}] {};
+      \end{scope}
+    \end{pgfonlayer}
+  \end{tikzpicture}
+  \caption{Illustration of the recursive query problem. The penalty threshold is
+  10. Peer B receives a query from peer A and is expected to respond without
+  imposing a penalty delay. He has to query peer C, but only has 6 reputation in
+  the query group he shares with him. C imposes a 4-second penalty delay, so B
+  can't respond to A's query in time and will incur a penalty.}
+  \label{fig:recursive_query_problem}
+\end{figure}
+
+Under these circumstances, A's bad reputation in group 2 leads to a penalty in
+group 1. This is potentially a serious hindrance to a peer's ability to gain
 reputation. Under unfortunate circumstances, one could imagine low reputation
 values in two query groups keeping each other down. This problem can also be
 observed in the simulation results, see
