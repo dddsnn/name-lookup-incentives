@@ -234,6 +234,11 @@ Low-Latency Name-Lookup Service}
       \item Query groups also contain other peers
       \item They are the peers we forward queries to
       \item Everybody knows everybody's reputation
+      \item Send updates
+      \begin{itemize}
+        \item Rewards
+        \item Penalties
+      \end{itemize}
     \end{itemize}
   \end{minipage}% This comment is necessary to remove any space between the minipages
   \begin{minipage}{0.5\textwidth}
@@ -344,7 +349,7 @@ Low-Latency Name-Lookup Service}
   \begin{itemize}
     \item If reputation is low, responses deliberately delayed
     \begin{itemize}
-      \item Above a \emph{penalty threshold}, no delays
+      \item Above a \emph{delay threshold}, no delays
       \item Below, delay proportional to distance to the threshold
       \begin{itemize}
         \item 10 reputation $\rightarrow$ no delay
@@ -369,7 +374,7 @@ Low-Latency Name-Lookup Service}
 
 \begin{frame}{Main problems}
   \begin{itemize}
-    \item Reputation availability
+    \item<alert@2> Reputation availability
     \begin{itemize}
       \item Good peers need the ability to gain enough reputation
     \end{itemize}
@@ -384,12 +389,6 @@ Low-Latency Name-Lookup Service}
       \item Can everyone find the groups he needs?
     \end{itemize}
   \end{itemize}
-
-  \pause
-
-  \begin{block}{}
-    Investigated reputation availability
-  \end{block}
 \end{frame}
 
 \begin{frame}{Simulation}
@@ -402,7 +401,7 @@ Low-Latency Name-Lookup Service}
     \item Peers are lazy, but want delay-free responses
     \begin{itemize}
       \item Do their best to cooperate until \emph{saturation reputation} (14)
-      \item Penalty threshold plus buffer, tolerate unintentional misbehavior
+      \item Delay threshold plus buffer, tolerate unintentional misbehavior
 
       \pause
 
@@ -412,7 +411,7 @@ Low-Latency Name-Lookup Service}
 
     \pause
 
-    \item Requests generated externally, one per second per peer
+    \item Requests generated: one per peer every second
   \end{itemize}
 \end{frame}
 
@@ -438,9 +437,11 @@ Low-Latency Name-Lookup Service}
 \end{frame}
 
 \begin{frame}{Peer selection: closest, no tie breaker}
+- TODO all plots: include legend
+- TODO percentiles: color from red to green or something
   \begin{figure}
     \centering
-    \includegraphics[width=0.5\textwidth]{figures/selection_overlap_peer_reps_3_of_64}%
+    \includegraphics[width=0.5\textwidth]{figures/selection_overlap_peer_reps_3_of_64}\pause%
     \includegraphics[width=0.5\textwidth]{figures/selection_overlap_rep_percs_3_of_14}
   \end{figure}
 \end{frame}
@@ -451,8 +452,6 @@ Low-Latency Name-Lookup Service}
     \item Unlucky peers are second choice, only selected when first choice peer
           doesn't respond
     \item Difficult for them to gain reputation
-    \item Same iteration order, copied from peer to peer
-    \item Could also happen in a real system
   \end{itemize}
 
   \pause
@@ -472,8 +471,7 @@ Low-Latency Name-Lookup Service}
   \begin{minipage}{0.5\textwidth}
     \begin{itemize}
       \item Better distribution of reputation
-      \item But no incentive, must be enforced with threat of penalty
-      \item Not so simple, need to detect it
+      \item Strategy must be enforced with threat of penalty
     \end{itemize}
   \end{minipage}
 \end{frame}
@@ -528,7 +526,7 @@ Low-Latency Name-Lookup Service}
 
   \end{itemize}
   \begin{block}{}
-    Make it harder to gain reputation above the penalty threshold
+    Make it harder to gain reputation above the delay threshold
   \end{block}
 \end{frame}
 
@@ -536,22 +534,22 @@ Low-Latency Name-Lookup Service}
   \begin{itemize}
     \item Two kinds of reputation
     \begin{itemize}
-      \item Raw reputation $r_r$
+      \item Raw reputation
       \item Effective reputation, generated from raw reputation by attenuating
     \end{itemize}
 
     \pause
 
-    \item Linear until the penalty threshold, root-ish after
-    \item Only increases attenuated
+    \item Linear until the delay threshold, root-ish after
+    \item Only rewards attenuated
   \end{itemize}
   \begin{minipage}{0.5\textwidth}
     \vspace{6.2mm}
     \begin{figure}
       \begin{tikzpicture}
         \begin{axis}[
-          xlabel=$r_r$,
-          ylabel={$att(r_r)$},
+          xlabel=$raw$,
+          ylabel={$effective$},
           xmin=0,
           xmax=75,
           ymin=0,
@@ -645,7 +643,7 @@ Low-Latency Name-Lookup Service}
   \end{figure}
   \visible<5->{
     \begin{itemize}
-      \item Penalty threshold: 10
+      \item Delay threshold: 10
       \item Middle peer: low reputation, can't respond in time
     \end{itemize}
   }
@@ -663,13 +661,6 @@ Low-Latency Name-Lookup Service}
   \end{itemize}
 \end{frame}
 
-\begin{frame}
-- performance? need to explain routing in detail
-  \begin{itemize}
-    \item
-  \end{itemize}
-\end{frame}
-
 \begin{frame}{Conclusion}
   \begin{itemize}
     \item Want to get users to participate in a DHT
@@ -678,7 +669,7 @@ Low-Latency Name-Lookup Service}
     \item Reputation availability: $\checkmark$
     \begin{itemize}
       \item Need to enforce choosing lowest-reputation of viable peers
-      \item Reputation must be attenuated above the penalty threshold
+      \item Reputation must be attenuated above the delay threshold
     \end{itemize}
     \item Other problems need to be investigated
     \begin{itemize}
@@ -691,11 +682,46 @@ Low-Latency Name-Lookup Service}
 \begin{frame}
 \end{frame}
 
+\begin{frame}
+- TODO performance backup
+  \begin{itemize}
+    \item
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
+- TODO sync group backup
+  \begin{itemize}
+    \item
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
+- TODO p-grid style dht backup
+  \begin{itemize}
+    \item
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
+- TODO subprefix backup
+  \begin{itemize}
+    \item
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
+- TODO other backups?
+  \begin{itemize}
+    \item
+  \end{itemize}
+\end{frame}
+
 \begin{frame}{Reputation Updates}
   \begin{itemize}
     \item Timeout or late/early response
     \begin{itemize}
-      \item Sender broadcasts a reputation decrease
+      \item Sender broadcasts a penalty
       \item Gets a little reputation for doing so
     \end{itemize}
     \item Successful query
