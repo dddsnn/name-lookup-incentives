@@ -22,9 +22,9 @@
 \usepackage{tikz}
 \usetikzlibrary{fit, shapes}
 \pgfdeclarelayer{background}
-\pgfsetlayers{main,background}
+\pgfsetlayers{background,main}
 
-\title[Peer-to-Peer Incentives]{Incentivizing Peers to contribute in a
+\title[Peer-to-Peer Incentives]{Incentivizing Peers to Contribute in a
 Low-Latency Name-Lookup Service}
 \author{Marc Lehmann}
 \subtitle{Final Master Talk}
@@ -51,6 +51,10 @@ Low-Latency Name-Lookup Service}
       \item names to IPs (DNS)
       \item people to devices (instant messaging)
     \end{itemize}
+    \item Think of a peer-to-peer chat system
+
+    \pause
+
     \item Privacy concerns in centralized systems
     \begin{itemize}
       \item Server gets a lot of information about whom a user communicates with
@@ -58,17 +62,25 @@ Low-Latency Name-Lookup Service}
       \item Can become target for others who want to build profiles
     \end{itemize}
     \item Spread requests to many different nodes in a DHT
-    \item Requires lots of nodes\rightarrow users need to participate
-          themselves
+    \item Requires lots of nodes
   \end{itemize}
+
+  \pause
+
+  \begin{block}{}
+    Users need to participate themselves, everyone stores a few records
+  \end{block}
 \end{frame}
 
 \begin{frame}{Encouraging peers to contribute}
   \begin{itemize}
-    \item Assume peers are selfish
+    \item Assume peers are selfish, don't want to invest resources
     \item Only leverage: users want good service
     \item Give bad peers bad service (delayed responses)
-    \item Track how good peers are via a reputation system
+
+    \pause
+
+    \item Track how good peers are via a reputation system (points)
     \item Existing solutions to track reputation insufficient
     \begin{itemize}
       \item Assume a central authority {\color{gray}\tiny[Gupta et al.]}
@@ -76,12 +88,17 @@ Low-Latency Name-Lookup Service}
       \item Or propose using another DHT {\color{gray}\tiny[Feldman et al.]},
             introducing additional latency
     \end{itemize}
-    \item Solution: Create small subsets of peers (query groups),
-          broadcast/gossip reputation updates in those
+
+    \pause
+
   \end{itemize}
+  \begin{block}{}
+    Create small, overlapping subsets of peers (query groups), broadcast
+    reputation updates in those
+  \end{block}
 \end{frame}
 
-\begin{frame}{Query Groups (Chord)}
+\begin{frame}{Query Groups}
   \begin{minipage}{0.5\textwidth}
     \begin{itemize}
       \item Using Chord to illustrate
@@ -146,7 +163,7 @@ Low-Latency Name-Lookup Service}
   \end{minipage}
 \end{frame}
 
-\begin{frame}{Query Groups (Chord)}
+\begin{frame}{Query Groups}
   \begin{minipage}{0.5\textwidth}
     \begin{itemize}
       \item \visible<1->{Join query group with red peer}
@@ -211,10 +228,11 @@ Low-Latency Name-Lookup Service}
   \end{minipage}
 \end{frame}
 
-\begin{frame}{Query Groups (Chord)}
+\begin{frame}{Query Groups}
   \begin{minipage}{0.5\textwidth}
     \begin{itemize}
       \item Query groups also contain other peers
+      \item They are the peers we forward queries to
       \item Everybody knows everybody's reputation
     \end{itemize}
   \end{minipage}% This comment is necessary to remove any space between the minipages
@@ -322,13 +340,377 @@ Low-Latency Name-Lookup Service}
   \end{minipage}
 \end{frame}
 
+\begin{frame}{Reputation}
+  \begin{itemize}
+    \item If reputation is low, responses deliberately delayed
+    \begin{itemize}
+      \item Above a \emph{penalty threshold}, no delays
+      \item Below, delay proportional to distance to the threshold
+      \begin{itemize}
+        \item 10 reputation $\rightarrow$ no delay
+        \item 9 reputation $\rightarrow$ 1s delay
+        \item 7.5 reputation $\rightarrow$ 2.5s delay
+      \end{itemize}
+    \end{itemize}
+
+    \pause
+
+    \item Earn reputation for responding to queries (+1)
+    \item Lose reputation for not responding (in time) (-2)
+
+    \pause
+
+    \item Peers want fast responses to their queries
+    \begin{itemize}
+      \item Incentive to respond in time
+    \end{itemize}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Main problems}
+  \begin{itemize}
+    \item Reputation availability
+    \begin{itemize}
+      \item Good peers need the ability to gain enough reputation
+    \end{itemize}
+    \item Complaint system
+    \begin{itemize}
+      \item Disagreements between peers where there is no proof
+      \item Must not be able to exploit the system by lying
+    \end{itemize}
+    \item Query group management
+    \begin{itemize}
+      \item Creating, joining, leaving
+      \item Can everyone find the groups he needs?
+    \end{itemize}
+  \end{itemize}
+
+  \pause
+
+  \begin{block}{}
+    Investigated reputation availability
+  \end{block}
+\end{frame}
+
+\begin{frame}{Simulation}
+  \begin{itemize}
+    \item Discrete event simulation in SimPy
+    \item Simplified implementation of the system
+
+    \pause
+
+    \item Peers are lazy, but want delay-free responses
+    \begin{itemize}
+      \item Do their best to cooperate until \emph{saturation reputation} (14)
+      \item Penalty threshold plus buffer, tolerate unintentional misbehavior
+
+      \pause
+
+      \item Once they reach it, ignore the next query so they're below it again
+      \item Timeout at sender, retry another peer if possible
+    \end{itemize}
+
+    \pause
+
+    \item Requests generated externally, one per second per peer
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Peer selection}
+  \begin{itemize}
+    \item Access record in the DHT $\rightarrow$ need to send query to query
+    peer
+    \item Choice of recipient has an impact on reputation distribution
+
+    \pause
+
+    \item First rule: select the query peer closest to the target
+    \begin{itemize}
+      \item Distance metric peer $\rightarrow$ key
+    \end{itemize}
+  \end{itemize}
+
+    \pause
+
+  \begin{block}{}
+    If multiple, no tie breaker
+  \end{block}
+\end{frame}
+
+\begin{frame}{Peer selection: closest, no tie breaker}
+  \begin{figure}
+    \centering
+    \includegraphics[width=0.5\textwidth]{figures/selection_overlap_peer_reps_3_of_64}%
+    \includegraphics[width=0.5\textwidth]{figures/selection_overlap_rep_percs_3_of_14}
+  \end{figure}
+\end{frame}
+
+\begin{frame}{Peer selection: closest, no tie breaker}
+  \begin{itemize}
+    \item Peers selected in same order
+    \item Unlucky peers are second choice, only selected when first choice peer
+          doesn't respond
+    \item Difficult for them to gain reputation
+    \item Same iteration order, copied from peer to peer
+    \item Could also happen in a real system
+  \end{itemize}
+
+  \pause
+
+  \begin{block}{}
+    Modification: if multiple viable peers, use the one with lowest reputation
+  \end{block}
+\end{frame}
+
+\begin{frame}{Peer selection: closest $\rightarrow$ lowest reputation}
+  \begin{minipage}{0.5\textwidth}
+    \begin{figure}
+      \centering
+      \includegraphics[width=1\textwidth]{figures/selection_overlap_rep_sorted_rep_percs_1_of_15}
+    \end{figure}
+  \end{minipage}%
+  \begin{minipage}{0.5\textwidth}
+    \begin{itemize}
+      \item Better distribution of reputation
+      \item But no incentive, must be enforced with threat of penalty
+      \item Not so simple, need to detect it
+    \end{itemize}
+  \end{minipage}
+\end{frame}
+
+\begin{frame}{Reputation attenuation}
+  \begin{itemize}
+    \item Reputation attenuation also very important
+    \item Was turned on, without it peer reps look like this
+  \end{itemize}
+
+  \pause
+
+  \begin{minipage}{0.5\textwidth}
+    \begin{figure}
+      \centering
+      \includegraphics[width=1\textwidth]{figures/attenuation_no_attenuation_peer_reps_1_of_64}
+    \end{figure}
+  \end{minipage}%
+  \begin{minipage}{0.5\textwidth}
+    \begin{itemize}
+      \item Reputation for response: +1
+      \item Reputation for timeout: -2
+      \item Respond twice, timeout once
+    \end{itemize}
+  \end{minipage}
+\end{frame}
+
+\begin{frame}{Reputation attenuation}
+  \begin{itemize}
+    \item Reward and penalty determine number of timeouts
+    \item Want peers to respond more often
+    \item Smaller reward or bigger penalty
+
+    \pause
+
+    \begin{itemize}
+      \item Difficult to gain reputation for newcomers, long time with bad
+            service
+    \end{itemize}
+
+    \pause
+
+    \item Give peers reputation to begin with
+
+    \pause
+
+    \begin{itemize}
+      \item Enables whitewashing: make new ID, rejoin
+    \end{itemize}
+
+    \pause
+
+  \end{itemize}
+  \begin{block}{}
+    Make it harder to gain reputation above the penalty threshold
+  \end{block}
+\end{frame}
+
+\begin{frame}{Reputation attenuation}
+  \begin{itemize}
+    \item Two kinds of reputation
+    \begin{itemize}
+      \item Raw reputation $r_r$
+      \item Effective reputation, generated from raw reputation by attenuating
+    \end{itemize}
+
+    \pause
+
+    \item Linear until the penalty threshold, root-ish after
+    \item Only increases attenuated
+  \end{itemize}
+  \begin{minipage}{0.5\textwidth}
+    \vspace{6.2mm}
+    \begin{figure}
+      \begin{tikzpicture}
+        \begin{axis}[
+          xlabel=$r_r$,
+          ylabel={$att(r_r)$},
+          xmin=0,
+          xmax=75,
+          ymin=0,
+          ymax=20,
+          width=0.9\columnwidth
+        ]
+          \addplot[domain=0:75, samples=751]{min(min(x, 10) + max(x - 10, 0) ^
+          0.35, 15)}; \end{axis}
+      \end{tikzpicture}
+    \end{figure}
+
+    \pause
+
+  \end{minipage}%
+    \begin{minipage}{0.5\textwidth}
+    \begin{figure}
+      \centering
+      \includegraphics[width=1\textwidth]{{{figures/attenuation_0.35_1_exponential_peer_reps_1_of_64}}}
+    \end{figure}
+  \end{minipage}
+\end{frame}
+
+\begin{frame}{Reputation attenuation}
+  \begin{itemize}
+    \item Doesn't hinder newcomers
+    \item Can control how often peers ignore queries
+
+    \pause
+
+    \item Also ensures continuous cooperation
+    \item Can't earn lots of reputation, then leech
+
+    \pause
+
+    \item But makes it more difficult the more reputation you have
+    \begin{itemize}
+      \item Disadvantage for peers with higher saturation
+    \end{itemize}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Recursive query problem}
+  \begin{figure}
+    \centering
+    \begin{tikzpicture}
+      \begin{scope}[every node/.style={
+        rectangle,
+        draw,
+        font=\scriptsize
+      }]
+        \node (A) at (-2.5, 0) {red: 10};
+        \node (B)[align=left] at (0, 0) {red: 10\\purple: 6};
+        \node (C) at (2.5, 0) {purple: 10};
+      \end{scope}
+
+      \begin{scope}[every node/.style={
+        font=\scriptsize,
+        midway
+      }]
+        \path (A) edge[->, above, bend left=30] node
+            {\textbf{1:} query at 0} (B);
+        \visible<2->{
+          \path (B) edge[->, above, bend left=30] node
+            {\textbf{2:} query at 0.1} (C);
+        }
+        \visible<3->{
+          \path (C) edge[->, below, bend left=30] node
+            {\textbf{3:} response at 4.1} (B);
+        }
+        \visible<4->{
+          \path (B) edge[->, below, bend left=30] node[align=left]
+            {\textbf{4:} response at 4.2,\\too late} (A);
+        }
+      \end{scope}
+
+      \begin{pgfonlayer}{background}
+        \begin{scope}[every node/.style={
+          circle,
+          inner sep=0,
+          inner xsep=0.3cm,
+          inner ysep=0pt,
+          opacity=0.5
+        }]
+          \node[fit=(A)(B), fill=red!30, rotate=0,
+                label={[label distance=-1cm]90:\scriptsize query group 1}] {};
+          \node[fit=(B)(C), fill=violet!30, rotate=0,
+                label={[label distance=-1cm]90:\scriptsize query group 2}] {};
+        \end{scope}
+      \end{pgfonlayer}
+    \end{tikzpicture}
+  \end{figure}
+  \visible<5->{
+    \begin{itemize}
+      \item Penalty threshold: 10
+      \item Middle peer: low reputation, can't respond in time
+    \end{itemize}
+  }
+\end{frame}
+
+\begin{frame}{Recursive query problem}
+  \begin{figure}
+    \centering
+    \includegraphics[width=0.5\textwidth]{figures/selection_overlap_rep_sorted_peer_reps_with_rqp_10_of_64}
+  \end{figure}
+  \begin{itemize}
+    \item Orange group struggles while green group causes delays
+    \item Once all are above the threshold, no problem anymore
+    \item Inherent to the system
+  \end{itemize}
+\end{frame}
+
 \begin{frame}
+- performance? need to explain routing in detail
+  \begin{itemize}
+    \item
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Conclusion}
+  \begin{itemize}
+    \item Want to get users to participate in a DHT
+    \item Reputation system, need to respond to get fast responses
+    \item Small query groups to spread reputation updates
+    \item Reputation availability: $\checkmark$
+    \begin{itemize}
+      \item Need to enforce choosing lowest-reputation of viable peers
+      \item Reputation must be attenuated above the penalty threshold
+    \end{itemize}
+    \item Other problems need to be investigated
+    \begin{itemize}
+      \item Complaint system
+      \item Query group management
+    \end{itemize}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
+\end{frame}
+
+\begin{frame}{Reputation Updates}
+  \begin{itemize}
+    \item Timeout or late/early response
+    \begin{itemize}
+      \item Sender broadcasts a reputation decrease
+      \item Gets a little reputation for doing so
+    \end{itemize}
+    \item Successful query
+    \begin{itemize}
+      \item Sender gives the responder a \emph{cooperation confirmation}
+      \item Responder broadcasts it, increasing his own reputation
+      \item No cooperation confirmation $\rightarrow$ complaint system
+    \end{itemize}
+  \end{itemize}
 \end{frame}
 
 \begin{frame}{Query Groups (Kademlia/P-Grid)}
   \begin{itemize}
-    \item View keys as bitstring
-    \item Peers have a routing prefix (bitstring): store keys that start with
+    \item View keys as bit string
+    \item Peers have a routing prefix (bit string): store keys that start with
           that prefix
     \item Peers are in contact with others with the same routing prefix
           (replication)
@@ -336,7 +718,7 @@ Low-Latency Name-Lookup Service}
   \end{itemize}
   \begin{figure}
     \centering
-    \includegraphics[width=0.5\textwidth]{p-grid}
+    \includegraphics[width=0.5\textwidth]{figures/p-grid}
     \caption*{\tiny From \emph{P-Grid: A Self-organizing Structured P2P System}}
   \end{figure}
 \end{frame}
