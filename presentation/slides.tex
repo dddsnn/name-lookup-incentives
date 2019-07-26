@@ -118,18 +118,22 @@ Low-Latency Name-Lookup Service}
           minimum size=5pt
           }]
           \node[minimum size=8pt] (A) at (90:2) {};
-          \node[red] (B) at (30:2) {};
-          \node[blue] (C) at (330:2) {};
-          \node[violet] (D) at (270:2) {};
-          \node[OliveGreen] (E) at (210:2) {};
-          \node (F) at (150:2) {};
+          \node[red] (B) at (67.5:2) {};
+          \node[blue] (C) at (45:2) {};
+          \node[violet] (D) at (0:2) {};
+          \node[OliveGreen] (E) at (270:2) {};
+          \node (F) at (225:2) {};
+          \node (G) at (180:2) {};
+          \node (H) at (135:2) {};
         \end{scope}
 
         \draw (B) -- (C)[draw=none] node[midway, sloped] {\ldots};
         \draw (C) -- (D)[draw=none] node[midway, sloped] {\ldots};
         \draw (D) -- (E)[draw=none] node[midway, sloped] {\ldots};
         \draw (E) -- (F)[draw=none] node[midway, sloped] {\ldots};
-        \draw (F) -- (A)[draw=none] node[midway, sloped] {\ldots};
+        \draw (F) -- (G)[draw=none] node[midway, sloped] {\ldots};
+        \draw (G) -- (H)[draw=none] node[midway, sloped] {\ldots};
+        \draw (H) -- (A)[draw=none] node[midway, sloped] {\ldots};
 
         \draw[->] (A) -- (B);
         \draw[->] (A) -- (C);
@@ -147,14 +151,12 @@ Low-Latency Name-Lookup Service}
             opacity=0.5
           }]
             \invisible{
-              \node[fit=(A)(B), fill=red!30, rotate=-30] {};
-            }
-            \invisible{
-              \node[fit=(A)(C)(D), fill=violet!30, rotate=18, xshift=-15pt] {};
-            }
-            \invisible{
-              \node[fit=(A)(E), fill=OliveGreen!30, rotate=-30,
-                    inner xsep=-15pt] {};
+              \node[fit=(A)(B), fill=red!30, rotate=-10] {};
+              \node[fit=(A)(C), fill=violet!30, rotate=-20] {};
+              \draw[rounded corners, fill=OliveGreen!30, opacity=0.5,
+                    draw=black, thick]
+                (-0.5, 2.3) -- (0.5, 2.3) -- (0.5, 1.8) -- (2.3, 0.5)
+                -- (2.3, -0.5) -- (0.5, -2.3) -- (-0.5, -2.3) -- cycle;
             }
           \end{scope}
         \end{pgfonlayer}
@@ -168,8 +170,9 @@ Low-Latency Name-Lookup Service}
     \begin{itemize}
       \item \visible<1->{Join query group with red peer}
       \item \visible<2->{Join query group with blue peer}
-      \item \visible<2->{Purple peer is also in that group}
-      \item \visible<3->{Join query group with green peer}
+      \item \visible<3->{Join query group with purple peer}
+      \item \visible<3->{Green peer is also in that group, don't need an extra
+                         one}
     \end{itemize}
   \end{minipage}% This comment is necessary to remove any space between the minipages
   \begin{minipage}{0.5\textwidth}
@@ -183,18 +186,22 @@ Low-Latency Name-Lookup Service}
           minimum size=5pt
           }]
           \node[minimum size=8pt] (A) at (90:2) {};
-          \node[red] (B) at (30:2) {};
-          \node[blue] (C) at (330:2) {};
-          \node[violet] (D) at (270:2) {};
-          \node[OliveGreen] (E) at (210:2) {};
-          \node (F) at (150:2) {};
+          \node[red] (B) at (67.5:2) {};
+          \node[blue] (C) at (45:2) {};
+          \node[violet] (D) at (0:2) {};
+          \node[OliveGreen] (E) at (270:2) {};
+          \node (F) at (225:2) {};
+          \node (G) at (180:2) {};
+          \node (H) at (135:2) {};
         \end{scope}
 
         \draw (B) -- (C)[draw=none] node[midway, sloped] {\ldots};
         \draw (C) -- (D)[draw=none] node[midway, sloped] {\ldots};
         \draw (D) -- (E)[draw=none] node[midway, sloped] {\ldots};
         \draw (E) -- (F)[draw=none] node[midway, sloped] {\ldots};
-        \draw (F) -- (A)[draw=none] node[midway, sloped] {\ldots};
+        \draw (F) -- (G)[draw=none] node[midway, sloped] {\ldots};
+        \draw (G) -- (H)[draw=none] node[midway, sloped] {\ldots};
+        \draw (H) -- (A)[draw=none] node[midway, sloped] {\ldots};
 
         \draw[->] (A) -- (B);
         \draw[->] (A) -- (C);
@@ -212,14 +219,16 @@ Low-Latency Name-Lookup Service}
             opacity=0.5
           }]
             \visible<1->{
-              \node[fit=(A)(B), fill=red!30, rotate=-30] {};
+              \node[fit=(A)(B), fill=red!30, rotate=-10] {};
             }
             \visible<2->{
-              \node[fit=(A)(C)(D), fill=violet!30, rotate=18, xshift=-15pt] {};
+              \node[fit=(A)(C), fill=violet!30, rotate=-20] {};
             }
             \visible<3->{
-              \node[fit=(A)(E), fill=OliveGreen!30, rotate=-30,
-                    inner xsep=-15pt] {};
+              \draw[rounded corners, fill=OliveGreen!30, opacity=0.5,
+                    draw=black, thick]
+                (-0.5, 2.3) -- (0.5, 2.3) -- (0.5, 1.8) -- (2.3, 0.5)
+                -- (2.3, -0.5) -- (0.5, -2.3) -- (-0.5, -2.3) -- cycle;
             }
           \end{scope}
         \end{pgfonlayer}
@@ -252,11 +261,13 @@ Low-Latency Name-Lookup Service}
           minimum size=5pt
           }]
           \node[minimum size=8pt] (A) at (90:2) {};
-          \invisible{\node[red] (B) at (30:2) {};}
-          \node[blue] (C) at (330:2) {};
-          \node[violet] (D) at (270:2) {};
-          \invisible{\node[OliveGreen] (E) at (210:2) {};}
-          \invisible{\node (F) at (150:2) {};}
+          \invisible{\node[red] (B) at (67.5:2) {};}
+          \invisible{\node[blue] (C) at (45:2) {};}
+          \node[violet] (D) at (0:2) {};
+          \node[OliveGreen] (E) at (270:2) {};
+          \invisible{\node (F) at (225:2) {};}
+          \invisible{\node (G) at (180:2) {};}
+          \invisible{\node (H) at (135:2) {};}
         \end{scope}
         \begin{scope}[every node/.style={
           circle,
@@ -265,60 +276,61 @@ Low-Latency Name-Lookup Service}
           minimum size=5pt
           }]
           \node (G) at (90:1) {};
-          \node (H) at (180:0.5) {};
-          \node (I) at (135:1.2) {};
+          \node (H) at (60:0.3) {};
+          \node (I) at (45:1.2) {};
           \node (J) at (280:1.3) {};
-          \node (K) at (0:1) {};
-          \node (L) at (330:1) {};
+          \node (K) at (0:0.9) {};
+          \node (L) at (330:1.5) {};
+          \node (M) at (250:0.5) {};
         \end{scope}
 
-        \draw (A) -- (C)[draw=gray, opacity=0.8];
-        \draw (A) -- (D)[draw=gray, opacity=0.8];
-        \draw (A) -- (G)[draw=gray, opacity=0.8];
-        \draw (A) -- (H)[draw=gray, opacity=0.8];
-        \draw (A) -- (I)[draw=gray, opacity=0.8];
-        \draw (A) -- (J)[draw=gray, opacity=0.8];
-        \draw (A) -- (K)[draw=gray, opacity=0.8];
-        \draw (A) -- (L)[draw=gray, opacity=0.8];
-        \draw (C) -- (D)[draw=gray, opacity=0.8];
-        \draw (C) -- (G)[draw=gray, opacity=0.8];
-        \draw (C) -- (H)[draw=gray, opacity=0.8];
-        \draw (C) -- (I)[draw=gray, opacity=0.8];
-        \draw (C) -- (J)[draw=gray, opacity=0.8];
-        \draw (C) -- (K)[draw=gray, opacity=0.8];
-        \draw (C) -- (L)[draw=gray, opacity=0.8];
-        \draw (D) -- (G)[draw=gray, opacity=0.8];
-        \draw (D) -- (H)[draw=gray, opacity=0.8];
-        \draw (D) -- (I)[draw=gray, opacity=0.8];
-        \draw (D) -- (J)[draw=gray, opacity=0.8];
-        \draw (D) -- (K)[draw=gray, opacity=0.8];
-        \draw (D) -- (L)[draw=gray, opacity=0.8];
-        \draw (G) -- (H)[draw=gray, opacity=0.8];
-        \draw (G) -- (I)[draw=gray, opacity=0.8];
-        \draw (G) -- (J)[draw=gray, opacity=0.8];
-        \draw (G) -- (K)[draw=gray, opacity=0.8];
-        \draw (G) -- (L)[draw=gray, opacity=0.8];
-        \draw (H) -- (I)[draw=gray, opacity=0.8];
-        \draw (H) -- (J)[draw=gray, opacity=0.8];
-        \draw (H) -- (K)[draw=gray, opacity=0.8];
-        \draw (H) -- (L)[draw=gray, opacity=0.8];
-        \draw (I) -- (J)[draw=gray, opacity=0.8];
-        \draw (I) -- (K)[draw=gray, opacity=0.8];
-        \draw (I) -- (L)[draw=gray, opacity=0.8];
-        \draw (J) -- (K)[draw=gray, opacity=0.8];
-        \draw (J) -- (L)[draw=gray, opacity=0.8];
-        \draw (K) -- (L)[draw=gray, opacity=0.8];
-
-        \invisible{\draw (B) -- (C)[draw=none] node[midway, sloped] {\ldots};}
-        \invisible{\draw (C) -- (D)[draw=none] node[midway, sloped] {\ldots};}
-        \invisible{\draw (D) -- (E)[draw=none] node[midway, sloped] {\ldots};}
-        \invisible{\draw (E) -- (F)[draw=none] node[midway, sloped] {\ldots};}
-        \invisible{\draw (F) -- (A)[draw=none] node[midway, sloped] {\ldots};}
-
-        \invisible{\draw[->] (A) -- (B);}
-        \invisible{\draw[->] (A) -- (C);}
-        \invisible{\draw[->] (A) -- (D);}
-        \invisible{\draw[->] (A) -- (E);}
+        \begin{scope}[every path/.style={draw=gray, opacity=0.8}]
+        \draw (A) -- (D);
+        \draw (A) -- (E);
+        \draw (A) -- (G);
+        \draw (A) -- (H);
+        \draw (A) -- (I);
+        \draw (A) -- (J);
+        \draw (A) -- (K);
+        \draw (A) -- (L);
+        \draw (A) -- (M);
+        \draw (D) -- (E);
+        \draw (D) -- (G);
+        \draw (D) -- (H);
+        \draw (D) -- (I);
+        \draw (D) -- (J);
+        \draw (D) -- (K);
+        \draw (D) -- (L);
+        \draw (D) -- (M);
+        \draw (E) -- (G);
+        \draw (E) -- (H);
+        \draw (E) -- (I);
+        \draw (E) -- (J);
+        \draw (E) -- (K);
+        \draw (E) -- (L);
+        \draw (E) -- (M);
+        \draw (G) -- (H);
+        \draw (G) -- (I);
+        \draw (G) -- (J);
+        \draw (G) -- (K);
+        \draw (G) -- (L);
+        \draw (G) -- (M);
+        \draw (H) -- (I);
+        \draw (H) -- (J);
+        \draw (H) -- (K);
+        \draw (H) -- (L);
+        \draw (H) -- (M);
+        \draw (I) -- (J);
+        \draw (I) -- (K);
+        \draw (I) -- (L);
+        \draw (I) -- (M);
+        \draw (J) -- (K);
+        \draw (J) -- (L);
+        \draw (J) -- (M);
+        \draw (K) -- (L);
+        \draw (K) -- (M);
+        \draw (L) -- (M);
+        \end{scope}
 
         \begin{pgfonlayer}{background}
           \begin{scope}[every node/.style={
@@ -331,13 +343,13 @@ Low-Latency Name-Lookup Service}
             opacity=0.5
           }]
             \invisible{
-              \node[fit=(A)(B), fill=red!30, rotate=-30] {};
+              \node[fit=(A)(B), fill=red!30, rotate=-10] {};
+              \node[fit=(A)(C), fill=violet!30, rotate=-20] {};
             }
-            \node[fit=(A)(C)(D), fill=violet!30, rotate=18, xshift=-15pt] {};
-            \invisible{
-              \node[fit=(A)(E), fill=OliveGreen!30, rotate=-30,
-                    inner xsep=-15pt] {};
-            }
+            \draw[rounded corners, fill=OliveGreen!30, opacity=0.5,
+                  draw=black, thick]
+              (-0.5, 2.3) -- (0.5, 2.3) -- (0.5, 1.8) -- (2.3, 0.5)
+              -- (2.3, -0.5) -- (0.5, -2.3) -- (-0.5, -2.3) -- cycle;
           \end{scope}
         \end{pgfonlayer}
       \end{tikzpicture}
