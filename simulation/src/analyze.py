@@ -212,6 +212,7 @@ class Logger:
         replay = Replay(self.events, {}, self.query_groups_event_processor)
         current_time = 0
         percentile_tuple = (5, 25, 50, 75, 95)
+        colors = ('#bf0007', '#bb4b00', '#abb600', '#5ab200', '#00ad1a')
 
         def append_step():
             for query_group_id, query_group in replay.data.items():
@@ -235,7 +236,8 @@ class Logger:
                                              key=lambda t: t[0]):
             time_axis = np.array(record[0])
             data_set = [(time_axis, np.array([r[i] for r in record[1]]),
-                         '{}%'.format(percentile_tuple[i]), {'color': 'k'})
+                         '{}th'.format(percentile_tuple[i]),
+                         {'color': colors[i]})
                         for i in range(len(percentile_tuple))]
             data_sets.append(('Query group {}'.format(query_group_id),
                               data_set))
