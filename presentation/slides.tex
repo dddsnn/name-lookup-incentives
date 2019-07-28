@@ -618,7 +618,8 @@ Low-Latency Name-Lookup Service}
       \begin{scope}[every node/.style={
         font=\scriptsize,
         midway
-      }]
+      },
+      every path/.style={line width=0.5mm}]
         \path (A) edge[->, above, bend left=30] node
             {\textbf{1:} query at 0} (B);
         \visible<2->{
@@ -741,16 +742,18 @@ Low-Latency Name-Lookup Service}
         \node (D) at (3, -2.5) {Node D\\\texttt{11}};
       \end{scope}
 
-      \draw (0) -- (10);
-      \draw (0) -- (11);
-      \draw (10) -- (20);
-      \draw (10) -- (21);
-      \draw (11) -- (22);
-      \draw (11) -- (23);
-      \draw[rounded corners=5mm, ->, thick, color=blue] (21) -- (-1.5, -0.75)
-          -- (0, -0.25) -- (11);
-      \draw[rounded corners=5mm, ->, thick, color=blue] (21) -- (-2, -1.25)
-        -- (20);
+      \begin{scope}[every path/.style={line width=0.5mm}]
+        \draw (0) -- (10);
+        \draw (0) -- (11);
+        \draw (10) -- (20);
+        \draw (10) -- (21);
+        \draw (11) -- (22);
+        \draw (11) -- (23);
+        \draw[rounded corners=5mm, ->, line width=0.6mm, color=blue]
+          (21) -- (-1.5, -0.75) -- (0, -0.25) -- (11);
+        \draw[rounded corners=5mm, ->, line width=0.6mm, color=blue]
+          (21) -- (-2, -1.25) -- (20);
+      \end{scope}
     \end{tikzpicture}
   \end{figure}
 \end{frame}
@@ -793,13 +796,15 @@ Low-Latency Name-Lookup Service}
         \node (SP101) at (3, -6) {SP \texttt{101}};
       \end{scope}
 
-      \draw[line width=1mm] (0) -- (11) -- (22) -- (34);
-      \draw[color=blue] (0) -- (10);
-      \draw[color=red] (0) edge[bend left] (11);
-      \draw[color=red] (11) edge (23);
-      \draw[color=green] (0) edge[bend left=15] (11);
-      \draw[color=green] (11) edge[bend left=15] (22);
-      \draw[color=green] (22) edge (35);
+      \begin{scope}[every path/.style={line width=0.5mm}]
+        \draw[line width=1mm] (0) -- (11) -- (22) -- (34);
+        \draw[color=blue] (0) -- (10);
+        \draw[color=red] (0) edge[bend left] (11);
+        \draw[color=red] (11) edge (23);
+        \draw[color=green] (0) edge[bend left=15] (11);
+        \draw[color=green] (11) edge[bend left=15] (22);
+        \draw[color=green] (22) edge (35);
+      \end{scope}
 
     \end{tikzpicture}
   \end{figure}
